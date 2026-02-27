@@ -483,6 +483,7 @@ async function loadNetworkStats() {
     }
 
     // Avg block time since last difficulty adjustment (every 2016 blocks)
+    var avgBlockDone = false;
     if (results.height != null && results.blocks && results.blocks.length >= 1) {
         var lastAdjBlock = Math.floor(results.height / 2016) * 2016;
         var blocksSinceAdj = results.height - lastAdjBlock;
@@ -500,12 +501,22 @@ async function loadNetworkStats() {
                         document.getElementById('nsAvgBlockTime').textContent = avgMinutes;
                         document.getElementById('nsAvgBlockTimeSub').textContent =
                             blocksSinceAdj.toLocaleString() + ' blocks since adj.';
+                        avgBlockDone = true;
                     }
                 }
-            } catch (e) {
-                // Fall back silently — card stays at "--"
-            }
+            } catch (e) {}
         }
+    }
+
+    // Fallback: use last ~6 blocks if difficulty-epoch fetch failed
+    if (!avgBlockDone && results.blocks && results.blocks.length >= 2) {
+        var blockCount = Math.min(results.blocks.length, 6);
+        var newest = results.blocks[0].timestamp;
+        var oldest = results.blocks[blockCount - 1].timestamp;
+        var avgSeconds = (newest - oldest) / (blockCount - 1);
+        var avgMinutes = (avgSeconds / 60).toFixed(1);
+        document.getElementById('nsAvgBlockTime').textContent = avgMinutes;
+        document.getElementById('nsAvgBlockTimeSub').textContent = 'last ' + (blockCount - 1) + ' blocks';
     }
 
     // Store block height for halving countdown
