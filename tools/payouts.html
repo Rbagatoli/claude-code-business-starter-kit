@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Mining Group — Payouts</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./shared.css">
+    <script>
+    if (!localStorage.getItem('sw_clean_v26') && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(r) {
+            var p = r.map(function(x) { return x.unregister(); });
+            p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v26', '1'); location.reload(); });
+        });
+    }
+    </script>
+    <script src="./chart.min.js"></script>
+</head>
+<body>
+<canvas id="techLinesCanvas"></canvas>
+
+<nav id="ion-nav"></nav>
+
+<main>
+
+    <!-- ===== EARNINGS SUMMARY ===== -->
+    <div class="section-label">Earnings Summary</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">Total BTC Earned</div>
+            <div class="value btc-orange" id="sumTotalEarned">--</div>
+            <div class="sub">all-time logged</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total USD Value</div>
+            <div class="value neutral" id="sumTotalUSD">--</div>
+            <div class="sub" id="sumAvgPrice">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg Daily Earnings</div>
+            <div class="value btc-orange" id="sumAvgDaily">--</div>
+            <div class="sub">BTC per day</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total Payouts</div>
+            <div class="value positive" id="sumTotalPayouts">--</div>
+            <div class="sub" id="sumPayoutBTC">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Last Snapshot</div>
+            <div class="value neutral" id="sumLastSnapshot">--</div>
+            <div class="sub" id="sumSnapshotDate">--</div>
+        </div>
+    </section>
+
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="dashboard-actions">
+        <button class="btn btn-primary" id="btnAddPayout">+ Add Payout</button>
+        <button class="btn btn-secondary" id="btnExportCSV">Export CSV</button>
+    </div>
+
+    <!-- Add Payout Slide Panel -->
+    <div class="slide-panel" id="addPayoutPanel">
+        <div class="panel-inner">
+            <h4>Add Payout Entry</h4>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Date</label>
+                    <div class="input-wrapper">
+                        <input type="date" id="fpDate">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>BTC Amount</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="fpBtcAmount" placeholder="0.01234567" min="0" step="0.00000001">
+                        <span class="suffix">BTC</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>BTC Price (optional)</label>
+                    <div class="input-wrapper">
+                        <span class="prefix">$</span>
+                        <input type="number" id="fpBtcPrice" placeholder="auto-filled if left blank" min="0" step="100">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>TX Hash (optional)</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="fpTxHash" placeholder="Transaction hash">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Notes (optional)</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="fpNotes" placeholder="e.g. F2Pool weekly payout">
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelPayout">Cancel</button>
+                <button class="btn btn-primary" id="savePayout">Save Payout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options Slide Panel -->
+    <div class="slide-panel" id="exportPanel">
+        <div class="panel-inner">
+            <h4>Export CSV for Tax Reporting</h4>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Year Preset</label>
+                    <div class="input-wrapper">
+                        <select id="exYearPreset">
+                            <option value="">Custom Range</option>
+                            <option value="2026">2026 Tax Year</option>
+                            <option value="2025">2025 Tax Year</option>
+                            <option value="2024">2024 Tax Year</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Start Date</label>
+                    <div class="input-wrapper">
+                        <input type="date" id="exStartDate">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>End Date</label>
+                    <div class="input-wrapper">
+                        <input type="date" id="exEndDate">
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelExport">Cancel</button>
+                <button class="btn btn-primary" id="downloadCSV">Download CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PAYOUT LOG TABLE ===== -->
+    <div class="card">
+        <h3>Payout Log</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>BTC Amount</th>
+                        <th>BTC Price</th>
+                        <th>USD Value</th>
+                        <th>TX Hash</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="payoutTableBody">
+                    <tr><td colspan="7" style="text-align:center; padding:20px; color:#555;">No payouts logged yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== EARNINGS OVER TIME CHART ===== -->
+    <div class="card">
+        <h3>Cumulative Payouts Over Time</h3>
+        <div class="earnings-chart-container">
+            <canvas id="earningsOverTimeChart"></canvas>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    Ion Mining Group &mdash; Payout Tracking<br>
+    <span style="font-size:11px; color:#555;">Track earnings for tax reporting. Not financial advice.</span>
+</footer>
+
+<script src="./shared.js"></script>
+<script src="./fleet-data.js"></script>
+<script src="./payouts.js"></script>
+<script src="./alerts.js"></script>
+</body>
+</html>

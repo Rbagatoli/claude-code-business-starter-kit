@@ -480,6 +480,17 @@ async function loadNetworkStats() {
     if (results.fees) {
         document.getElementById('nsFastFee').textContent = results.fees.fastestFee;
         document.getElementById('nsMedFee').textContent = results.fees.halfHourFee;
+        document.getElementById('nsEcoFee').textContent = results.fees.economyFee || results.fees.hourFee || '--';
+        // Log fee snapshot for chart
+        logFeeSnapshot(results.fees);
+    }
+
+    // Mempool Weight
+    if (results.mempool) {
+        var maxBlockWeight = 4000000;
+        var weightPct = (results.mempool.vsize / maxBlockWeight * 100).toFixed(1);
+        document.getElementById('nsMempoolWeight').textContent = weightPct + '%';
+        document.getElementById('nsMempoolWeightSub').textContent = (results.mempool.vsize / 1e6).toFixed(1) + ' MvB capacity';
     }
 
     // Avg block time since last difficulty adjustment (every 2016 blocks)
@@ -563,7 +574,163 @@ function renderHalvingCountdown() {
     document.getElementById('halvingProgressBar').style.width = progressPct + '%';
 }
 
+// ===== FEE RATE CHART =====
+var feeChartInstance = null;
+
+function loadFeeHistory() {
+    try {
+        var raw = localStorage.getItem('ionMiningFeeHistory');
+        if (!raw) return [];
+        return JSON.parse(raw);
+    } catch(e) { return []; }
+}
+
+function saveFeeHistory(data) {
+    try {
+        var cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        var filtered = [];
+        for (var i = 0; i < data.length; i++) {
+            if (data[i].timestamp > cutoff) filtered.push(data[i]);
+        }
+        localStorage.setItem('ionMiningFeeHistory', JSON.stringify(filtered));
+    } catch(e) {}
+}
+
+function logFeeSnapshot(fees) {
+    var history = loadFeeHistory();
+    var now = Date.now();
+    if (history.length > 0 && now - history[history.length - 1].timestamp < 3600000) return;
+    history.push({
+        timestamp: now,
+        fastest: fees.fastestFee,
+        halfHour: fees.halfHourFee,
+        economy: fees.economyFee || fees.hourFee || 1
+    });
+    saveFeeHistory(history);
+    renderFeeChart('24h');
+}
+
+function renderFeeChart(timeframe) {
+    var history = loadFeeHistory();
+    if (history.length < 2) {
+        if (document.getElementById('feeValue')) {
+            document.getElementById('feeValue').textContent = history.length > 0 ? history[0].fastest + ' sat/vB' : '--';
+        }
+        return;
+    }
+
+    var tfHours = { '24h': 24, '3d': 72, '1w': 168, '1m': 720 };
+    var cutoff = Date.now() - ((tfHours[timeframe] || 168) * 60 * 60 * 1000);
+    var filtered = [];
+    for (var i = 0; i < history.length; i++) {
+        if (history[i].timestamp >= cutoff) filtered.push(history[i]);
+    }
+    if (filtered.length < 2) filtered = history.slice(-10);
+
+    var labels = [];
+    var fastestData = [];
+    var halfHourData = [];
+    var economyData = [];
+
+    for (var j = 0; j < filtered.length; j++) {
+        var d = new Date(filtered[j].timestamp);
+        labels.push((d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':00');
+        fastestData.push(filtered[j].fastest);
+        halfHourData.push(filtered[j].halfHour);
+        economyData.push(filtered[j].economy);
+    }
+
+    if (document.getElementById('feeValue')) {
+        document.getElementById('feeValue').textContent = fastestData[fastestData.length - 1] + ' sat/vB';
+    }
+    document.getElementById('feeTitle').textContent = 'Fee Rate History (' + timeframe.toUpperCase() + ')';
+
+    if (feeChartInstance) feeChartInstance.destroy();
+
+    feeChartInstance = new Chart(document.getElementById('feeChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Fastest (next block)',
+                    data: fastestData,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    fill: '+1',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.2
+                },
+                {
+                    label: 'Half-Hour',
+                    data: halfHourData,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    fill: '+1',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.2
+                },
+                {
+                    label: 'Economy (1 hour)',
+                    data: economyData,
+                    borderColor: '#4ade80',
+                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                    fill: 'origin',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: true, position: 'top', labels: { color: '#e8e8e8', font: { size: 11 } } },
+                tooltip: {
+                    backgroundColor: 'rgba(10, 10, 10, 0.92)',
+                    borderColor: 'rgba(255, 255, 255, 0.10)',
+                    borderWidth: 1,
+                    titleColor: '#e8e8e8',
+                    bodyColor: '#e8e8e8',
+                    padding: 10,
+                    callbacks: {
+                        label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' sat/vB'; }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#888', font: { size: 11 }, maxRotation: 45 },
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#888',
+                        font: { size: 11 },
+                        callback: function(v) { return v + ' sat/vB'; }
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                }
+            }
+        }
+    });
+}
+
+document.getElementById('feeRange').addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var buttons = this.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) buttons[i].classList.remove('active');
+    btn.classList.add('active');
+    renderFeeChart(btn.getAttribute('data-tf'));
+});
+
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=25').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=26').catch(function() {});
 }

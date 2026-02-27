@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v25')) return;
+    if (localStorage.getItem('sw_clean_v26')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v25', '1');
+            localStorage.setItem('sw_clean_v26', '1');
             location.reload();
         });
     });
@@ -30,6 +30,7 @@ function initNav(activePage) {
             '<a href="./calculator.html" class="' + (activePage === 'calculator' ? 'active' : '') + '">Calculator</a>' +
             '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">Dashboard</a>' +
             '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">Data</a>' +
+            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">Payouts</a>' +
         '</div>' +
         '<button class="ion-nav-bell" onclick="window.toggleAlertSidebar && window.toggleAlertSidebar()">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
@@ -39,7 +40,7 @@ function initNav(activePage) {
 
 // --- Swipe / Slide Page Navigation ---
 (function() {
-    var pages = ['calculator.html', 'index.html', 'charts.html'];
+    var pages = ['calculator.html', 'index.html', 'charts.html', 'payouts.html'];
     var current = pages.indexOf(location.pathname.split('/').pop());
     if (current === -1) current = 0;
 

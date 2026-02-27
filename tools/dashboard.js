@@ -24,6 +24,7 @@ initNav('dashboard');
     await loadF2PoolData();
     renderDashboard();
     initEarningsChart();
+    initMinerDbAutocomplete();
 })();
 
 // ===== RENDER DASHBOARD =====
@@ -287,6 +288,117 @@ function escapeHtml(str) {
     var div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+// ===== MINER DATABASE AUTOCOMPLETE =====
+var minerDbDropdownVisible = false;
+var minerDbResults = [];
+var minerDbSelectedIndex = -1;
+
+function initMinerDbAutocomplete() {
+    var modelInput = document.getElementById('fmModel');
+    var dropdown = document.getElementById('minerDbDropdown');
+    if (!modelInput || !dropdown || typeof MinerDB === 'undefined') return;
+
+    modelInput.addEventListener('input', function() {
+        var query = modelInput.value.trim();
+        if (query.length < 1) {
+            hideMinerDropdown();
+            return;
+        }
+        minerDbResults = MinerDB.search(query);
+        renderMinerDropdown();
+    });
+
+    modelInput.addEventListener('focus', function() {
+        if (modelInput.value.trim().length > 0) {
+            minerDbResults = MinerDB.search(modelInput.value.trim());
+            renderMinerDropdown();
+        }
+    });
+
+    modelInput.addEventListener('blur', function() {
+        setTimeout(hideMinerDropdown, 200);
+    });
+
+    modelInput.addEventListener('keydown', function(e) {
+        if (!minerDbDropdownVisible) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            minerDbSelectedIndex = Math.min(minerDbSelectedIndex + 1, minerDbResults.length - 1);
+            highlightMinerDropdownItem();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            minerDbSelectedIndex = Math.max(minerDbSelectedIndex - 1, -1);
+            highlightMinerDropdownItem();
+        } else if (e.key === 'Enter' && minerDbSelectedIndex >= 0) {
+            e.preventDefault();
+            selectMinerFromDb(minerDbResults[minerDbSelectedIndex]);
+        } else if (e.key === 'Escape') {
+            hideMinerDropdown();
+        }
+    });
+}
+
+function renderMinerDropdown() {
+    var dropdown = document.getElementById('minerDbDropdown');
+    if (minerDbResults.length === 0) {
+        hideMinerDropdown();
+        return;
+    }
+
+    var html = '';
+    for (var i = 0; i < Math.min(minerDbResults.length, 8); i++) {
+        var m = minerDbResults[i];
+        html += '<div class="miner-db-item" data-index="' + i + '">' +
+            '<div class="miner-db-model">' + escapeHtml(m.model) + '</div>' +
+            '<div class="miner-db-specs">' +
+                m.hashrate + ' TH/s &middot; ' +
+                m.power + ' kW &middot; ' +
+                m.efficiency.toFixed(1) + ' J/TH &middot; ' +
+                fmtUSD(m.cost) +
+            '</div>' +
+        '</div>';
+    }
+
+    dropdown.innerHTML = html;
+    dropdown.style.display = '';
+    minerDbDropdownVisible = true;
+    minerDbSelectedIndex = -1;
+
+    var items = dropdown.querySelectorAll('.miner-db-item');
+    for (var j = 0; j < items.length; j++) {
+        (function(item) {
+            item.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                var idx = parseInt(item.getAttribute('data-index'));
+                selectMinerFromDb(minerDbResults[idx]);
+            });
+        })(items[j]);
+    }
+}
+
+function hideMinerDropdown() {
+    var dropdown = document.getElementById('minerDbDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    minerDbDropdownVisible = false;
+    minerDbSelectedIndex = -1;
+}
+
+function highlightMinerDropdownItem() {
+    var items = document.querySelectorAll('.miner-db-item');
+    for (var i = 0; i < items.length; i++) {
+        if (i === minerDbSelectedIndex) items[i].classList.add('selected');
+        else items[i].classList.remove('selected');
+    }
+}
+
+function selectMinerFromDb(miner) {
+    document.getElementById('fmModel').value = miner.model;
+    document.getElementById('fmHashrate').value = miner.hashrate;
+    document.getElementById('fmPower').value = miner.power;
+    document.getElementById('fmCost').value = miner.cost;
+    hideMinerDropdown();
 }
 
 // ===== ADD / EDIT MINER =====
@@ -627,5 +739,5 @@ function updateEarningsChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=25').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=26').catch(function() {});
 }

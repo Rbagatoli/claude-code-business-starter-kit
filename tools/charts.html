@@ -7,11 +7,11 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./shared.css">
     <script>
-    if (!localStorage.getItem('sw_clean_v25') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v26') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v25', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v26', '1'); location.reload(); });
         });
     }
     </script>
@@ -54,9 +54,19 @@
             <div class="sub">sat/vB (30 min)</div>
         </div>
         <div class="metric-card">
+            <div class="label">Economy Fee</div>
+            <div class="value neutral" id="nsEcoFee">--</div>
+            <div class="sub">sat/vB (1 hour)</div>
+        </div>
+        <div class="metric-card">
             <div class="label">Avg Block Time</div>
             <div class="value" id="nsAvgBlockTime">--</div>
             <div class="sub" id="nsAvgBlockTimeSub">minutes (since last adj.)</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Mempool Weight</div>
+            <div class="value" id="nsMempoolWeight">--</div>
+            <div class="sub" id="nsMempoolWeightSub">% of block capacity</div>
         </div>
     </section>
 
@@ -148,6 +158,23 @@
         <div class="earnings-chart-container">
             <canvas id="hashrateChart"></canvas>
         </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+        <div class="chart-title-row">
+            <h3 id="feeTitle">Fee Rate History</h3>
+            <span id="feeValue" class="chart-live-value" style="color:#ef4444;">--</span>
+        </div>
+        <div class="time-range-selector" id="feeRange">
+            <button data-tf="24h" class="active">24H</button>
+            <button data-tf="3d">3D</button>
+            <button data-tf="1w">1W</button>
+            <button data-tf="1m">1M</button>
+        </div>
+        <div class="earnings-chart-container">
+            <canvas id="feeChart"></canvas>
+        </div>
+        <div style="font-size:11px; color:#555; margin-top:8px; text-align:center;">Chart builds over time as you visit this page (snapshots every hour)</div>
     </div>
 
 </main>
