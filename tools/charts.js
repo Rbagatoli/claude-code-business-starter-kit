@@ -491,7 +491,7 @@ async function loadNetworkStats() {
             try {
                 var hashRes = await fetch('https://mempool.space/api/block-height/' + lastAdjBlock);
                 if (hashRes.ok) {
-                    var adjHash = await hashRes.text();
+                    var adjHash = (await hashRes.text()).trim();
                     var blockRes = await fetch('https://mempool.space/api/block/' + adjHash);
                     if (blockRes.ok) {
                         var adjBlock = await blockRes.json();
@@ -571,5 +571,5 @@ function renderHalvingCountdown() {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=20').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=21').catch(function() {});
 }
