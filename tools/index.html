@@ -7,11 +7,11 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./shared.css">
     <script>
-    if (!localStorage.getItem('sw_clean_v24') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v25') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v24', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v25', '1'); location.reload(); });
         });
     }
     </script>
@@ -214,6 +214,16 @@
                 <div class="value neutral" id="ptBalanceUSD">--</div>
                 <div class="sub">at current price</div>
             </div>
+            <div class="metric-card">
+                <div class="label">Days to Payout</div>
+                <div class="value" id="ptDaysToPayout">--</div>
+                <div class="sub">at current rate</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">30-Day Projected</div>
+                <div class="value btc-orange" id="pt30Day">--</div>
+                <div class="sub" id="pt30DayUSD">--</div>
+            </div>
         </section>
     </div>
     <div id="paymentTrackerHint" style="display:none">
@@ -226,7 +236,7 @@
 
     <!-- ===== EARNINGS CHART ===== -->
     <div class="card">
-        <h3>Estimated Daily Earnings (14-Day)</h3>
+        <h3>Estimated Daily Earnings (14-Day) <span style="font-size:11px; color:#555; font-weight:400;">*simulated variance</span></h3>
         <div class="earnings-chart-container">
             <canvas id="earningsChart"></canvas>
         </div>
@@ -242,5 +252,6 @@
 <script src="./shared.js"></script>
 <script src="./fleet-data.js"></script>
 <script src="./dashboard.js"></script>
+<script src="./alerts.js"></script>
 </body>
 </html>

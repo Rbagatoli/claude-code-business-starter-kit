@@ -114,6 +114,15 @@ function renderPaymentTracker() {
     document.getElementById('ptEstDailyUSD').textContent = fmtUSD(e.estimatedDaily * price);
     document.getElementById('ptTotalIncome').textContent = fmtBTC(e.totalIncome, 8);
     document.getElementById('ptBalanceUSD').textContent = fmtUSD(e.balance * price);
+
+    // Days to Payout
+    var daysToPayout = (e.estimatedDaily > 0) ? Math.ceil(e.balance / e.estimatedDaily) : '--';
+    document.getElementById('ptDaysToPayout').textContent = daysToPayout;
+
+    // 30-Day Projected
+    var proj30 = e.estimatedDaily * 30;
+    document.getElementById('pt30Day').textContent = fmtBTC(proj30, 6);
+    document.getElementById('pt30DayUSD').textContent = fmtUSD(proj30 * price);
 }
 
 function renderMinerCards(miners) {
@@ -237,7 +246,7 @@ function buildMinerCard(m, eff, mDailyUSD, isLive, isGroupSummary, isExpanded) {
             '<div class="miner-card-stat"><div class="stat-label">Power</div><div class="stat-value">' + (m.power ? m.power + ' kW' : '--') + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">Efficiency</div><div class="stat-value">' + (m.power ? eff + ' J/TH' : '--') + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">Cost</div><div class="stat-value">' + (m.cost ? fmtUSD(m.cost) : '--') + '</div></div>' +
-            '<div class="miner-card-stat"><div class="stat-label">Status</div><div class="stat-value"><span class="status-dot ' + m.status + '"></span>' + m.status + '</div></div>' +
+            '<div class="miner-card-stat"><div class="stat-label">Status</div><div class="stat-value"><span class="status-dot ' + m.status + (isLive && m.status === 'online' ? ' online-pulse' : '') + '"></span>' + m.status + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">' + (isGroupSummary ? 'Daily (each)' : 'Daily Est.') + '</div><div class="stat-value" style="color:#f7931a">' + fmtUSD(mDailyUSD) + '</div></div>' +
             totalRow +
         '</div>' +
@@ -618,5 +627,5 @@ function updateEarningsChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=24').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=25').catch(function() {});
 }
