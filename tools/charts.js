@@ -619,12 +619,10 @@ function renderFeeChart(timeframe) {
         return;
     }
 
-    // Show current value even with 1 point
+    // Show current value
     if (document.getElementById('feeValue')) {
         document.getElementById('feeValue').textContent = history[history.length - 1].fastest + ' sat/vB';
     }
-
-    if (history.length < 2) return;
 
     var tfHours = { '24h': 24, '3d': 72, '1w': 168, '1m': 720 };
     var cutoff = Date.now() - ((tfHours[timeframe] || 168) * 60 * 60 * 1000);
@@ -632,7 +630,7 @@ function renderFeeChart(timeframe) {
     for (var i = 0; i < history.length; i++) {
         if (history[i].timestamp >= cutoff) filtered.push(history[i]);
     }
-    if (filtered.length < 2) filtered = history.slice(-10);
+    if (filtered.length === 0) filtered = history.slice(-10);
 
     var labels = [];
     var fastestData = [];
@@ -654,6 +652,9 @@ function renderFeeChart(timeframe) {
 
     if (feeChartInstance) feeChartInstance.destroy();
 
+    var showDots = filtered.length < 4;
+    var dotRadius = showDots ? 4 : 0;
+
     feeChartInstance = new Chart(document.getElementById('feeChart'), {
         type: 'line',
         data: {
@@ -666,7 +667,7 @@ function renderFeeChart(timeframe) {
                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
                     fill: '+1',
                     borderWidth: 2,
-                    pointRadius: 0,
+                    pointRadius: dotRadius,
                     tension: 0.2
                 },
                 {
@@ -676,7 +677,7 @@ function renderFeeChart(timeframe) {
                     backgroundColor: 'rgba(245, 158, 11, 0.15)',
                     fill: '+1',
                     borderWidth: 2,
-                    pointRadius: 0,
+                    pointRadius: dotRadius,
                     tension: 0.2
                 },
                 {
@@ -686,7 +687,7 @@ function renderFeeChart(timeframe) {
                     backgroundColor: 'rgba(74, 222, 128, 0.15)',
                     fill: 'origin',
                     borderWidth: 2,
-                    pointRadius: 0,
+                    pointRadius: dotRadius,
                     tension: 0.2
                 }
             ]
@@ -739,5 +740,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=27').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=28').catch(function() {});
 }
