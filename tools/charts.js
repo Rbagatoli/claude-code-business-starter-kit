@@ -510,10 +510,7 @@ async function loadNetworkStats() {
         var avgSeconds = (newest - oldest) / (blockCount - 1);
         var avgMinutes = (avgSeconds / 60).toFixed(1);
         document.getElementById('nsAvgBlockTime').textContent = avgMinutes;
-        // Debug: show why epoch calc failed
-        var dbg = 'fallback: mining=' + hasMining;
-        if (hasMining) dbg += ' adj=' + allMiningData.difficulty.length;
-        document.getElementById('nsAvgBlockTimeSub').textContent = dbg;
+        document.getElementById('nsAvgBlockTimeSub').textContent = 'last ' + (blockCount - 1) + ' blocks';
     }
 
     // Store block height for halving countdown
