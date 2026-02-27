@@ -483,32 +483,26 @@ async function loadNetworkStats() {
     }
 
     // Avg block time since last difficulty adjustment (every 2016 blocks)
+    // Uses allMiningData.difficulty (already fetched for charts) to get adjustment timestamp
     var avgBlockDone = false;
-    if (results.height != null && results.blocks && results.blocks.length >= 1) {
+    if (results.height != null && results.blocks && results.blocks.length >= 1
+        && allMiningData && allMiningData.difficulty && allMiningData.difficulty.length > 0) {
         var lastAdjBlock = Math.floor(results.height / 2016) * 2016;
         var blocksSinceAdj = results.height - lastAdjBlock;
-        if (blocksSinceAdj > 0) {
-            try {
-                var hashRes = await fetch('https://mempool.space/api/block-height/' + lastAdjBlock);
-                if (hashRes.ok) {
-                    var adjHash = (await hashRes.text()).trim();
-                    var blockRes = await fetch('https://mempool.space/api/block/' + adjHash);
-                    if (blockRes.ok) {
-                        var adjBlock = await blockRes.json();
-                        var latestTs = results.blocks[0].timestamp;
-                        var avgSeconds = (latestTs - adjBlock.timestamp) / blocksSinceAdj;
-                        var avgMinutes = (avgSeconds / 60).toFixed(1);
-                        document.getElementById('nsAvgBlockTime').textContent = avgMinutes;
-                        document.getElementById('nsAvgBlockTimeSub').textContent =
-                            blocksSinceAdj.toLocaleString() + ' blocks since adj.';
-                        avgBlockDone = true;
-                    }
-                }
-            } catch (e) {}
+        var diffArr = allMiningData.difficulty;
+        var adjTimestamp = diffArr[diffArr.length - 1].time;
+        var latestTs = results.blocks[0].timestamp;
+        if (blocksSinceAdj > 0 && latestTs > adjTimestamp) {
+            var avgSeconds = (latestTs - adjTimestamp) / blocksSinceAdj;
+            var avgMinutes = (avgSeconds / 60).toFixed(1);
+            document.getElementById('nsAvgBlockTime').textContent = avgMinutes;
+            document.getElementById('nsAvgBlockTimeSub').textContent =
+                blocksSinceAdj.toLocaleString() + ' blocks since adj.';
+            avgBlockDone = true;
         }
     }
 
-    // Fallback: use last ~6 blocks if difficulty-epoch fetch failed
+    // Fallback: use last ~6 blocks if difficulty data unavailable
     if (!avgBlockDone && results.blocks && results.blocks.length >= 2) {
         var blockCount = Math.min(results.blocks.length, 6);
         var newest = results.blocks[0].timestamp;
