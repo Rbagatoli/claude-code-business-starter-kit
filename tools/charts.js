@@ -568,5 +568,5 @@ function renderHalvingCountdown() {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=21').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=22').catch(function() {});
 }
