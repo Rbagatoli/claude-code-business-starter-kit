@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Mining Group — Dashboard</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./shared.css">
+    <script src="./chart.min.js"></script>
+</head>
+<body>
+<canvas id="techLinesCanvas"></canvas>
+
+<nav id="ion-nav"></nav>
+
+<main>
+
+    <!-- Mock Data Banner -->
+    <div class="mock-banner" id="mockBanner" style="display:none">
+        <p>Showing sample data — Add your miners to see real fleet metrics.</p>
+        <button id="dismissMock">&times;</button>
+    </div>
+
+    <!-- ===== FLEET OVERVIEW ===== -->
+    <div class="section-label">Fleet Overview</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">Total Hashrate</div>
+            <div class="value btc-orange" id="fleetHashrate">--</div>
+            <div class="sub">TH/s</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Miners Online</div>
+            <div class="value positive" id="fleetOnline">--</div>
+            <div class="sub" id="fleetOfflineSub"></div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Est. Daily Earnings</div>
+            <div class="value btc-orange" id="fleetDailyBTC">--</div>
+            <div class="sub" id="fleetDailyUSD">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total Power</div>
+            <div class="value neutral" id="fleetPower">--</div>
+            <div class="sub">kW</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Fleet Efficiency</div>
+            <div class="value" id="fleetEfficiency">--</div>
+            <div class="sub">J/TH</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg Cost / Miner</div>
+            <div class="value neutral" id="fleetAvgCost">--</div>
+            <div class="sub" id="fleetTotalCost"></div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg Hashrate / Miner</div>
+            <div class="value" id="fleetAvgHashrate">--</div>
+            <div class="sub">TH/s</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg Power / Miner</div>
+            <div class="value" id="fleetAvgPower">--</div>
+            <div class="sub">kW</div>
+        </div>
+    </section>
+
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="dashboard-actions">
+        <button class="btn btn-primary" id="btnAddMiner">+ Add Miner</button>
+        <button class="btn btn-secondary" id="btnConnectAPI">Connect F2Pool API</button>
+    </div>
+
+    <!-- Add Miner Slide Panel -->
+    <div class="slide-panel" id="addMinerPanel">
+        <div class="panel-inner">
+            <h4 id="minerFormTitle">Add Miner</h4>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Model</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="fmModel" placeholder="e.g. Antminer S21 XP Hyd.">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Hashrate</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="fmHashrate" placeholder="335" min="0.1" step="1">
+                        <span class="suffix">TH/s</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Power Consumption</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="fmPower" placeholder="5.36" min="0.001" step="0.01">
+                        <span class="suffix">kW</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Cost (per unit)</label>
+                    <div class="input-wrapper">
+                        <span class="prefix">$</span>
+                        <input type="number" id="fmCost" placeholder="15000" min="0" step="100">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Quantity</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="fmQuantity" value="1" min="1" step="1">
+                        <span class="suffix">units</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Status</label>
+                    <div class="input-wrapper">
+                        <select id="fmStatus">
+                            <option value="online" selected>Online</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelMiner">Cancel</button>
+                <button class="btn btn-primary" id="saveMiner">Save Miner</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connect API Slide Panel -->
+    <div class="slide-panel" id="apiPanel">
+        <div class="panel-inner">
+            <h4>Connect F2Pool API</h4>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Proxy Worker URL</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="fmWorkerUrl" placeholder="https://ion-f2pool.yourname.workers.dev">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>F2Pool Username</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="fmUsername" placeholder="Your F2Pool mining username">
+                    </div>
+                </div>
+            </div>
+            <div id="apiStatus" style="margin-top:12px; padding:10px; background:rgba(0,0,0,0.3); border-radius:6px; border:1px solid rgba(255,255,255,0.06); display:none;">
+                <div style="font-size:12px; color:#888;" id="apiStatusText"></div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelAPI">Cancel</button>
+                <button class="btn btn-secondary" id="testAPI">Test Connection</button>
+                <button class="btn btn-primary" id="saveAPI">Save & Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div class="delete-dialog-overlay" id="deleteDialog" style="display:none">
+        <div class="delete-dialog">
+            <h4>Delete Miner</h4>
+            <p id="deleteDialogText">What would you like to do?</p>
+            <div class="delete-dialog-actions">
+                <button class="btn btn-secondary" id="deleteCancel">Cancel</button>
+                <button class="btn btn-danger" id="deleteOne">Delete This One</button>
+                <button class="btn btn-danger" id="deleteAll">Delete All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MINER CARDS ===== -->
+    <div class="section-label">Miners</div>
+    <div class="miner-cards-grid" id="minerCardsGrid">
+        <!-- Rendered by JS -->
+    </div>
+
+    <!-- ===== PAYMENT TRACKER ===== -->
+    <div id="paymentTrackerSection" style="display:none">
+        <div class="section-label">F2Pool Earnings</div>
+        <section class="fleet-grid">
+            <div class="metric-card">
+                <div class="label">Unpaid Balance</div>
+                <div class="value btc-orange" id="ptBalance">--</div>
+                <div class="sub">BTC</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Yesterday Income</div>
+                <div class="value positive" id="ptYesterday">--</div>
+                <div class="sub" id="ptYesterdayUSD">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Est. Daily Income</div>
+                <div class="value btc-orange" id="ptEstDaily">--</div>
+                <div class="sub" id="ptEstDailyUSD">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Total Income</div>
+                <div class="value" id="ptTotalIncome">--</div>
+                <div class="sub">BTC (all-time)</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Balance Value</div>
+                <div class="value neutral" id="ptBalanceUSD">--</div>
+                <div class="sub">at current price</div>
+            </div>
+        </section>
+    </div>
+    <div id="paymentTrackerHint" style="display:none">
+        <div class="section-label">F2Pool Earnings</div>
+        <div class="empty-state" style="padding:20px;">
+            <p>Connect F2Pool to see your earnings</p>
+            <div class="hint">Click "Connect F2Pool API" above to get started</div>
+        </div>
+    </div>
+
+    <!-- ===== EARNINGS CHART ===== -->
+    <div class="card">
+        <h3>Estimated Daily Earnings (14-Day)</h3>
+        <div class="earnings-chart-container">
+            <canvas id="earningsChart"></canvas>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    Ion Mining Group &mdash; Fleet Dashboard<br>
+    <span style="font-size:11px; color:#555;">Data updates when you refresh. Connect F2Pool API for live data.</span>
+</footer>
+
+<script src="./shared.js"></script>
+<script src="./fleet-data.js"></script>
+<script src="./dashboard.js"></script>
+</body>
+</html>

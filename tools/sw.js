@@ -1,6 +1,16 @@
-const CACHE_NAME = 'btc-miner-calc-v8';
+const CACHE_NAME = 'ion-mining-v20';
 const ASSETS = [
+  './index.html',
+  './calculator.html',
+  './charts.html',
   './btc-mining-calculator.html',
+  './shared.css',
+  './shared.js',
+  './fleet-data.js',
+  './dashboard.js',
+  './calculator.js',
+  './charts.js',
+  './chart.min.js',
   './manifest.json'
 ];
 
@@ -21,12 +31,28 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Only handle GET requests — Cache API doesn't support POST
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
-  // Never cache the HTML file — always fetch fresh from network
-  if (url.pathname.endsWith('.html')) {
+
+  // Only handle same-origin requests — let API calls (CoinGecko, Mempool) pass through directly
+  if (url.origin !== self.location.origin) return;
+
+  // Redirect old calculator URL directly to dashboard
+  if (url.pathname.endsWith('btc-mining-calculator.html')) {
+    const redirectUrl = new URL('./index.html', url).href;
+    event.respondWith(Response.redirect(redirectUrl, 302));
+    return;
+  }
+
+  // HTML files: network-first with cache fallback
+  if (url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
     event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
   }
+
+  // Other assets: stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then(cached => {
       return fetch(event.request).then(response => {

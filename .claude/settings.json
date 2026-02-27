@@ -8,7 +8,12 @@
       "Glob",
       "Grep",
       "Bash(git:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "WebSearch",
+      "WebFetch",
+      "Write",
+      "Edit",
+      "mcp__gohighlevel__*"
     ]
   },
   "hooks": {

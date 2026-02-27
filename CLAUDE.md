@@ -27,6 +27,11 @@ If skills, MCPs, or agents aren't working, this is usually why.
 | Create a new hook | `create-hook` |
 | Add or build an MCP | `create-mcp` |
 | Search online for MCP servers | `mcp-finder` agent (spawned by create-mcp) |
+| Find freight prospects | `prospect-research` skill |
+| Draft outreach messages | `outreach-drafting` skill |
+| Export leads for CRM | `lead-export` skill |
+| Run growth/prospect agent | `growth-agent` agent |
+| Quote, price, or dispatch freight | `operations-agent` agent |
 
 ---
 
@@ -75,10 +80,9 @@ project/
 ## MCP Servers
 
 This project is configured to use:
-- **YouTube MCP** - For video research and analytics
-- **Notion MCP** - For saving insights and data
+- **GoHighLevel MCP** - CRM integration (Contacts + Opportunities pipeline)
 
-See `.mcp.json` for configuration.
+See `.mcp.json` for configuration. Add your GHL Private Integration Token to activate.
 
 ---
 

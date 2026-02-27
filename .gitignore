@@ -23,3 +23,10 @@ venv/
 # research/
 # exports/
 # data/
+
+# TMS Application
+tms/node_modules/
+tms/.next/
+tms/.env
+tms/.env.local
+tms/src/generated/

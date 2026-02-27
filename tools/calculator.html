@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Mining Group — Calculator</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./shared.css">
+    <script>
+    // Force-clear old service workers and caches (runs before any external scripts)
+    if (!localStorage.getItem('sw_clean_v20') && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(r) {
+            var p = r.map(function(x) { return x.unregister(); });
+            p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v20', '1'); location.reload(); });
+        });
+    }
+    </script>
+    <script src="./chart.min.js"></script>
+</head>
+<body>
+<canvas id="techLinesCanvas"></canvas>
+
+<nav id="ion-nav"></nav>
+
+<header style="text-align:center; padding:24px 16px 12px; border-bottom:1px solid rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
+    <h1 style="font-size:28px; font-weight:600; color:#f7931a; margin-bottom:4px;">Mining Profitability Calculator</h1>
+    <p style="color:#888; font-size:14px;">Project mining profitability with difficulty, price, and halving adjustments</p>
+    <div id="liveStatus" class="live-status"></div>
+</header>
+
+<main>
+
+    <!-- ===== FLEET DATA TOGGLE ===== -->
+    <div class="fleet-toggle-row" id="fleetToggleRow">
+        <label class="toggle-switch">
+            <input type="checkbox" id="useFleetToggle">
+            <span class="slider"></span>
+        </label>
+        <div class="reinvest-info">
+            <strong>Use Fleet Data</strong><br>
+            <span style="font-size:11px; color:#555;">Auto-fill hashrate, power, and machine count from your Dashboard fleet</span>
+        </div>
+    </div>
+
+    <!-- ===== INPUT PANEL ===== -->
+    <section class="inputs-grid">
+
+        <!-- Market Parameters -->
+        <div class="card">
+            <h3>Market Parameters</h3>
+            <div class="input-group">
+                <label>BTC Price</label>
+                <div class="input-wrapper">
+                    <span class="prefix">$</span>
+                    <input type="number" id="btcPrice" value="96000" min="1" max="10000000" step="100">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Monthly Price Change</label>
+                <div class="input-wrapper">
+                    <input type="number" id="priceChange" value="2" min="-50" max="100" step="0.1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Current Network Difficulty</label>
+                <div class="input-wrapper">
+                    <input type="number" id="difficulty" value="125.86" min="0.001" max="999999" step="0.01">
+                    <span class="suffix">T</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Monthly Difficulty Change</label>
+                <div class="input-wrapper">
+                    <input type="number" id="diffChange" value="3" min="-50" max="100" step="0.1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Period Length</label>
+                <div class="input-wrapper">
+                    <select id="periodLength">
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="daily">Daily</option>
+                    </select>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Number of Periods</label>
+                <div class="input-wrapper">
+                    <input type="number" id="investPeriod" value="48" min="1" max="730" step="1">
+                    <span class="suffix" id="periodSuffix">months</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Machine Parameters -->
+        <div class="card">
+            <h3>Machine Parameters</h3>
+            <div class="input-group">
+                <label>Hashrate (per machine)</label>
+                <div class="input-wrapper" id="wrap-hashrate">
+                    <input type="number" id="hashrate" value="335" min="0.1" max="100000" step="1">
+                    <span class="suffix">TH/s</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Power Consumption (per machine)</label>
+                <div class="input-wrapper" id="wrap-power">
+                    <input type="number" id="power" value="5.36" min="0.001" max="10000" step="0.01">
+                    <span class="suffix">kW</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Machine CAPEX (per machine)</label>
+                <div class="input-wrapper">
+                    <span class="prefix">$</span>
+                    <input type="number" id="capex" value="15000" min="0" max="10000000" step="100">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Number of Machines</label>
+                <div class="input-wrapper" id="wrap-machineCount">
+                    <input type="number" id="machineCount" value="1" min="1" max="10000" step="1">
+                    <span class="suffix">units</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Monthly Miner Additions</label>
+                <div class="input-wrapper">
+                    <input type="number" id="minerAdditions" value="0" min="0" max="10000" step="1">
+                    <span class="suffix">per month</span>
+                </div>
+            </div>
+            <div class="reinvest-row" id="additionCapexRow" style="margin-top:8px; display:none">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="additionCapexToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Deduct CAPEX</strong><br>
+                    <span style="font-size:11px">Each added miner costs CAPEX from cash flow</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Miner Lifespan</label>
+                <div class="input-wrapper">
+                    <input type="number" id="minerLifespan" value="48" min="1" max="120" step="1">
+                    <span class="suffix">months</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Salvage Value</label>
+                <div class="input-wrapper">
+                    <input type="number" id="salvageValue" value="10" min="0" max="100" step="1">
+                    <span class="suffix">% of CAPEX</span>
+                </div>
+            </div>
+            <div class="reinvest-row active" id="autoReplaceRow" style="margin-top:8px">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoReplaceToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Auto-Replace Retired Miners</strong><br>
+                    <span style="font-size:11px">Retired miners automatically replaced — you pay CAPEX minus salvage value</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operating Parameters -->
+        <div class="card">
+            <h3>Operating Parameters</h3>
+            <div class="input-group">
+                <label>BTC Treasury (starting reserves)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="btcTreasury" value="0" min="0" max="100000" step="0.001">
+                    <span class="suffix">BTC</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Electricity Cost</label>
+                <div class="input-wrapper" id="wrap-elecCost">
+                    <span class="prefix">$</span>
+                    <input type="number" id="elecCost" value="0.055" min="0" max="1" step="0.001">
+                    <span class="suffix">/kWh</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Pool Fee</label>
+                <div class="input-wrapper" id="wrap-poolFee">
+                    <input type="number" id="poolFee" value="2" min="0" max="100" step="0.1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Uptime</label>
+                <div class="input-wrapper" id="wrap-uptime">
+                    <input type="number" id="uptime" value="100" min="0" max="100" step="1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>HODL Ratio</label>
+                <div class="hodl-row" id="wrap-hodlRatio">
+                    <input type="range" class="hodl-slider" id="hodlSlider" min="0" max="100" value="100" step="1">
+                    <div class="input-wrapper">
+                        <input type="number" id="hodlRatio" value="100" min="0" max="100" step="1">
+                        <span class="suffix">%</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:12px; padding:10px; background:rgba(0, 0, 0, 0.3); border-radius:6px; border:1px solid rgba(255, 255, 255, 0.06);">
+                <div style="font-size:11px; color:#888; margin-bottom:4px;">HODL Ratio</div>
+                <div style="font-size:12px; color:#e8e8e8;">
+                    <strong>100%</strong> = Keep all BTC &nbsp;|&nbsp;
+                    <strong>0%</strong> = Sell all &nbsp;|&nbsp;
+                    <strong>50%</strong> = Sell half, hold half
+                </div>
+            </div>
+            <div class="reinvest-row" id="savingsElecRow" style="margin-top:8px">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="savingsElecToggle">
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Pay Electricity from Savings</strong><br>
+                    <span style="font-size:11px">All BTC goes to treasury — electricity paid externally from income/savings</span>
+                </div>
+            </div>
+            <div class="reinvest-row" id="reinvestRow">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="reinvestToggle">
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Reinvest Mode</strong><br>
+                    Net fiat profit auto-buys new machines at CAPEX price
+                    <div class="reinvest-hint" id="reinvestHint"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SUMMARY METRICS ===== -->
+    <div class="section-label">Snapshot (Day 1 Values)</div>
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Daily Revenue</div>
+            <div class="value btc-orange" id="metDailyRev">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Elec. Cost</div>
+            <div class="value negative" id="metDailyElec">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Profit</div>
+            <div class="value" id="metDailyProfit">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Cost / 1 BTC</div>
+            <div class="value" id="metCostPerBTC">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Efficiency</div>
+            <div class="value neutral" id="metEfficiency">--</div>
+            <div class="sub">J/TH</div>
+        </div>
+    </section>
+
+    <div class="section-label">Projection Totals (<span id="periodLabel">24 months</span>)</div>
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Total BTC Mined</div>
+            <div class="value btc-orange" id="metTotalMined">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total BTC Held</div>
+            <div class="value btc-orange" id="metTotalHeld">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Held BTC Value</div>
+            <div class="value btc-orange" id="metHeldValue">--</div>
+            <div class="sub" id="metFinalPrice">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total P/L</div>
+            <div class="value" id="metTotalPL">--</div>
+            <div class="sub" id="metROI">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Break-Even</div>
+            <div class="value" id="metBreakEven">--</div>
+            <div class="sub" id="metBreakEvenUnit">period</div>
+        </div>
+        <div class="metric-card" id="metMachinesCard" style="display:none">
+            <div class="label">Total Machines</div>
+            <div class="value neutral" id="metTotalMachines">--</div>
+            <div class="sub" id="metMachinesSub">--</div>
+        </div>
+    </section>
+
+    <!-- ===== DUAL-AXIS COMBO CHART ===== -->
+    <div class="card">
+        <h3>BTC Accumulated &amp; Value of Assets Over Time</h3>
+        <div class="combo-chart-container">
+            <canvas id="comboChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ===== MONTHLY TABLE ===== -->
+    <div class="card">
+        <button class="toggle-btn" id="toggleTable">Show Period Breakdown</button>
+        <div id="tableContainer" style="display:none">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>BTC Price</th>
+                            <th>Difficulty (T)</th>
+                            <th>Block Reward</th>
+                            <th>Machines</th>
+                            <th>PnL BTC</th>
+                            <th>BTC HODL (Cumul.)</th>
+                            <th>Assets Value (USD)</th>
+                            <th>Elec. Cost</th>
+                            <th>Net Cash Flow</th>
+                            <th>Cumul. P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    <button class="toggle-btn" id="resetDefaults" style="margin-bottom:8px; font-size:12px; padding:5px 12px;">Reset to Defaults</button><br>
+    Ion Mining Group &mdash; Mining Profitability Calculator<br>
+    Disclaimer: This calculator provides estimates only. Not financial advice.
+</footer>
+
+<script src="./shared.js"></script>
+<script src="./fleet-data.js"></script>
+<script src="./calculator.js"></script>
+</body>
+</html>
