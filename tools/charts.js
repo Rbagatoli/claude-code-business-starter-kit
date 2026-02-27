@@ -612,12 +612,19 @@ function logFeeSnapshot(fees) {
 
 function renderFeeChart(timeframe) {
     var history = loadFeeHistory();
-    if (history.length < 2) {
+    if (history.length === 0) {
         if (document.getElementById('feeValue')) {
-            document.getElementById('feeValue').textContent = history.length > 0 ? history[0].fastest + ' sat/vB' : '--';
+            document.getElementById('feeValue').textContent = '--';
         }
         return;
     }
+
+    // Show current value even with 1 point
+    if (document.getElementById('feeValue')) {
+        document.getElementById('feeValue').textContent = history[history.length - 1].fastest + ' sat/vB';
+    }
+
+    if (history.length < 2) return;
 
     var tfHours = { '24h': 24, '3d': 72, '1w': 168, '1m': 720 };
     var cutoff = Date.now() - ((tfHours[timeframe] || 168) * 60 * 60 * 1000);
