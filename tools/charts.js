@@ -485,8 +485,8 @@ async function loadNetworkStats() {
     // Avg block time since last difficulty adjustment (every 2016 blocks)
     // Uses allMiningData.difficulty (already fetched for charts) to get adjustment timestamp
     var avgBlockDone = false;
-    if (results.height != null && results.blocks && results.blocks.length >= 1
-        && allMiningData && allMiningData.difficulty && allMiningData.difficulty.length > 0) {
+    var hasMining = !!(allMiningData && allMiningData.difficulty && allMiningData.difficulty.length > 0);
+    if (results.height != null && results.blocks && results.blocks.length >= 1 && hasMining) {
         var lastAdjBlock = Math.floor(results.height / 2016) * 2016;
         var blocksSinceAdj = results.height - lastAdjBlock;
         var diffArr = allMiningData.difficulty;
@@ -510,7 +510,10 @@ async function loadNetworkStats() {
         var avgSeconds = (newest - oldest) / (blockCount - 1);
         var avgMinutes = (avgSeconds / 60).toFixed(1);
         document.getElementById('nsAvgBlockTime').textContent = avgMinutes;
-        document.getElementById('nsAvgBlockTimeSub').textContent = 'last ' + (blockCount - 1) + ' blocks';
+        // Debug: show why epoch calc failed
+        var dbg = 'fallback: mining=' + hasMining;
+        if (hasMining) dbg += ' adj=' + allMiningData.difficulty.length;
+        document.getElementById('nsAvgBlockTimeSub').textContent = dbg;
     }
 
     // Store block height for halving countdown
