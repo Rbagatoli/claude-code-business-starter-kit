@@ -8,7 +8,7 @@ initNav('wallet');
 (async function() {
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
-    window.onCurrencyChange = function() { renderWallet(); };
+    window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderWallet(); };
     await loadAndRefreshWallet();
     startAutoRefresh();
 })();

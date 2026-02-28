@@ -19,7 +19,7 @@ initNav('dashboard');
 (async function() {
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
-    window.onCurrencyChange = function() { renderDashboard(); };
+    window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderDashboard(); };
     if (data.difficulty) liveDifficulty = data.difficulty;
     else liveDifficulty = 125.86;
     await loadF2PoolData();

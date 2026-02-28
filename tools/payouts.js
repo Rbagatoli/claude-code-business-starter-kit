@@ -10,7 +10,7 @@ initNav('payouts');
 (async function() {
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
-    window.onCurrencyChange = function() { renderPayoutPage(); };
+    window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderPayoutPage(); };
     checkAndLogDailySnapshot();
     await syncF2PoolPayouts();
     renderPayoutPage();
