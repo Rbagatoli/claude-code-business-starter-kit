@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Mining Group — Wallet</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./shared.css?v=45">
+    <script>
+    if (!localStorage.getItem('sw_clean_v45') && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(r) {
+            var p = r.map(function(x) { return x.unregister(); });
+            p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v45', '1'); location.reload(); });
+        });
+    }
+    </script>
+</head>
+<body>
+<canvas id="techLinesCanvas"></canvas>
+
+<nav id="ion-nav"></nav>
+
+<main>
+
+    <!-- Watch-Only Banner -->
+    <div class="card" style="background:rgba(74,222,128,0.08); border-color:rgba(74,222,128,0.25); margin-bottom:16px; padding:12px 16px;">
+        <p style="font-size:13px; color:#4ade80; margin:0;">Watch-only wallet &mdash; monitors on-chain balances. No private keys stored.</p>
+    </div>
+
+    <!-- ===== BALANCE SUMMARY ===== -->
+    <div class="section-label">Balance Summary</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">Total Balance</div>
+            <div class="value btc-orange" id="walletTotalBTC">--</div>
+            <div class="sub">BTC</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">USD Value</div>
+            <div class="value neutral" id="walletTotalUSD">--</div>
+            <div class="sub" id="walletPriceLabel">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Addresses Tracked</div>
+            <div class="value positive" id="walletAddressCount">0</div>
+            <div class="sub">watching on-chain</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total TXs</div>
+            <div class="value" id="walletTotalTxCount">--</div>
+            <div class="sub">all addresses</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Last Updated</div>
+            <div class="value neutral" id="walletLastUpdate">--</div>
+            <div class="sub">auto-refresh 60s</div>
+        </div>
+    </section>
+
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="dashboard-actions">
+        <button class="btn btn-primary" id="btnAddAddress">+ Add Address</button>
+        <button class="btn btn-secondary" id="btnRefreshBalances">Refresh All</button>
+    </div>
+
+    <!-- Add Address Slide Panel -->
+    <div class="slide-panel" id="addAddressPanel">
+        <div class="panel-inner">
+            <h4 id="addressFormTitle">Add Bitcoin Address</h4>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>BTC Address</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="faAddress" placeholder="bc1q... or 1... or 3...">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Label (optional)</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="faLabel" placeholder="e.g. Cold Storage, F2Pool">
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelAddress">Cancel</button>
+                <button class="btn btn-primary" id="saveAddress">Add Address</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ADDRESS CARDS ===== -->
+    <div class="section-label">Addresses</div>
+    <div class="miner-cards-grid" id="addressCardsGrid">
+        <div class="empty-state" style="padding:20px;"><p>No addresses added yet</p><div class="hint">Click "+ Add Address" to start monitoring</div></div>
+    </div>
+
+    <!-- ===== TRANSACTION HISTORY ===== -->
+    <div class="card">
+        <h3>Recent Transactions</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Address</th>
+                        <th>Amount</th>
+                        <th>TX Hash</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="txHistoryBody">
+                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">No addresses added yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    Ion Mining Group &mdash; Watch-Only Wallet<br>
+    <span style="font-size:11px; color:#555;">Powered by mempool.space &mdash; Read-only monitoring. No private keys stored.</span>
+</footer>
+
+<script src="./shared.js?v=45"></script>
+<script src="./fleet-data.js?v=45"></script>
+<script src="./wallet.js?v=45"></script>
+<script src="./alerts.js?v=45"></script>
+</body>
+</html>

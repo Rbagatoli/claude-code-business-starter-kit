@@ -227,13 +227,15 @@ function renderPayoutTable() {
     var html = '';
     for (var i = 0; i < sorted.length; i++) {
         var p = sorted[i];
-        var txDisplay = p.txHash ? p.txHash.substring(0, 12) + '...' : '--';
+        var txDisplay = p.txHash
+            ? '<a href="https://mempool.space/tx/' + p.txHash + '" target="_blank" rel="noopener" style="color:#f7931a; text-decoration:none;" title="' + p.txHash + '">' + p.txHash.substring(0, 12) + '...</a>'
+            : '--';
         html += '<tr>' +
             '<td>' + p.date + '</td>' +
             '<td style="color:#f7931a">' + fmtBTC(p.btcAmount, 8) + '</td>' +
             '<td>' + fmtUSD(p.btcPrice) + '</td>' +
             '<td>' + fmtUSD(p.usdValue) + '</td>' +
-            '<td style="font-family:monospace; font-size:11px;" title="' + (p.txHash || '') + '">' + txDisplay + '</td>' +
+            '<td style="font-family:monospace; font-size:11px;">' + txDisplay + '</td>' +
             '<td>' + (p.notes || '--') + '</td>' +
             '<td><button class="delete-payout" data-id="' + p.id + '">&times;</button></td>' +
         '</tr>';
@@ -509,5 +511,5 @@ function updatePayoutChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=44').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=45').catch(function() {});
 }
