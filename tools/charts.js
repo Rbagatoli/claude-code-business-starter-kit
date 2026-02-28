@@ -576,7 +576,23 @@ function renderHalvingCountdown() {
 
 // ===== FEE RATE CHART =====
 var feeChartInstance = null;
+var feeTfLabels = { '24h': '24 Hours', '3d': '3 Days', '1w': '1 Week', '1m': '1 Month', '3m': '3 Months', '6m': '6 Months', '1y': '1 Year' };
 
+// Fetch historical fee rates from mempool.space API
+async function loadFeeRateHistory(timeframe) {
+    try {
+        var res = await fetch('https://mempool.space/api/v1/mining/blocks/fee-rates/' + timeframe);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var data = await res.json();
+        if (!data || data.length === 0) throw new Error('empty');
+        renderFeeChart(timeframe, data);
+    } catch(e) {
+        // Fallback to localStorage data
+        renderFeeChart(timeframe, null);
+    }
+}
+
+// Keep local snapshots as supplementary data / offline fallback
 function loadFeeHistory() {
     try {
         var raw = localStorage.getItem('ionMiningFeeHistory');
@@ -599,61 +615,78 @@ function saveFeeHistory(data) {
 function logFeeSnapshot(fees) {
     var history = loadFeeHistory();
     var now = Date.now();
-    if (history.length > 0 && now - history[history.length - 1].timestamp < 3600000) return;
-    history.push({
-        timestamp: now,
-        fastest: fees.fastestFee,
-        halfHour: fees.halfHourFee,
-        economy: fees.economyFee || fees.hourFee || 1
-    });
-    saveFeeHistory(history);
-    renderFeeChart('24h');
+    if (history.length === 0 || now - history[history.length - 1].timestamp >= 3600000) {
+        history.push({
+            timestamp: now,
+            fastest: fees.fastestFee,
+            halfHour: fees.halfHourFee,
+            economy: fees.economyFee || fees.hourFee || 1
+        });
+        saveFeeHistory(history);
+    }
+    // Load chart from API on page load
+    loadFeeRateHistory('24h');
 }
 
-function renderFeeChart(timeframe) {
-    var history = loadFeeHistory();
-    if (history.length === 0) {
-        if (document.getElementById('feeValue')) {
-            document.getElementById('feeValue').textContent = '--';
-        }
-        return;
-    }
-
-    // Show current value
-    if (document.getElementById('feeValue')) {
-        document.getElementById('feeValue').textContent = history[history.length - 1].fastest + ' sat/vB';
-    }
-
-    var tfHours = { '24h': 24, '3d': 72, '1w': 168, '1m': 720 };
-    var cutoff = Date.now() - ((tfHours[timeframe] || 168) * 60 * 60 * 1000);
-    var filtered = [];
-    for (var i = 0; i < history.length; i++) {
-        if (history[i].timestamp >= cutoff) filtered.push(history[i]);
-    }
-    if (filtered.length === 0) filtered = history.slice(-10);
-
+function renderFeeChart(timeframe, apiData) {
     var labels = [];
     var fastestData = [];
     var halfHourData = [];
     var economyData = [];
 
-    for (var j = 0; j < filtered.length; j++) {
-        var d = new Date(filtered[j].timestamp);
-        labels.push((d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':00');
-        fastestData.push(filtered[j].fastest);
-        halfHourData.push(filtered[j].halfHour);
-        economyData.push(filtered[j].economy);
+    if (apiData && apiData.length > 0) {
+        // Use API data — downsample if too many points
+        var maxPoints = 150;
+        var step = Math.max(1, Math.floor(apiData.length / maxPoints));
+        for (var i = 0; i < apiData.length; i += step) {
+            var entry = apiData[i];
+            var d = new Date(entry.timestamp * 1000);
+            // Format label based on timeframe
+            if (timeframe === '24h' || timeframe === '3d') {
+                labels.push((d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':00');
+            } else if (timeframe === '1w' || timeframe === '1m') {
+                labels.push((d.getMonth() + 1) + '/' + d.getDate());
+            } else {
+                labels.push(formatMonthYear(entry.timestamp));
+            }
+            fastestData.push(entry.avgFee_90);
+            halfHourData.push(entry.avgFee_50);
+            economyData.push(entry.avgFee_10);
+        }
+    } else {
+        // Fallback to localStorage
+        var history = loadFeeHistory();
+        if (history.length === 0) {
+            if (document.getElementById('feeValue')) {
+                document.getElementById('feeValue').textContent = '--';
+            }
+            return;
+        }
+        var tfHours = { '24h': 24, '3d': 72, '1w': 168, '1m': 720, '3m': 2160, '6m': 4320, '1y': 8760 };
+        var cutoff = Date.now() - ((tfHours[timeframe] || 168) * 60 * 60 * 1000);
+        var filtered = [];
+        for (var f = 0; f < history.length; f++) {
+            if (history[f].timestamp >= cutoff) filtered.push(history[f]);
+        }
+        if (filtered.length === 0) filtered = history.slice(-10);
+        for (var j = 0; j < filtered.length; j++) {
+            var fd = new Date(filtered[j].timestamp);
+            labels.push((fd.getMonth() + 1) + '/' + fd.getDate() + ' ' + fd.getHours() + ':00');
+            fastestData.push(filtered[j].fastest);
+            halfHourData.push(filtered[j].halfHour);
+            economyData.push(filtered[j].economy);
+        }
     }
 
+    if (fastestData.length === 0) return;
+
+    // Update live value
     if (document.getElementById('feeValue')) {
         document.getElementById('feeValue').textContent = fastestData[fastestData.length - 1] + ' sat/vB';
     }
-    document.getElementById('feeTitle').textContent = 'Fee Rate History (' + timeframe.toUpperCase() + ')';
+    document.getElementById('feeTitle').textContent = 'Fee Rate History (' + (feeTfLabels[timeframe] || timeframe.toUpperCase()) + ')';
 
     if (feeChartInstance) feeChartInstance.destroy();
-
-    var showDots = filtered.length < 4;
-    var dotRadius = showDots ? 4 : 0;
 
     feeChartInstance = new Chart(document.getElementById('feeChart'), {
         type: 'line',
@@ -661,33 +694,33 @@ function renderFeeChart(timeframe) {
             labels: labels,
             datasets: [
                 {
-                    label: 'Fastest (next block)',
+                    label: 'High Priority (p90)',
                     data: fastestData,
                     borderColor: '#ef4444',
                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
                     fill: '+1',
                     borderWidth: 2,
-                    pointRadius: dotRadius,
+                    pointRadius: 0,
                     tension: 0.2
                 },
                 {
-                    label: 'Half-Hour',
+                    label: 'Medium (p50)',
                     data: halfHourData,
                     borderColor: '#f59e0b',
                     backgroundColor: 'rgba(245, 158, 11, 0.15)',
                     fill: '+1',
                     borderWidth: 2,
-                    pointRadius: dotRadius,
+                    pointRadius: 0,
                     tension: 0.2
                 },
                 {
-                    label: 'Economy (1 hour)',
+                    label: 'Low Priority (p10)',
                     data: economyData,
                     borderColor: '#4ade80',
                     backgroundColor: 'rgba(74, 222, 128, 0.15)',
                     fill: 'origin',
                     borderWidth: 2,
-                    pointRadius: dotRadius,
+                    pointRadius: 0,
                     tension: 0.2
                 }
             ]
@@ -712,7 +745,7 @@ function renderFeeChart(timeframe) {
             },
             scales: {
                 x: {
-                    ticks: { color: '#888', font: { size: 11 }, maxRotation: 45 },
+                    ticks: { color: '#888', font: { size: 11 }, maxTicksLimit: 12, maxRotation: 45 },
                     grid: { color: 'rgba(255, 255, 255, 0.06)' }
                 },
                 y: {
@@ -735,10 +768,10 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
     var buttons = this.querySelectorAll('button');
     for (var i = 0; i < buttons.length; i++) buttons[i].classList.remove('active');
     btn.classList.add('active');
-    renderFeeChart(btn.getAttribute('data-tf'));
+    loadFeeRateHistory(btn.getAttribute('data-tf'));
 });
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=28').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=29').catch(function() {});
 }

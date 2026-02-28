@@ -7,11 +7,11 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./shared.css">
     <script>
-    if (!localStorage.getItem('sw_clean_v28') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v29') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v28', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v29', '1'); location.reload(); });
         });
     }
     </script>
@@ -170,11 +170,13 @@
             <button data-tf="3d">3D</button>
             <button data-tf="1w">1W</button>
             <button data-tf="1m">1M</button>
+            <button data-tf="3m">3M</button>
+            <button data-tf="6m">6M</button>
+            <button data-tf="1y">1Y</button>
         </div>
         <div class="earnings-chart-container">
             <canvas id="feeChart"></canvas>
         </div>
-        <div style="font-size:11px; color:#555; margin-top:8px; text-align:center;">Chart builds over time as you visit this page (snapshots every hour)</div>
     </div>
 
 </main>
