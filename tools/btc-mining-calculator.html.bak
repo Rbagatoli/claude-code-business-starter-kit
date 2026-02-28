@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f7931a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BTC Miner">
+    <link rel="manifest" href="manifest.json">
+    <title>Bitcoin Mining Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 32px 16px 16px;
+            border-bottom: 1px solid #21262d;
+        }
+        header h1 { font-size: 28px; font-weight: 700; color: #f7931a; margin-bottom: 4px; }
+        header p { color: #8b949e; font-size: 14px; }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .card h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #e6edf3; }
+
+        /* --- Inputs --- */
+        .inputs-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 900px) { .inputs-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 600px) { .inputs-grid { grid-template-columns: 1fr; } }
+
+        .input-group { margin-bottom: 12px; }
+        .input-group label {
+            display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 500;
+        }
+        .input-wrapper {
+            display: flex; align-items: center; background: #0d1117;
+            border: 1px solid #30363d; border-radius: 4px; overflow: hidden; transition: border-color 0.2s;
+        }
+        .input-wrapper:focus-within {
+            border-color: #f7931a; box-shadow: 0 0 0 2px rgba(247, 147, 26, 0.15);
+        }
+        .input-wrapper .prefix, .input-wrapper .suffix {
+            padding: 6px 8px; font-size: 13px; color: #8b949e; background: #161b22;
+            white-space: nowrap; user-select: none;
+        }
+        .input-wrapper input, .input-wrapper select {
+            flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+            color: #e6edf3; font-size: 14px; padding: 6px 8px; font-family: inherit;
+        }
+        .input-wrapper select option { background: #161b22; color: #e6edf3; }
+        .input-wrapper input::-webkit-inner-spin-button { opacity: 0.3; }
+
+        .hodl-row { display: flex; align-items: center; gap: 12px; }
+        .hodl-row .input-wrapper { flex: 0 0 90px; }
+        .hodl-slider {
+            flex: 1; -webkit-appearance: none; appearance: none;
+            height: 6px; background: #30363d; border-radius: 3px; outline: none;
+        }
+        .hodl-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+            background: #f7931a; cursor: pointer; border: 2px solid #0d1117;
+        }
+        .hodl-slider::-moz-range-thumb {
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #f7931a; cursor: pointer; border: 2px solid #0d1117;
+        }
+
+        /* --- Metrics --- */
+        .metrics-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+        }
+        @media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 600px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .metric-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            padding: 14px 16px; text-align: center;
+        }
+        .metric-card .label {
+            font-size: 11px; color: #8b949e; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 4px;
+        }
+        .metric-card .value { font-size: 20px; font-weight: 700; }
+        .metric-card .sub { font-size: 11px; color: #8b949e; margin-top: 2px; }
+        .positive { color: #3fb950; }
+        .negative { color: #f85149; }
+        .neutral  { color: #fbbf24; }
+        .btc-orange { color: #F7931A; } /* Bitcoin orange for BTC metrics */
+
+        /* --- Chart --- */
+        .combo-chart-container {
+            position: relative;
+            height: 420px;
+            width: 100%;
+        }
+
+        /* --- Table --- */
+        .toggle-btn {
+            background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px;
+            padding: 8px 16px; cursor: pointer; font-size: 13px; font-family: inherit; transition: background 0.2s;
+        }
+        .toggle-btn:hover { background: #30363d; }
+        .table-scroll { overflow-x: auto; margin-top: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+        thead th {
+            background: #21262d; color: #8b949e; font-weight: 600; text-transform: uppercase;
+            font-size: 10px; letter-spacing: 0.5px; padding: 8px 10px; text-align: right;
+            border-bottom: 1px solid #30363d;
+        }
+        thead th:first-child { text-align: left; }
+        tbody td { padding: 6px 10px; text-align: right; border-bottom: 1px solid #21262d; color: #e6edf3; }
+        tbody td:first-child { text-align: left; color: #8b949e; }
+        tbody tr:hover { background: #1c2128; }
+        tbody tr.halving-row { background: rgba(247, 147, 26, 0.08); }
+
+        /* --- Reinvest Toggle --- */
+        .reinvest-row {
+            display: flex; align-items: center; gap: 12px; margin-top: 12px;
+            padding: 10px; background: #0d1117; border-radius: 4px; border: 1px solid #21262d;
+        }
+        .reinvest-row.active { border-color: #f7931a; background: rgba(247, 147, 26, 0.06); }
+        .toggle-switch {
+            position: relative; width: 44px; height: 24px; flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch .slider {
+            position: absolute; inset: 0; background: #30363d; border-radius: 12px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .toggle-switch .slider::before {
+            content: ''; position: absolute; left: 3px; top: 3px;
+            width: 18px; height: 18px; background: #8b949e; border-radius: 50%;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .toggle-switch input:checked + .slider { background: #f7931a; }
+        .toggle-switch input:checked + .slider::before {
+            transform: translateX(20px); background: #fff;
+        }
+        .reinvest-info { font-size: 12px; color: #8b949e; line-height: 1.4; }
+        .reinvest-info strong { color: #e6edf3; }
+        .reinvest-hint { font-size: 11px; color: #484f58; margin-top: 2px; }
+
+        .live-status {
+            font-size: 11px; margin-top: 6px;
+            transition: opacity 0.5s;
+        }
+        .live-status.live { color: #3fb950; }
+        .live-status.offline { color: #8b949e; }
+
+        footer {
+            text-align: center; padding: 24px 16px; color: #484f58; font-size: 12px;
+            border-top: 1px solid #21262d;
+        }
+
+        .section-label { font-size: 18px; font-weight: 600; color: #e6edf3; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>&#x20bf; Bitcoin Mining Calculator <span style="font-size:12px;color:#8b949e;font-weight:normal">v5</span></h1>
+    <p>Project mining profitability with difficulty, price, and halving adjustments</p>
+    <div id="liveStatus" class="live-status"></div>
+</header>
+
+<main>
+
+    <!-- ===== INPUT PANEL ===== -->
+    <section class="inputs-grid">
+
+        <!-- Market Parameters -->
+        <div class="card">
+            <h3>Market Parameters</h3>
+            <div class="input-group">
+                <label>BTC Price</label>
+                <div class="input-wrapper">
+                    <span class="prefix">$</span>
+                    <input type="number" id="btcPrice" value="96000" min="1" max="10000000" step="100">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Monthly Price Change</label>
+                <div class="input-wrapper">
+                    <input type="number" id="priceChange" value="2" min="-50" max="100" step="0.1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Current Network Difficulty</label>
+                <div class="input-wrapper">
+                    <input type="number" id="difficulty" value="125.86" min="0.001" max="999999" step="0.01">
+                    <span class="suffix">T</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Monthly Difficulty Change</label>
+                <div class="input-wrapper">
+                    <input type="number" id="diffChange" value="3" min="-50" max="100" step="0.1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Period Length</label>
+                <div class="input-wrapper">
+                    <select id="periodLength">
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="daily">Daily</option>
+                    </select>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Number of Periods</label>
+                <div class="input-wrapper">
+                    <input type="number" id="investPeriod" value="24" min="1" max="730" step="1">
+                    <span class="suffix" id="periodSuffix">months</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Machine Parameters -->
+        <div class="card">
+            <h3>Machine Parameters</h3>
+            <div class="input-group">
+                <label>Hashrate (per machine)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="hashrate" value="335" min="0.1" max="100000" step="1">
+                    <span class="suffix">TH/s</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Power Consumption (per machine)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="power" value="5.36" min="0.001" max="10000" step="0.01">
+                    <span class="suffix">kW</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Machine CAPEX (per machine)</label>
+                <div class="input-wrapper">
+                    <span class="prefix">$</span>
+                    <input type="number" id="capex" value="15000" min="0" max="10000000" step="100">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Number of Machines</label>
+                <div class="input-wrapper">
+                    <input type="number" id="machineCount" value="1" min="1" max="10000" step="1">
+                    <span class="suffix">units</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Monthly Miner Additions</label>
+                <div class="input-wrapper">
+                    <input type="number" id="minerAdditions" value="0" min="0" max="10000" step="1">
+                    <span class="suffix">per month</span>
+                </div>
+            </div>
+            <div class="reinvest-row" id="additionCapexRow" style="margin-top:8px; display:none">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="additionCapexToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Deduct CAPEX</strong><br>
+                    <span style="font-size:11px">Each added miner costs CAPEX from cash flow</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Miner Lifespan</label>
+                <div class="input-wrapper">
+                    <input type="number" id="minerLifespan" value="36" min="1" max="120" step="1">
+                    <span class="suffix">months</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Salvage Value</label>
+                <div class="input-wrapper">
+                    <input type="number" id="salvageValue" value="30" min="0" max="100" step="1">
+                    <span class="suffix">% of CAPEX</span>
+                </div>
+            </div>
+            <div class="reinvest-row active" id="autoReplaceRow" style="margin-top:8px">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoReplaceToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Auto-Replace Retired Miners</strong><br>
+                    <span style="font-size:11px">Retired miners automatically replaced — you pay CAPEX minus salvage value</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operating Parameters -->
+        <div class="card">
+            <h3>Operating Parameters</h3>
+            <div class="input-group">
+                <label>BTC Treasury (starting reserves)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="btcTreasury" value="0" min="0" max="100000" step="0.001">
+                    <span class="suffix">BTC</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Electricity Cost</label>
+                <div class="input-wrapper">
+                    <span class="prefix">$</span>
+                    <input type="number" id="elecCost" value="0.07" min="0" max="1" step="0.01">
+                    <span class="suffix">/kWh</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Pool Fee</label>
+                <div class="input-wrapper">
+                    <input type="number" id="poolFee" value="2" min="0" max="100" step="0.1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Uptime</label>
+                <div class="input-wrapper">
+                    <input type="number" id="uptime" value="100" min="0" max="100" step="1">
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>HODL Ratio</label>
+                <div class="hodl-row">
+                    <input type="range" class="hodl-slider" id="hodlSlider" min="0" max="100" value="100" step="1">
+                    <div class="input-wrapper">
+                        <input type="number" id="hodlRatio" value="100" min="0" max="100" step="1">
+                        <span class="suffix">%</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:12px; padding:10px; background:#0d1117; border-radius:4px; border:1px solid #21262d;">
+                <div style="font-size:11px; color:#8b949e; margin-bottom:4px;">HODL Ratio</div>
+                <div style="font-size:12px; color:#e6edf3;">
+                    <strong>100%</strong> = Keep all BTC &nbsp;|&nbsp;
+                    <strong>0%</strong> = Sell all &nbsp;|&nbsp;
+                    <strong>50%</strong> = Sell half, hold half
+                </div>
+            </div>
+            <div class="reinvest-row" id="savingsElecRow" style="margin-top:8px">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="savingsElecToggle">
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Pay Electricity from Savings</strong><br>
+                    <span style="font-size:11px">All BTC goes to treasury — electricity paid externally from income/savings</span>
+                </div>
+            </div>
+            <div class="reinvest-row" id="reinvestRow">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="reinvestToggle">
+                    <span class="slider"></span>
+                </label>
+                <div class="reinvest-info">
+                    <strong>Reinvest Mode</strong><br>
+                    Net fiat profit auto-buys new machines at CAPEX price
+                    <div class="reinvest-hint" id="reinvestHint"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SUMMARY METRICS ===== -->
+    <div class="section-label">Snapshot (Day 1 Values)</div>
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Daily Revenue</div>
+            <div class="value btc-orange" id="metDailyRev">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Elec. Cost</div>
+            <div class="value negative" id="metDailyElec">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Profit</div>
+            <div class="value" id="metDailyProfit">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Cost / 1 BTC</div>
+            <div class="value" id="metCostPerBTC">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Efficiency</div>
+            <div class="value neutral" id="metEfficiency">--</div>
+            <div class="sub">J/TH</div>
+        </div>
+    </section>
+
+    <div class="section-label">Projection Totals (<span id="periodLabel">24 months</span>)</div>
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Total BTC Mined</div>
+            <div class="value btc-orange" id="metTotalMined">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total BTC Held</div>
+            <div class="value btc-orange" id="metTotalHeld">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Held BTC Value</div>
+            <div class="value btc-orange" id="metHeldValue">--</div>
+            <div class="sub" id="metFinalPrice">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total P/L</div>
+            <div class="value" id="metTotalPL">--</div>
+            <div class="sub" id="metROI">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Break-Even</div>
+            <div class="value" id="metBreakEven">--</div>
+            <div class="sub" id="metBreakEvenUnit">period</div>
+        </div>
+        <div class="metric-card" id="metMachinesCard" style="display:none">
+            <div class="label">Total Machines</div>
+            <div class="value neutral" id="metTotalMachines">--</div>
+            <div class="sub" id="metMachinesSub">--</div>
+        </div>
+    </section>
+
+    <!-- ===== DUAL-AXIS COMBO CHART ===== -->
+    <div class="card">
+        <h3>BTC Accumulated &amp; Value of Assets Over Time</h3>
+        <div class="combo-chart-container">
+            <canvas id="comboChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ===== MONTHLY TABLE ===== -->
+    <div class="card">
+        <button class="toggle-btn" id="toggleTable">Show Period Breakdown</button>
+        <div id="tableContainer" style="display:none">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>BTC Price</th>
+                            <th>Difficulty (T)</th>
+                            <th>Block Reward</th>
+                            <th>Machines</th>
+                            <th>PnL BTC</th>
+                            <th>BTC HODL (Cumul.)</th>
+                            <th>Assets Value (USD)</th>
+                            <th>Elec. Cost</th>
+                            <th>Net Cash Flow</th>
+                            <th>Cumul. P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    <button class="toggle-btn" id="resetDefaults" style="margin-bottom:8px; font-size:12px; padding:5px 12px;">Reset to Defaults</button><br>
+    Disclaimer: This calculator provides estimates only. Actual mining results depend on real-time network conditions,
+    hardware performance, and market fluctuations. Not financial advice.
+</footer>
+
+<script>
+// One-time migration: clear stale autoReplace=false from old saves
+try {
+    var _raw = localStorage.getItem('btcMinerCalcSettings');
+    if (_raw) {
+        var _s = JSON.parse(_raw);
+        if ('autoReplace' in _s) {
+            delete _s.autoReplace;
+            localStorage.setItem('btcMinerCalcSettings', JSON.stringify(_s));
+        }
+    }
+} catch(e) {}
+
+// ===== CONSTANTS =====
+const SECONDS_PER_DAY = 86400;
+const TWO_POW_32 = 4294967296;
+const CURRENT_BLOCK_REWARD = 3.125;
+
+const PERIOD_CONFIG = {
+    daily:   { days: 1,     perMonth: 30.44, label: 'days',   labelSingular: 'day' },
+    weekly:  { days: 7,     perMonth: 4.348, label: 'weeks',  labelSingular: 'week' },
+    monthly: { days: 30.44, perMonth: 1,     label: 'months', labelSingular: 'month' }
+};
+
+const HALVINGS = [
+    { date: new Date('2028-04-17'), reward: 1.5625 },
+    { date: new Date('2032-04-17'), reward: 0.78125 },
+    { date: new Date('2036-04-17'), reward: 0.390625 },
+    { date: new Date('2040-04-17'), reward: 0.1953125 },
+    { date: new Date('2044-04-17'), reward: 0.09765625 },
+    { date: new Date('2048-04-17'), reward: 0.048828125 },
+    { date: new Date('2052-04-17'), reward: 0.0244140625 },
+    { date: new Date('2056-04-17'), reward: 0.01220703125 },
+    { date: new Date('2060-04-17'), reward: 0.006103515625 },
+    { date: new Date('2064-04-17'), reward: 0.0030517578125 },
+    { date: new Date('2068-04-17'), reward: 0.00152587890625 },
+    { date: new Date('2072-04-17'), reward: 0.000762939453125 },
+    { date: new Date('2076-04-17'), reward: 0.0003814697265625 },
+    { date: new Date('2080-04-17'), reward: 0.00019073486328125 },
+    { date: new Date('2084-04-17'), reward: 0.000095367431640625 },
+    { date: new Date('2088-04-17'), reward: 0.0000476837158203125 },
+    { date: new Date('2092-04-17'), reward: 0.00002384185791015625 },
+    { date: new Date('2096-04-17'), reward: 0.000011920928955078125 },
+    { date: new Date('2100-04-17'), reward: 0.0000059604644775390625 },
+];
+
+function getBlockReward(date) {
+    let reward = CURRENT_BLOCK_REWARD;
+    for (const h of HALVINGS) {
+        if (date >= h.date) reward = h.reward;
+    }
+    return reward;
+}
+
+// ===== DOM REFS =====
+const inputIds = [
+    'btcPrice', 'priceChange', 'difficulty', 'diffChange', 'investPeriod',
+    'hashrate', 'power', 'capex', 'machineCount', 'minerAdditions', 'minerLifespan', 'salvageValue', 'btcTreasury', 'elecCost', 'poolFee', 'uptime', 'hodlRatio'
+];
+const el = {};
+inputIds.forEach(id => el[id] = document.getElementById(id));
+const hodlSlider = document.getElementById('hodlSlider');
+const periodLengthSel = document.getElementById('periodLength');
+const reinvestToggle = document.getElementById('reinvestToggle');
+const reinvestRow = document.getElementById('reinvestRow');
+const additionCapexToggle = document.getElementById('additionCapexToggle');
+const additionCapexRow = document.getElementById('additionCapexRow');
+const savingsElecToggle = document.getElementById('savingsElecToggle');
+const savingsElecRow = document.getElementById('savingsElecRow');
+const autoReplaceToggle = document.getElementById('autoReplaceToggle');
+const autoReplaceRow = document.getElementById('autoReplaceRow');
+
+// ===== LOCALSTORAGE PERSISTENCE =====
+const STORAGE_KEY = 'btcMinerCalcSettings';
+
+function saveSettings() {
+    const settings = {};
+    inputIds.forEach(id => { settings[id] = el[id].value; });
+    settings.periodLength = periodLengthSel.value;
+    settings.reinvest = reinvestToggle.checked;
+    settings.additionCapex = additionCapexToggle.checked;
+    settings.savingsElec = savingsElecToggle.checked;
+    settings._v = 2;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch(e) {}
+}
+
+function loadSettings() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        inputIds.forEach(id => { if (s[id] !== undefined) el[id].value = s[id]; });
+        if (s.periodLength) periodLengthSel.value = s.periodLength;
+        if (s.reinvest) {
+            reinvestToggle.checked = true;
+            reinvestRow.classList.add('active');
+        }
+        if (s.additionCapex === false) {
+            additionCapexToggle.checked = false;
+        } else {
+            additionCapexToggle.checked = true;
+            additionCapexRow.classList.add('active');
+        }
+        if (s.savingsElec) {
+            savingsElecToggle.checked = true;
+            savingsElecRow.classList.add('active');
+            hodlSlider.disabled = true;
+            el.hodlRatio.disabled = true;
+            hodlSlider.style.opacity = '0.4';
+            el.hodlRatio.style.opacity = '0.4';
+        }
+        // autoReplace always defaults to ON (HTML checked state) — not persisted
+        hodlSlider.value = el.hodlRatio.value;
+    } catch(e) {}
+}
+
+// ===== LIVE DATA FETCH =====
+async function fetchLiveData() {
+    const status = document.getElementById('liveStatus');
+    let priceOk = false, diffOk = false;
+    try {
+        const [priceRes, diffRes] = await Promise.all([
+            fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'),
+            fetch('https://mempool.space/api/v1/mining/hashrate/1d')
+        ]);
+
+        if (priceRes.ok) {
+            const priceData = await priceRes.json();
+            const price = priceData?.bitcoin?.usd;
+            if (price && price > 0) {
+                el.btcPrice.value = Math.round(price);
+                priceOk = true;
+            }
+        }
+
+        if (diffRes.ok) {
+            const diffData = await diffRes.json();
+            const diffs = diffData?.difficulty;
+            if (diffs && diffs.length > 0) {
+                const latestDiff = diffs[diffs.length - 1].difficulty;
+                if (latestDiff > 0) {
+                    el.difficulty.value = (latestDiff / 1e12).toFixed(2);
+                    diffOk = true;
+                }
+            }
+        }
+
+        if (priceOk || diffOk) {
+            status.textContent = 'Live data loaded';
+            status.className = 'live-status live';
+        } else {
+            status.textContent = 'Using saved values';
+            status.className = 'live-status offline';
+        }
+    } catch (e) {
+        status.textContent = 'Using saved values (offline)';
+        status.className = 'live-status offline';
+    }
+    setTimeout(() => { status.style.opacity = '0'; }, 3000);
+}
+
+// ===== FORMAT HELPERS =====
+function fmtUSD(v) {
+    if (!isFinite(v)) return 'N/A';
+    const neg = v < 0;
+    const abs = Math.abs(v);
+    let str;
+    if (abs >= 1e6) str = '$' + (abs / 1e6).toFixed(2) + 'M';
+    else if (abs >= 1e4) str = '$' + abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    else str = '$' + abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return neg ? '-' + str : str;
+}
+
+function fmtBTC(v, decimals) {
+    if (!isFinite(v)) return 'N/A';
+    const d = decimals !== undefined ? decimals : 6;
+    return v.toFixed(d);
+}
+
+function fmtUSDFull(v) {
+    if (!isFinite(v)) return 'N/A';
+    const neg = v < 0;
+    const str = '$' + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return neg ? '-' + str : str;
+}
+
+// ===== CHART =====
+let comboChart;
+let halvingPeriodIdxs = [];
+
+const halvingPlugin = {
+    id: 'halvingLine',
+    afterDraw(chart) {
+        if (halvingPeriodIdxs.length === 0) return;
+        const xScale = chart.scales.x;
+        const dataLen = chart.data.labels.length;
+        const ctx = chart.ctx;
+        ctx.save();
+        for (const h of halvingPeriodIdxs) {
+            if (h.idx >= dataLen) continue;
+            const x = xScale.getPixelForValue(h.idx);
+            if (x < chart.chartArea.left || x > chart.chartArea.right) continue;
+            ctx.beginPath();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = '#f7931a';
+            ctx.lineWidth = 2;
+            ctx.moveTo(x, chart.chartArea.top);
+            ctx.lineTo(x, chart.chartArea.bottom);
+            ctx.stroke();
+            ctx.fillStyle = '#f7931a';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('HALVING \u2192 ' + h.reward + ' BTC', x, chart.chartArea.top - 6);
+        }
+        ctx.restore();
+    }
+};
+
+const darkGrid = '#21262d';
+const muted = '#8b949e';
+
+function initChart() {
+    comboChart = new Chart(document.getElementById('comboChart'), {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'PnL BTC',
+                    data: [],
+                    backgroundColor: 'rgba(247, 147, 26, 0.75)',
+                    borderColor: '#f7931a',
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    yAxisID: 'yBTC',
+                    order: 2
+                },
+                {
+                    type: 'bar',
+                    label: 'BTC HODL',
+                    data: [],
+                    backgroundColor: 'rgba(251, 191, 36, 0.7)',
+                    borderColor: '#fbbf24',
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    yAxisID: 'yBTC',
+                    order: 3
+                },
+                {
+                    type: 'line',
+                    label: 'Total Economic Value (USD)',
+                    data: [],
+                    borderColor: '#f85149',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#f85149',
+                    tension: 0.3,
+                    yAxisID: 'yUSD',
+                    order: 1
+                },
+                {
+                    type: 'line',
+                    label: 'Miners Owned',
+                    data: [],
+                    borderColor: '#58a6ff',
+                    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#58a6ff',
+                    stepped: 'after',
+                    fill: true,
+                    yAxisID: 'yMachines',
+                    order: 0,
+                    hidden: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#e6edf3',
+                        font: { size: 12 },
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyleWidth: 16
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1c2128',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    titleColor: '#e6edf3',
+                    bodyColor: '#e6edf3',
+                    padding: 12,
+                    bodySpacing: 6,
+                    callbacks: {
+                        title: function(items) {
+                            return 'Period ' + items[0].label;
+                        },
+                        label: function(ctx) {
+                            const ds = ctx.dataset;
+                            if (ds.yAxisID === 'yMachines') {
+                                return ds.label + ': ' + ctx.parsed.y;
+                            } else if (ds.yAxisID === 'yUSD') {
+                                return ds.label + ': ' + fmtUSDFull(ctx.parsed.y);
+                            } else {
+                                return ds.label + ': ' + fmtBTC(ctx.parsed.y, 8) + ' BTC';
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: muted,
+                        maxRotation: 0,
+                        autoSkipPadding: 8,
+                        font: { size: 11 }
+                    },
+                    grid: { color: darkGrid }
+                },
+                yBTC: {
+                    type: 'linear',
+                    position: 'left',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'BTC (PnL, BTC HODL)',
+                        color: muted,
+                        font: { size: 12 }
+                    },
+                    ticks: {
+                        color: muted,
+                        font: { size: 11 },
+                        callback: function(v) {
+                            if (v >= 1) return v.toFixed(2);
+                            if (v >= 0.01) return v.toFixed(3);
+                            return v.toFixed(4);
+                        }
+                    },
+                    grid: { color: darkGrid }
+                },
+                yUSD: {
+                    type: 'linear',
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Total Economic Value (USD)',
+                        color: muted,
+                        font: { size: 12 }
+                    },
+                    ticks: {
+                        color: '#f85149',
+                        font: { size: 11 },
+                        callback: function(v) {
+                            if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+                            if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'k';
+                            return '$' + v.toFixed(0);
+                        }
+                    },
+                    grid: { drawOnChartArea: false }
+                },
+                yMachines: {
+                    type: 'linear',
+                    position: 'right',
+                    beginAtZero: true,
+                    display: false,
+                    title: {
+                        display: true,
+                        text: 'Miners',
+                        color: '#58a6ff',
+                        font: { size: 12 }
+                    },
+                    ticks: {
+                        color: '#58a6ff',
+                        font: { size: 11 },
+                        stepSize: 1,
+                        callback: function(v) { return Number.isInteger(v) ? v : ''; }
+                    },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        },
+        plugins: [halvingPlugin]
+    });
+}
+
+// ===== MAIN CALCULATION =====
+function recalculate() {
+    // Read inputs
+    const btcPrice0 = parseFloat(el.btcPrice.value) || 96000;
+    const monthlyPriceChangePct = (parseFloat(el.priceChange.value) || 0) / 100;
+    const difficultyT = parseFloat(el.difficulty.value) || 125.86;
+    const difficulty0 = difficultyT * 1e12;
+    const monthlyDiffChangePct = (parseFloat(el.diffChange.value) || 0) / 100;
+    const numPeriods = Math.max(1, parseInt(el.investPeriod.value) || 24);
+    const hashrateTH = parseFloat(el.hashrate.value) || 335;
+    const powerKW = parseFloat(el.power.value) || 5.36;
+    const capex = parseFloat(el.capex.value) || 0;
+    const machineCount = Math.max(1, parseInt(el.machineCount.value) || 1);
+    const elecCost = parseFloat(el.elecCost.value) || 0;
+    const poolFeePct = (parseFloat(el.poolFee.value) || 0) / 100;
+    const uptimePct = (parseFloat(el.uptime.value) || 100) / 100;
+    const hodlPct = (parseFloat(el.hodlRatio.value) || 0) / 100;
+    const savingsElec = savingsElecToggle.checked;
+    const autoReplace = autoReplaceToggle.checked;
+    const btcTreasury = parseFloat(el.btcTreasury.value) || 0;
+    const lifespanMonths = Math.max(1, parseInt(el.minerLifespan.value) || 36);
+    const salvagePct = (parseFloat(el.salvageValue.value) || 0) / 100;
+
+    const pLen = periodLengthSel.value;
+    const pCfg = PERIOD_CONFIG[pLen];
+    const daysPerPeriod = pCfg.days;
+
+    // Convert monthly rates to per-period rates
+    // monthly rate -> per-period: (1 + monthlyRate)^(daysPerPeriod / 30.44) - 1
+    const priceChangePerPeriod = Math.pow(1 + monthlyPriceChangePct, daysPerPeriod / 30.44) - 1;
+    const diffChangePerPeriod = Math.pow(1 + monthlyDiffChangePct, daysPerPeriod / 30.44) - 1;
+
+    // Miner lifespan in periods
+    const lifespanPeriods = Math.max(1, Math.round(lifespanMonths * (30.44 / daysPerPeriod)));
+
+    // Scheduled miner additions
+    const monthlyMinerAdditions = Math.max(0, parseInt(el.minerAdditions.value) || 0);
+    const deductAdditionCapex = additionCapexToggle.checked;
+    const additionsPerPeriod = monthlyMinerAdditions * (daysPerPeriod / 30.44);
+
+    // Show/hide CAPEX toggle based on additions
+    additionCapexRow.style.display = monthlyMinerAdditions > 0 ? '' : 'none';
+
+    // Initial machine scaling
+    const totalCapex = capex * machineCount;
+    const reinvestMode = reinvestToggle.checked;
+
+    // Update reinvest hint
+    const reinvestHint = document.getElementById('reinvestHint');
+    if (reinvestMode && hodlPct >= 1) {
+        reinvestHint.textContent = 'HODL is 100% — no fiat to reinvest';
+    } else if (reinvestMode && capex <= 0) {
+        reinvestHint.textContent = 'Set Machine CAPEX > $0 for reinvest';
+    } else {
+        reinvestHint.textContent = '';
+    }
+
+    // Update UI labels
+    document.getElementById('periodLabel').textContent = numPeriods + ' ' + pCfg.label;
+    document.getElementById('periodSuffix').textContent = pCfg.label;
+    document.getElementById('metBreakEvenUnit').textContent = pCfg.labelSingular;
+
+    const startDate = new Date();
+
+    // Find halving period indices
+    halvingPeriodIdxs = [];
+    for (let i = 0; i < numPeriods; i++) {
+        const daysElapsed = i * daysPerPeriod;
+        const pDate = new Date(startDate.getTime() + daysElapsed * 86400000);
+        const prevDays = Math.max(0, (i - 1)) * daysPerPeriod;
+        const prevDate = new Date(startDate.getTime() + prevDays * 86400000);
+        const rewNow = getBlockReward(pDate);
+        const rewPrev = i === 0 ? CURRENT_BLOCK_REWARD : getBlockReward(prevDate);
+        if (rewNow < rewPrev) {
+            halvingPeriodIdxs.push({ idx: i, reward: rewNow });
+        }
+    }
+
+    // Accumulators
+    let cumulBtcHeld = btcTreasury;
+    let cumulBtcMined = 0;
+    let cumulCashFlow = -totalCapex;
+    let cumulElecCost = 0;
+    let breakEvenPeriod = null;
+
+    // Miner batch tracking (for lifecycle/retirement)
+    const minerBatches = [{ period: 0, count: machineCount }];
+    let activeMachines = machineCount;
+    let reinvestPool = 0;
+    let totalMachinesBought = 0;
+    let totalMinersRetired = 0;
+    let cumulSalvageValue = 0;
+
+    // Scheduled additions tracking
+    let additionAccum = 0;
+    let totalScheduledAdded = 0;
+
+    // Chart data arrays
+    const labels = [];
+    const pnlBtcData = [];      // Series A: BTC mined per period (not cumulative)
+    const btcHodlData = [];     // Series B: cumulative BTC held
+    const usdValueData = [];    // Series C: USD value of BTC HODL
+    const machinesData = [];    // Series D: active machines over time
+
+    // Table rows
+    const tableRows = [];
+
+    // Period loop
+    for (let i = 0; i < numPeriods; i++) {
+        const daysElapsed = i * daysPerPeriod;
+        const periodDate = new Date(startDate.getTime() + daysElapsed * 86400000);
+
+        const btcPrice = btcPrice0 * Math.pow(1 + priceChangePerPeriod, i);
+        const difficulty = difficulty0 * Math.pow(1 + diffChangePerPeriod, i);
+        const blockReward = getBlockReward(periodDate);
+
+        // 1. Retire expired miners (check all batches against lifespan)
+        let retiredThisPeriod = 0;
+        let salvageThisPeriod = 0;
+        for (const batch of minerBatches) {
+            if (batch.count > 0 && (i - batch.period) >= lifespanPeriods) {
+                retiredThisPeriod += batch.count;
+                salvageThisPeriod += batch.count * capex * salvagePct;
+                activeMachines -= batch.count;
+                batch.count = 0;
+            }
+        }
+        totalMinersRetired += retiredThisPeriod;
+        cumulSalvageValue += salvageThisPeriod;
+
+        // Auto-replace retired miners with fresh ones
+        let replacedThisPeriod = 0;
+        if (autoReplace && retiredThisPeriod > 0) {
+            replacedThisPeriod = retiredThisPeriod;
+            activeMachines += replacedThisPeriod;
+            minerBatches.push({ period: i, count: replacedThisPeriod });
+            // Replacement cost: paid externally if savings mode, otherwise from cash flow
+            if (!savingsElec) {
+                const replacementCost = replacedThisPeriod * capex * (1 - salvagePct);
+                cumulCashFlow -= replacementCost;
+            }
+        }
+
+        // When NOT auto-replacing, salvage goes to reinvest pool or cash flow
+        if (!autoReplace && salvageThisPeriod > 0) {
+            if (reinvestMode) {
+                reinvestPool += salvageThisPeriod;
+            } else {
+                cumulCashFlow += salvageThisPeriod;
+            }
+        }
+
+        // 2. Scheduled miner additions
+        let scheduledThisPeriod = 0;
+        if (monthlyMinerAdditions > 0 && i > 0) {
+            additionAccum += additionsPerPeriod;
+            scheduledThisPeriod = Math.floor(additionAccum);
+            additionAccum -= scheduledThisPeriod;
+            if (scheduledThisPeriod > 0) {
+                activeMachines += scheduledThisPeriod;
+                totalScheduledAdded += scheduledThisPeriod;
+                minerBatches.push({ period: i, count: scheduledThisPeriod });
+                if (deductAdditionCapex) {
+                    cumulCashFlow -= scheduledThisPeriod * capex;
+                }
+            }
+        }
+
+
+        // Dynamic hashrate/power based on current active machines
+        const currentHashrateH = hashrateTH * activeMachines * 1e12;
+        const currentPowerKW = powerKW * activeMachines;
+
+        // Daily BTC mined at this period's difficulty
+        const dailyBTCGross = (currentHashrateH * SECONDS_PER_DAY * blockReward) / (difficulty * TWO_POW_32);
+        // Net of pool fee and uptime
+        const dailyBTCNet = dailyBTCGross * (1 - poolFeePct) * uptimePct;
+        // BTC mined this period
+        const periodBTCMined = dailyBTCNet * daysPerPeriod;
+
+        // Period electricity cost
+        const periodElecCost = currentPowerKW * 24 * daysPerPeriod * elecCost * uptimePct;
+
+        // HODL split
+        let btcHeld, btcSold, cashFromSales, periodCashFlow;
+        if (savingsElec) {
+            // Savings mode: electricity paid externally, hold all mined BTC
+            btcHeld = periodBTCMined;
+            btcSold = 0;
+            cashFromSales = 0;
+            periodCashFlow = 0;
+        } else {
+            // Standard mode: HODL ratio determines how much BTC is held vs sold
+            btcHeld = periodBTCMined * hodlPct;
+            btcSold = periodBTCMined * (1 - hodlPct);
+            cashFromSales = btcSold * btcPrice;
+            periodCashFlow = cashFromSales - periodElecCost;
+        }
+
+        // 5. Reinvest logic: accumulate positive cash flow and buy machines
+        let machinesBoughtThisPeriod = 0;
+        let reinvestSpent = 0;
+        if (reinvestMode && capex > 0 && periodCashFlow > 0) {
+            reinvestPool += periodCashFlow;
+            while (reinvestPool >= capex) {
+                reinvestPool -= capex;
+                activeMachines++;
+                totalMachinesBought++;
+                machinesBoughtThisPeriod++;
+                reinvestSpent += capex;
+            }
+            if (machinesBoughtThisPeriod > 0) {
+                minerBatches.push({ period: i, count: machinesBoughtThisPeriod });
+            }
+        }
+
+        // Update accumulators
+        cumulBtcMined += periodBTCMined;
+        cumulBtcHeld += btcHeld;
+        cumulElecCost += periodElecCost;
+        // When reinvesting, positive cash flow is diverted; subtract machine costs
+        if (reinvestMode && capex > 0 && periodCashFlow > 0) {
+            // The cash from sales went to reinvest pool, not free cash
+            // Only unspent pool money is "held" but we track actual P/L
+            cumulCashFlow += periodCashFlow - reinvestSpent;
+        } else {
+            cumulCashFlow += periodCashFlow;
+        }
+
+        // Total economic value (include unspent reinvest pool as cash on hand)
+        const totalEconomicValue = cumulCashFlow + reinvestPool + (cumulBtcHeld * btcPrice);
+
+        if (breakEvenPeriod === null && totalEconomicValue >= 0) {
+            breakEvenPeriod = i + 1;
+        }
+
+        // Chart data
+        labels.push(String(i + 1));
+        pnlBtcData.push(periodBTCMined);
+        btcHodlData.push(cumulBtcHeld);
+        usdValueData.push(totalEconomicValue);
+        machinesData.push(activeMachines);
+
+        // Table row
+        tableRows.push({
+            period: i + 1,
+            btcPrice,
+            diffT: difficulty / 1e12,
+            blockReward,
+            machines: activeMachines,
+            machinesBought: machinesBoughtThisPeriod,
+            scheduledAdded: scheduledThisPeriod,
+            retiredThisPeriod,
+            replacedThisPeriod,
+            pnlBtc: periodBTCMined,
+            btcHodlCumul: cumulBtcHeld,
+            usdValue: cumulBtcHeld * btcPrice,
+            elecCost: periodElecCost,
+            netCashFlow: periodCashFlow,
+            cumulPL: totalEconomicValue,
+            isHalving: halvingPeriodIdxs.some(h => h.idx === i)
+        });
+    }
+
+    // Final values
+    const finalBtcPrice = btcPrice0 * Math.pow(1 + priceChangePerPeriod, numPeriods);
+    const heldBtcValue = cumulBtcHeld * finalBtcPrice;
+    const totalPL = cumulCashFlow + heldBtcValue;
+    const roi = totalCapex > 0 ? ((totalPL / totalCapex) * 100) : 0;
+
+    // Day 1 snapshot (always daily, uses initial machine count)
+    const initHashrateH = hashrateTH * machineCount * 1e12;
+    const initPowerKW = powerKW * machineCount;
+    const dailyBTCDay1 = (initHashrateH * SECONDS_PER_DAY * getBlockReward(startDate)) / (difficulty0 * TWO_POW_32);
+    const dailyBTCDay1Net = dailyBTCDay1 * (1 - poolFeePct) * uptimePct;
+    const dailyRevenueDay1 = dailyBTCDay1Net * btcPrice0;
+    const dailyElecDay1 = initPowerKW * 24 * elecCost * uptimePct;
+    const dailyProfitDay1 = dailyRevenueDay1 - dailyElecDay1;
+    const costPerBTC = dailyBTCDay1Net > 0 ? (dailyElecDay1 / dailyBTCDay1Net) : Infinity;
+    const efficiency = hashrateTH > 0 ? ((powerKW * 1000) / hashrateTH) : 0;
+
+    // ===== UPDATE DOM =====
+    document.getElementById('metDailyRev').textContent = fmtUSD(dailyRevenueDay1);
+    document.getElementById('metDailyElec').textContent = fmtUSD(dailyElecDay1);
+
+    const profitEl = document.getElementById('metDailyProfit');
+    profitEl.textContent = fmtUSD(dailyProfitDay1);
+    profitEl.className = 'value ' + (dailyProfitDay1 >= 0 ? 'positive' : 'negative');
+
+    const costBTCEl = document.getElementById('metCostPerBTC');
+    costBTCEl.textContent = fmtUSD(costPerBTC);
+    costBTCEl.className = 'value ' + (costPerBTC <= btcPrice0 ? 'positive' : 'negative');
+
+    document.getElementById('metEfficiency').textContent = efficiency.toFixed(1);
+    document.getElementById('metTotalMined').textContent = fmtBTC(cumulBtcMined);
+    document.getElementById('metTotalHeld').textContent = fmtBTC(cumulBtcHeld);
+
+    const heldValEl = document.getElementById('metHeldValue');
+    heldValEl.textContent = fmtUSD(heldBtcValue);
+    heldValEl.className = 'value btc-orange';
+    document.getElementById('metFinalPrice').textContent = 'at ' + fmtUSD(finalBtcPrice) + '/BTC';
+
+    const plEl = document.getElementById('metTotalPL');
+    plEl.textContent = fmtUSD(totalPL);
+    plEl.className = 'value ' + (totalPL >= 0 ? 'positive' : 'negative');
+    document.getElementById('metROI').textContent = totalCapex > 0 ? (roi >= 0 ? '+' : '') + roi.toFixed(1) + '% ROI' : '';
+
+    const beEl = document.getElementById('metBreakEven');
+    beEl.textContent = breakEvenPeriod !== null ? breakEvenPeriod : 'Never';
+    beEl.className = 'value ' + (breakEvenPeriod !== null ? 'positive' : 'negative');
+
+    // DEBUG: temporary visible diagnostic
+
+    // Total Machines metric (show when fleet changes happen)
+    const machinesCard = document.getElementById('metMachinesCard');
+    const hasGrowth = totalMachinesBought > 0 || totalScheduledAdded > 0 || totalMinersRetired > 0;
+    if (hasGrowth) {
+        machinesCard.style.display = '';
+        document.getElementById('metTotalMachines').textContent = activeMachines;
+        const parts = [];
+        if (totalMachinesBought > 0) parts.push('+' + totalMachinesBought + ' reinvest');
+        if (totalScheduledAdded > 0) parts.push('+' + totalScheduledAdded + ' scheduled');
+        if (totalMinersRetired > 0 && autoReplace) parts.push(totalMinersRetired + ' replaced');
+        else if (totalMinersRetired > 0) parts.push('-' + totalMinersRetired + ' retired');
+        document.getElementById('metMachinesSub').textContent = parts.join(', ');
+    } else {
+        machinesCard.style.display = 'none';
+    }
+
+    // ===== UPDATE CHART =====
+    comboChart.data.labels = labels;
+    comboChart.data.datasets[0].data = pnlBtcData;
+    comboChart.data.datasets[1].data = btcHodlData;
+    comboChart.data.datasets[2].data = usdValueData;
+    comboChart.data.datasets[3].data = machinesData;
+
+    // Show/hide miners dataset + axis based on reinvest mode
+    const showMiners = hasGrowth;
+    comboChart.data.datasets[3].hidden = !showMiners;
+    comboChart.options.scales.yMachines.display = showMiners;
+
+    comboChart.update();
+
+    // ===== UPDATE TABLE =====
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    for (const r of tableRows) {
+        const tr = document.createElement('tr');
+        if (r.isHalving) tr.classList.add('halving-row');
+        tr.innerHTML =
+            '<td>' + r.period + (r.isHalving ? ' <span style="color:#f7931a">&#x26A0; Halving</span>' : '') + '</td>' +
+            '<td>' + fmtUSDFull(r.btcPrice) + '</td>' +
+            '<td>' + r.diffT.toFixed(2) + '</td>' +
+            '<td>' + r.blockReward + ' BTC</td>' +
+            '<td>' + r.machines + (r.retiredThisPeriod > 0 && r.replacedThisPeriod > 0 ? ' <span style="color:#f0883e">(' + r.retiredThisPeriod + ' replaced)</span>' : r.retiredThisPeriod > 0 ? ' <span style="color:#f85149">(-' + r.retiredThisPeriod + ' retired)</span>' : '') + (r.machinesBought > 0 ? ' <span style="color:#3fb950">(+' + r.machinesBought + ')</span>' : '') + (r.scheduledAdded > 0 ? ' <span style="color:#58a6ff">(+' + r.scheduledAdded + ' sched)</span>' : '') + '</td>' +
+            '<td>' + r.pnlBtc.toFixed(8) + '</td>' +
+            '<td>' + r.btcHodlCumul.toFixed(6) + '</td>' +
+            '<td>' + fmtUSDFull(r.usdValue) + '</td>' +
+            '<td style="color:#f85149">' + fmtUSDFull(r.elecCost) + '</td>' +
+            '<td style="color:' + (r.netCashFlow >= 0 ? '#3fb950' : '#f85149') + '">' + fmtUSDFull(r.netCashFlow) + '</td>' +
+            '<td style="color:' + (r.cumulPL >= 0 ? '#3fb950' : '#f85149') + '">' + fmtUSDFull(r.cumulPL) + '</td>';
+        tbody.appendChild(tr);
+    }
+
+    // Persist all settings
+    saveSettings();
+}
+
+// ===== EVENT LISTENERS =====
+inputIds.forEach(id => {
+    document.getElementById(id).addEventListener('input', recalculate);
+});
+
+periodLengthSel.addEventListener('change', recalculate);
+
+additionCapexToggle.addEventListener('change', () => {
+    additionCapexRow.classList.toggle('active', additionCapexToggle.checked);
+    recalculate();
+});
+
+reinvestToggle.addEventListener('change', () => {
+    reinvestRow.classList.toggle('active', reinvestToggle.checked);
+    recalculate();
+});
+
+savingsElecToggle.addEventListener('change', () => {
+    savingsElecRow.classList.toggle('active', savingsElecToggle.checked);
+    const disabled = savingsElecToggle.checked;
+    hodlSlider.disabled = disabled;
+    el.hodlRatio.disabled = disabled;
+    hodlSlider.style.opacity = disabled ? '0.4' : '1';
+    el.hodlRatio.style.opacity = disabled ? '0.4' : '1';
+    recalculate();
+});
+
+autoReplaceToggle.addEventListener('change', () => {
+    autoReplaceRow.classList.toggle('active', autoReplaceToggle.checked);
+    recalculate();
+});
+
+hodlSlider.addEventListener('input', () => {
+    el.hodlRatio.value = hodlSlider.value;
+    recalculate();
+});
+el.hodlRatio.addEventListener('input', () => {
+    hodlSlider.value = el.hodlRatio.value;
+});
+
+document.getElementById('toggleTable').addEventListener('click', function() {
+    const tc = document.getElementById('tableContainer');
+    const showing = tc.style.display !== 'none';
+    tc.style.display = showing ? 'none' : 'block';
+    this.textContent = showing ? 'Show Period Breakdown' : 'Hide Period Breakdown';
+});
+
+document.getElementById('resetDefaults').addEventListener('click', () => {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+});
+
+// ===== PWA SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js?v=6').catch(() => {});
+}
+
+// ===== INIT =====
+initChart();
+loadSettings();
+recalculate();
+fetchLiveData().then(() => recalculate());
+</script>
+
+</body>
+</html>
