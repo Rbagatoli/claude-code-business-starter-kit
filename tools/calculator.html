@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Calculator</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=52">
+    <link rel="stylesheet" href="./shared.css?v=53">
     <script>
     // Force-clear old service workers and caches (runs before any external scripts)
-    if (!localStorage.getItem('sw_clean_v52') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v53') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v52', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v53', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=52"></script>
+    <script src="./chart.min.js?v=53"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -318,7 +318,7 @@
     </div>
 
     <!-- ===== MINER COMPARISON TOOL ===== -->
-    <div class="card">
+    <div class="card" style="position:relative; z-index:10;">
         <h3>Miner Comparison</h3>
         <p style="font-size:12px; color:#888; margin-bottom:12px;">Compare miners side-by-side at your current electricity rate.</p>
         <div class="inputs-grid" style="margin-bottom:16px;">
@@ -375,10 +375,10 @@
     Disclaimer: This calculator provides estimates only. Not financial advice.
 </footer>
 
-<script src="./shared.js?v=52"></script>
-<script src="./fleet-data.js?v=52"></script>
-<script src="./miner-db.js?v=52"></script>
-<script src="./calculator.js?v=52"></script>
-<script src="./alerts.js?v=52"></script>
+<script src="./shared.js?v=53"></script>
+<script src="./fleet-data.js?v=53"></script>
+<script src="./miner-db.js?v=53"></script>
+<script src="./calculator.js?v=53"></script>
+<script src="./alerts.js?v=53"></script>
 </body>
 </html>

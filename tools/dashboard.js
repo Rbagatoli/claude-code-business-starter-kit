@@ -741,5 +741,5 @@ function updateEarningsChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=52').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=53').catch(function() {});
 }

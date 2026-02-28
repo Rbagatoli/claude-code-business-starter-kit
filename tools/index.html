@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Dashboard</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=52">
+    <link rel="stylesheet" href="./shared.css?v=53">
     <script>
-    if (!localStorage.getItem('sw_clean_v52') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v53') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v52', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v53', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=52"></script>
+    <script src="./chart.min.js?v=53"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -250,10 +250,10 @@
     <span style="font-size:11px; color:#555;">Data updates when you refresh. Connect F2Pool API for live data.</span>
 </footer>
 
-<script src="./shared.js?v=52"></script>
-<script src="./fleet-data.js?v=52"></script>
-<script src="./miner-db.js?v=52"></script>
-<script src="./dashboard.js?v=52"></script>
-<script src="./alerts.js?v=52"></script>
+<script src="./shared.js?v=53"></script>
+<script src="./fleet-data.js?v=53"></script>
+<script src="./miner-db.js?v=53"></script>
+<script src="./dashboard.js?v=53"></script>
+<script src="./alerts.js?v=53"></script>
 </body>
 </html>
