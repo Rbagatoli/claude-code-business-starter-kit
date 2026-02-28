@@ -7,10 +7,16 @@ var MinerDB = (function() {
     var database = [
         // --- Bitmain Antminer S21 Series ---
         { model: 'Antminer S21 XP Hyd.',  hashrate: 473, power: 5.676, cost: 13500, efficiency: 12.0 },
+        { model: 'Antminer S21+ Hyd.',    hashrate: 395, power: 5.925, cost: 2649,  efficiency: 15.0 },
         { model: 'Antminer S21 Hyd.',     hashrate: 335, power: 5.360, cost: 9000,  efficiency: 16.0 },
-        { model: 'Antminer S21e Hyd.',   hashrate: 332, power: 5.644, cost: 2070,  efficiency: 17.0 },
+        { model: 'Antminer S21e Hyd.',    hashrate: 332, power: 5.644, cost: 2070,  efficiency: 17.0 },
+        { model: 'Antminer S21 XP',       hashrate: 270, power: 3.645, cost: 3010,  efficiency: 13.5 },
         { model: 'Antminer S21 Pro',      hashrate: 234, power: 3.510, cost: 4260,  efficiency: 15.0 },
+        { model: 'Antminer S21+',         hashrate: 216, power: 3.564, cost: 2204,  efficiency: 16.5 },
         { model: 'Antminer S21',          hashrate: 200, power: 3.500, cost: 3200,  efficiency: 17.5 },
+
+        // --- Bitmain Antminer T21 Series ---
+        { model: 'Antminer T21',          hashrate: 190, power: 3.610, cost: 2394,  efficiency: 19.0 },
 
         // --- Bitmain Antminer S19 Series ---
         { model: 'Antminer S19 XP Hyd.',  hashrate: 257, power: 5.345, cost: 6000,  efficiency: 20.8 },

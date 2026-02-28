@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="./shared.css">
     <script>
     // Force-clear old service workers and caches (runs before any external scripts)
-    if (!localStorage.getItem('sw_clean_v37') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v38') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v37', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v38', '1'); location.reload(); });
         });
     }
     </script>
