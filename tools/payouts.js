@@ -388,9 +388,8 @@ function initPayoutChart() {
         }
     });
 
-    if (chartData.labels.length === 0) {
-        ctx.parentElement.innerHTML = '<div style="text-align:center; padding:40px; color:#555;">Add payouts to see the chart</div>';
-    }
+    var emptyMsg = document.getElementById('chartEmptyMsg');
+    if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
 }
 
 function generatePayoutChartData() {
@@ -429,9 +428,11 @@ function updatePayoutChart() {
     payoutChart.data.datasets[0].data = chartData.btcValues;
     payoutChart.data.datasets[1].data = chartData.usdValues;
     payoutChart.update();
+    var emptyMsg = document.getElementById('chartEmptyMsg');
+    if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
 }
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=29').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=30').catch(function() {});
 }

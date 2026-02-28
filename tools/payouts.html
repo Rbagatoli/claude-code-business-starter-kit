@@ -7,11 +7,11 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./shared.css">
     <script>
-    if (!localStorage.getItem('sw_clean_v29') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v30') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v29', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v30', '1'); location.reload(); });
         });
     }
     </script>
@@ -167,7 +167,8 @@
     <!-- ===== EARNINGS OVER TIME CHART ===== -->
     <div class="card">
         <h3>Cumulative Payouts Over Time</h3>
-        <div class="earnings-chart-container">
+        <div class="earnings-chart-container" style="position:relative;">
+            <div id="chartEmptyMsg" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts to see the chart</div>
             <canvas id="earningsOverTimeChart"></canvas>
         </div>
     </div>
