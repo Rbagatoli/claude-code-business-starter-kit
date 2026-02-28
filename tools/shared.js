@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v33')) return;
+    if (localStorage.getItem('sw_clean_v34')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v33', '1');
+            localStorage.setItem('sw_clean_v34', '1');
             location.reload();
         });
     });
@@ -25,7 +25,7 @@ function initNav(activePage) {
     var labels = mobile ? ['Calc', 'Home', 'Data', 'Pay'] : ['Calculator', 'Dashboard', 'Data', 'Payouts'];
     nav.innerHTML =
         '<a class="ion-nav-brand" href="./index.html">' +
-            '<span class="icon">\u269B</span>' +
+            '<span class="icon"><svg width="24" height="24" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="8" fill="#f7931a"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(120 50 50)"/></svg></span>' +
             '<span class="name">Ion Mining Group</span>' +
         '</a>' +
         '<div class="ion-nav-tabs">' +

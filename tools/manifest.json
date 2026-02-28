@@ -9,7 +9,7 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23060606'/><text x='256' y='360' font-size='320' text-anchor='middle' fill='%23f7931a' font-family='Arial,sans-serif' font-weight='bold'>⚡</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23060606'/><circle cx='256' cy='256' r='28' fill='%23f7931a'/><ellipse cx='256' cy='256' rx='120' ry='44' fill='none' stroke='%23f7931a' stroke-width='10'/><ellipse cx='256' cy='256' rx='120' ry='44' fill='none' stroke='%23f7931a' stroke-width='10' transform='rotate(60 256 256)'/><ellipse cx='256' cy='256' rx='120' ry='44' fill='none' stroke='%23f7931a' stroke-width='10' transform='rotate(120 256 256)'/></svg>",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
