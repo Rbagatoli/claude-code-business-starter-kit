@@ -6,6 +6,7 @@ var editingMinerId = null;
 var liveBtcPrice = null;
 var liveDifficulty = null;
 var expandedGroups = new Set();
+var liveDiffAdjustment = null;
 
 const SECONDS_PER_DAY = 86400;
 const TWO_POW_32 = 4294967296;
@@ -22,6 +23,7 @@ initNav('dashboard');
     if (data.difficulty) liveDifficulty = data.difficulty;
     else liveDifficulty = 125.86;
     await loadF2PoolData();
+    await fetchDifficultyAdjustment();
     renderDashboard();
     initEarningsChart();
     initMinerDbAutocomplete();
@@ -83,6 +85,54 @@ function renderDashboard() {
 
     // Render payment tracker
     renderPaymentTracker();
+
+    // Render difficulty adjustment countdown
+    renderDifficultyStatus();
+}
+
+// ===== DIFFICULTY ADJUSTMENT =====
+async function fetchDifficultyAdjustment() {
+    try {
+        var resp = await fetch('https://mempool.space/api/v1/difficulty-adjustment');
+        if (resp.ok) liveDiffAdjustment = await resp.json();
+    } catch (e) { /* silent fail — cards stay at "--" */ }
+}
+
+function renderDifficultyStatus() {
+    if (!liveDiffAdjustment) return;
+    var d = liveDiffAdjustment;
+
+    // Blocks remaining
+    document.getElementById('diffBlocks').textContent = (d.remainingBlocks || 0).toLocaleString();
+    document.getElementById('diffProgress').textContent = (d.progressPercent || 0).toFixed(1) + '% complete';
+
+    // Time remaining
+    var ms = d.remainingTime || 0;
+    var days = Math.floor(ms / 86400000);
+    var hrs = Math.floor((ms % 86400000) / 3600000);
+    document.getElementById('diffTime').textContent = days + 'd ' + hrs + 'h';
+
+    // Retarget date
+    if (d.estimatedRetargetDate) {
+        var dt = new Date(d.estimatedRetargetDate);
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        document.getElementById('diffDate').textContent = months[dt.getMonth()] + ' ' + dt.getDate();
+    }
+
+    // Difficulty change %
+    var change = d.difficultyChange || 0;
+    var changeEl = document.getElementById('diffChange');
+    var sign = change >= 0 ? '+' : '';
+    changeEl.textContent = sign + change.toFixed(2) + '%';
+    changeEl.className = 'value ' + (change >= 0 ? 'negative' : 'positive');
+
+    // Current difficulty
+    if (liveDifficulty) {
+        document.getElementById('diffCurrent').textContent = liveDifficulty.toFixed(2) + 'T';
+    }
+
+    // Progress bar
+    document.getElementById('diffProgressBar').style.width = (d.progressPercent || 0).toFixed(1) + '%';
 }
 
 function renderPaymentTracker() {
@@ -739,5 +789,5 @@ function updateEarningsChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=38').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=39').catch(function() {});
 }
