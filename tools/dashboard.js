@@ -18,8 +18,8 @@ initNav('dashboard');
 // Load live data, then render
 (async function() {
     var data = await fetchLiveMarketData();
-    if (data.price) liveBtcPrice = data.price;
-    else liveBtcPrice = 96000;
+    liveBtcPrice = data.price || 96000;
+    window.onCurrencyChange = function() { renderDashboard(); };
     if (data.difficulty) liveDifficulty = data.difficulty;
     else liveDifficulty = 125.86;
     await loadF2PoolData();
@@ -741,5 +741,5 @@ function updateEarningsChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=47').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=48').catch(function() {});
 }

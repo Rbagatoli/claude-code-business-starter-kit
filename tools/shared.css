@@ -102,6 +102,28 @@ body > * { position: relative; z-index: 1; }
     color: #f7931a;
 }
 
+/* Nav actions (currency + bell) */
+.ion-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: end;
+}
+.ion-currency-select {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e8e8e8;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    outline: none;
+}
+.ion-currency-select:hover { border-color: rgba(247, 147, 26, 0.4); }
+.ion-currency-select:focus { border-color: #f7931a; }
+.ion-currency-select option { background: #1a1a1a; color: #e8e8e8; }
+
 /* Mobile nav — prevent overflow that breaks page layout */
 @media (max-width: 600px) {
     body { overflow-x: hidden; }
@@ -110,6 +132,7 @@ body > * { position: relative; z-index: 1; }
     .ion-nav-brand .icon { font-size: 20px; }
     .ion-nav-tabs { gap: 2px; min-width: 0; }
     .ion-nav-tabs a { padding: 5px 8px; font-size: 11px; }
+    .ion-currency-select { font-size: 11px; padding: 3px 4px; }
 }
 
 /* ===== MAIN LAYOUT ===== */
@@ -1063,3 +1086,44 @@ footer {
     transition: color 0.2s;
 }
 .delete-payout:hover { color: #ff6b6b; }
+
+/* ===== PROFITABILITY HEATMAP ===== */
+.heatmap-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.heatmap-table th { padding: 6px 4px; color: #888; font-weight: 500; font-size: 10px; text-align: center; white-space: nowrap; }
+.heatmap-table td { padding: 5px 4px; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.heatmap-label { color: #888; font-weight: 500; text-align: right !important; }
+.hm-cell { border-radius: 3px; font-size: 10px; }
+.hm-strong-profit { background: rgba(74, 222, 128, 0.25); color: #4ade80; }
+.hm-profit { background: rgba(74, 222, 128, 0.12); color: #86efac; }
+.hm-breakeven { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.hm-loss { background: rgba(239, 68, 68, 0.12); color: #fca5a5; }
+.hm-strong-loss { background: rgba(239, 68, 68, 0.25); color: #ef4444; }
+.hm-current { outline: 2px solid #f7931a; outline-offset: -1px; font-weight: 700; }
+
+/* ===== MINER COMPARISON DROPDOWN ===== */
+.miner-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(247, 147, 26, 0.3);
+    border-radius: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    display: none;
+}
+.miner-dropdown-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    font-size: 13px;
+    color: #e8e8e8;
+    transition: background 0.15s;
+}
+.miner-dropdown-item:last-child { border-bottom: none; }
+.miner-dropdown-item:hover { background: rgba(247, 147, 26, 0.15); }

@@ -640,6 +640,10 @@ function recalculate() {
         tbody.appendChild(tr);
     }
 
+    // Render heatmap with current values
+    renderHeatmap(btcPrice0, elecCost, hashrateTH, powerKW, machineCount, poolFeePct, uptimePct, difficulty0);
+    renderComparison();
+
     // Persist (only if not using fleet data for locked fields)
     if (!useFleetToggle.checked) saveSettings();
 }
@@ -682,15 +686,170 @@ document.getElementById('resetDefaults').addEventListener('click', () => {
     location.reload();
 });
 
+// ===== PROFITABILITY HEATMAP =====
+function renderHeatmap(btcPrice0, elecCost, hashrateTH, powerKW, machineCount, poolFeePct, uptimePct, difficulty0) {
+    var container = document.getElementById('heatmapContainer');
+    if (!container) return;
+
+    var blockReward = getBlockReward(new Date());
+    var hashrateH = hashrateTH * 1e12;
+    var dailyBTCNet = (hashrateH * SECONDS_PER_DAY * blockReward) / (difficulty0 * TWO_POW_32) * (1 - poolFeePct) * uptimePct * machineCount;
+
+    // Build price columns: 60% to 140% of current price in ~10 steps
+    var pMin = Math.floor(btcPrice0 * 0.6 / 5000) * 5000;
+    var pMax = Math.ceil(btcPrice0 * 1.4 / 5000) * 5000;
+    if (pMin < 5000) pMin = 5000;
+    var prices = [];
+    for (var p = pMin; p <= pMax; p += 5000) prices.push(p);
+
+    // Build electricity rows: $0.02 to $0.15
+    var elecRates = [];
+    for (var e = 0.02; e <= 0.151; e += 0.01) elecRates.push(Math.round(e * 100) / 100);
+
+    var sym = getCurrencySymbol();
+    var html = '<table class="heatmap-table"><thead><tr><th>' + sym + '/kWh</th>';
+    for (var c = 0; c < prices.length; c++) {
+        html += '<th>' + sym + (prices[c] / 1000).toFixed(0) + 'k</th>';
+    }
+    html += '</tr></thead><tbody>';
+
+    for (var r = 0; r < elecRates.length; r++) {
+        html += '<tr><td class="heatmap-label">' + sym + elecRates[r].toFixed(2) + '</td>';
+        for (var j = 0; j < prices.length; j++) {
+            var dailyRev = dailyBTCNet * prices[j];
+            var dailyElec = powerKW * 24 * elecRates[r] * uptimePct * machineCount;
+            var profit = dailyRev - dailyElec;
+            var isCurrentPos = Math.abs(prices[j] - btcPrice0) < 2500 && Math.abs(elecRates[r] - elecCost) < 0.005;
+            var cls = profit > 0 ? (profit > dailyElec ? 'hm-strong-profit' : 'hm-profit') : (profit < -dailyElec * 0.5 ? 'hm-strong-loss' : 'hm-loss');
+            if (Math.abs(profit) < dailyElec * 0.1) cls = 'hm-breakeven';
+            html += '<td class="hm-cell ' + cls + (isCurrentPos ? ' hm-current' : '') + '">' + fmtUSD(profit) + '</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// ===== MINER COMPARISON TOOL =====
+var compareAMiner = null;
+var compareBMiner = null;
+
+function initMinerComparison() {
+    var inputA = document.getElementById('compareA');
+    var inputB = document.getElementById('compareB');
+    var dropA = document.getElementById('compareADropdown');
+    var dropB = document.getElementById('compareBDropdown');
+    if (!inputA || !inputB) return;
+
+    function setupDropdown(input, dropdown, setter) {
+        input.addEventListener('input', function() {
+            var query = this.value.trim();
+            if (query.length < 1) { dropdown.style.display = 'none'; return; }
+            var results = MinerDB.search(query).slice(0, 8);
+            if (results.length === 0) { dropdown.style.display = 'none'; return; }
+            var html = '';
+            for (var i = 0; i < results.length; i++) {
+                html += '<div class="miner-dropdown-item" data-idx="' + i + '">' + results[i].model + ' <span style="color:#888; font-size:11px;">' + results[i].hashrate + ' TH/s | ' + results[i].power + ' kW</span></div>';
+            }
+            dropdown.innerHTML = html;
+            dropdown.style.display = 'block';
+            var items = dropdown.querySelectorAll('.miner-dropdown-item');
+            for (var j = 0; j < items.length; j++) {
+                (function(item, idx) {
+                    item.addEventListener('click', function() {
+                        var miner = results[idx];
+                        input.value = miner.model;
+                        setter(miner);
+                        dropdown.style.display = 'none';
+                        renderComparison();
+                    });
+                })(items[j], j);
+            }
+        });
+        input.addEventListener('blur', function() { setTimeout(function() { dropdown.style.display = 'none'; }, 200); });
+    }
+
+    setupDropdown(inputA, dropA, function(m) { compareAMiner = m; });
+    setupDropdown(inputB, dropB, function(m) { compareBMiner = m; });
+}
+
+function renderComparison() {
+    var container = document.getElementById('comparisonResults');
+    if (!container || (!compareAMiner && !compareBMiner)) { if (container) container.innerHTML = ''; return; }
+
+    var btcPrice = parseFloat(el.btcPrice.value) || 96000;
+    var elecCost = parseFloat(el.elecCost.value) || 0.07;
+    var poolFee = (parseFloat(el.poolFee.value) || 0) / 100;
+    var uptime = (parseFloat(el.uptime.value) || 100) / 100;
+    var diff = (parseFloat(el.difficulty.value) || 125.86) * 1e12;
+    var blockReward = getBlockReward(new Date());
+
+    function calcMiner(m) {
+        if (!m) return null;
+        var hH = m.hashrate * 1e12;
+        var dailyBTC = (hH * SECONDS_PER_DAY * blockReward) / (diff * TWO_POW_32) * (1 - poolFee) * uptime;
+        var dailyRev = dailyBTC * btcPrice;
+        var dailyElec = m.power * 24 * elecCost * uptime;
+        var dailyProfit = dailyRev - dailyElec;
+        var breakeven = dailyProfit > 0 ? Math.ceil(m.cost / dailyProfit) : Infinity;
+        var roi12m = m.cost > 0 ? ((dailyProfit * 365 - m.cost) / m.cost * 100) : 0;
+        return { model: m.model, hashrate: m.hashrate, power: m.power, cost: m.cost, efficiency: m.efficiency, dailyBTC: dailyBTC, dailyRev: dailyRev, dailyElec: dailyElec, dailyProfit: dailyProfit, breakeven: breakeven, roi12m: roi12m };
+    }
+
+    var a = calcMiner(compareAMiner);
+    var b = calcMiner(compareBMiner);
+
+    function row(label, valA, valB, higherBetter) {
+        var aWin = '', bWin = '';
+        if (a && b) {
+            if (higherBetter) { if (valA > valB) aWin = ' style="color:#4ade80"'; else if (valB > valA) bWin = ' style="color:#4ade80"'; }
+            else { if (valA < valB) aWin = ' style="color:#4ade80"'; else if (valB < valA) bWin = ' style="color:#4ade80"'; }
+        }
+        return '<tr><td style="color:#888;">' + label + '</td>' +
+            '<td' + aWin + '>' + (a ? formatVal(label, valA) : '--') + '</td>' +
+            '<td' + bWin + '>' + (b ? formatVal(label, valB) : '--') + '</td></tr>';
+    }
+
+    function formatVal(label, v) {
+        if (label === 'Hashrate') return v + ' TH/s';
+        if (label === 'Power') return v + ' kW';
+        if (label === 'Cost') return fmtUSD(v);
+        if (label === 'Efficiency') return v + ' J/TH';
+        if (label === 'Daily BTC') return fmtBTC(v, 8);
+        if (label === 'Daily Revenue') return fmtUSD(v);
+        if (label === 'Daily Elec.') return fmtUSD(v);
+        if (label === 'Daily Profit') return fmtUSD(v);
+        if (label === 'Breakeven') return v === Infinity ? 'Never' : v + ' days';
+        if (label === '12-Mo ROI') return v.toFixed(1) + '%';
+        return v;
+    }
+
+    var html = '<div class="table-scroll"><table><thead><tr><th>Metric</th><th>' + (a ? a.model : 'Miner A') + '</th><th>' + (b ? b.model : 'Miner B') + '</th></tr></thead><tbody>' +
+        row('Hashrate', a ? a.hashrate : 0, b ? b.hashrate : 0, true) +
+        row('Power', a ? a.power : 0, b ? b.power : 0, false) +
+        row('Cost', a ? a.cost : 0, b ? b.cost : 0, false) +
+        row('Efficiency', a ? a.efficiency : 0, b ? b.efficiency : 0, false) +
+        row('Daily BTC', a ? a.dailyBTC : 0, b ? b.dailyBTC : 0, true) +
+        row('Daily Revenue', a ? a.dailyRev : 0, b ? b.dailyRev : 0, true) +
+        row('Daily Elec.', a ? a.dailyElec : 0, b ? b.dailyElec : 0, false) +
+        row('Daily Profit', a ? a.dailyProfit : 0, b ? b.dailyProfit : 0, true) +
+        row('Breakeven', a ? a.breakeven : Infinity, b ? b.breakeven : Infinity, false) +
+        row('12-Mo ROI', a ? a.roi12m : 0, b ? b.roi12m : 0, true) +
+        '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=47').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=48').catch(() => {});
 }
 
 // ===== INIT =====
 initNav('calculator');
 initChart();
 loadSettings();
+initMinerComparison();
+window.onCurrencyChange = function() { recalculate(); };
 
 // Restore fleet toggle state
 var ionSettings = FleetData.getSettings();

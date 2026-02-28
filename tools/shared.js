@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v47')) return;
+    if (localStorage.getItem('sw_clean_v48')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,11 +10,42 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v47', '1');
+            localStorage.setItem('sw_clean_v48', '1');
             location.reload();
         });
     });
 })();
+
+// --- Currency System ---
+var CURRENCY_CONFIG = {
+    usd: { symbol: '$', name: 'USD', decimals: 2 },
+    eur: { symbol: '\u20ac', name: 'EUR', decimals: 2 },
+    gbp: { symbol: '\u00a3', name: 'GBP', decimals: 2 },
+    cad: { symbol: 'C$', name: 'CAD', decimals: 2 },
+    aud: { symbol: 'A$', name: 'AUD', decimals: 2 },
+    jpy: { symbol: '\u00a5', name: 'JPY', decimals: 0 }
+};
+window.selectedCurrency = localStorage.getItem('ionMiningCurrency') || 'usd';
+window.liveBtcPrices = {};
+window.onCurrencyChange = null;
+
+function getCurrencySymbol() {
+    var c = CURRENCY_CONFIG[window.selectedCurrency];
+    return c ? c.symbol : '$';
+}
+function getCurrencyDecimals() {
+    var c = CURRENCY_CONFIG[window.selectedCurrency];
+    return (c && c.decimals !== undefined) ? c.decimals : 2;
+}
+function switchCurrency(code) {
+    if (!CURRENCY_CONFIG[code]) return;
+    window.selectedCurrency = code;
+    localStorage.setItem('ionMiningCurrency', code);
+    if (window.liveBtcPrices[code]) {
+        window.liveBtcPrice = window.liveBtcPrices[code];
+    }
+    if (typeof window.onCurrencyChange === 'function') window.onCurrencyChange();
+}
 
 // --- Nav Renderer ---
 function initNav(activePage) {
@@ -35,10 +66,23 @@ function initNav(activePage) {
             '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[3] + '</a>' +
             '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[4] + '</a>' +
         '</div>' +
-        '<button class="ion-nav-bell" onclick="window.toggleAlertSidebar && window.toggleAlertSidebar()">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
-            '<span class="ion-nav-bell-badge" id="alertBellBadge" style="display:none">0</span>' +
-        '</button>';
+        '<div class="ion-nav-actions">' +
+            '<select class="ion-currency-select" id="currencySelect">' +
+                (function() {
+                    var opts = '';
+                    for (var k in CURRENCY_CONFIG) {
+                        opts += '<option value="' + k + '"' + (k === window.selectedCurrency ? ' selected' : '') + '>' + CURRENCY_CONFIG[k].name + '</option>';
+                    }
+                    return opts;
+                })() +
+            '</select>' +
+            '<button class="ion-nav-bell" onclick="window.toggleAlertSidebar && window.toggleAlertSidebar()">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+                '<span class="ion-nav-bell-badge" id="alertBellBadge" style="display:none">0</span>' +
+            '</button>' +
+        '</div>';
+    var sel = document.getElementById('currencySelect');
+    if (sel) sel.addEventListener('change', function() { switchCurrency(this.value); });
 }
 
 // --- Swipe / Slide Page Navigation ---
@@ -97,15 +141,17 @@ function initNav(activePage) {
     }, { passive: true });
 })();
 
-// --- Format Helpers ---
+// --- Format Helpers (currency-aware) ---
 function fmtUSD(v) {
     if (!isFinite(v)) return 'N/A';
+    var sym = getCurrencySymbol();
+    var dec = getCurrencyDecimals();
     var neg = v < 0;
     var abs = Math.abs(v);
     var str;
-    if (abs >= 1e6) str = '$' + (abs / 1e6).toFixed(2) + 'M';
-    else if (abs >= 1e4) str = '$' + abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    else str = '$' + abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (abs >= 1e6) str = sym + (abs / 1e6).toFixed(dec > 0 ? 2 : 0) + 'M';
+    else if (abs >= 1e4 || dec === 0) str = sym + abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    else str = sym + abs.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
     return neg ? '-' + str : str;
 }
 
@@ -117,34 +163,47 @@ function fmtBTC(v, decimals) {
 
 function fmtUSDFull(v) {
     if (!isFinite(v)) return 'N/A';
+    var sym = getCurrencySymbol();
+    var dec = getCurrencyDecimals();
     var neg = v < 0;
-    var str = '$' + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var str = sym + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
     return neg ? '-' + str : str;
 }
 
-// --- Live Market Data ---
+// --- Live Market Data (multi-currency) ---
 async function fetchLiveMarketData() {
-    var result = { price: null, difficulty: null };
+    var result = { price: null, prices: {}, difficulty: null };
 
-    // Fetch BTC price — try CoinGecko first, fall back to CryptoCompare
+    // Fetch BTC prices in all supported currencies
     try {
-        var priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        var priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur,gbp,cad,aud,jpy');
         if (priceRes.ok) {
             var priceData = await priceRes.json();
-            var price = priceData?.bitcoin?.usd;
-            if (price && price > 0) result.price = Math.round(price);
+            var btc = priceData && priceData.bitcoin;
+            if (btc) {
+                for (var cur in CURRENCY_CONFIG) {
+                    if (btc[cur] && btc[cur] > 0) result.prices[cur] = Math.round(btc[cur]);
+                }
+                result.price = result.prices[window.selectedCurrency] || result.prices.usd || null;
+            }
         }
     } catch (e) {}
 
+    // Fallback: CryptoCompare (USD only)
     if (!result.price) {
         try {
             var fallbackRes = await fetch('https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD');
             if (fallbackRes.ok) {
                 var fallbackData = await fallbackRes.json();
-                if (fallbackData?.USD > 0) result.price = Math.round(fallbackData.USD);
+                if (fallbackData && fallbackData.USD > 0) {
+                    result.prices.usd = Math.round(fallbackData.USD);
+                    result.price = result.prices.usd;
+                }
             }
         } catch (e) {}
     }
+
+    window.liveBtcPrices = result.prices;
 
     // Fetch network difficulty
     try {

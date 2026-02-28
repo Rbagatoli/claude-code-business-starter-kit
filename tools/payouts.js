@@ -10,10 +10,12 @@ initNav('payouts');
 (async function() {
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
+    window.onCurrencyChange = function() { renderPayoutPage(); };
     checkAndLogDailySnapshot();
     await syncF2PoolPayouts();
     renderPayoutPage();
     initPayoutChart();
+    initRevCostChart();
 })();
 
 // ===== PAYOUT DATA MODULE =====
@@ -79,6 +81,66 @@ var PayoutData = (function() {
         addPayout: addPayout,
         removePayout: removePayout,
         hasPayoutWithTxHash: hasPayoutWithTxHash
+    };
+})();
+
+// ===== ELECTRICITY DATA MODULE =====
+var ElectricityData = (function() {
+    var ELEC_KEY = 'ionMiningElectricity';
+
+    function getData() {
+        try {
+            var raw = localStorage.getItem(ELEC_KEY);
+            if (!raw) return [];
+            var parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch(e) { return []; }
+    }
+
+    function saveData(entries) {
+        try { localStorage.setItem(ELEC_KEY, JSON.stringify(entries)); } catch(e) {}
+    }
+
+    function addEntry(entry) {
+        var entries = getData();
+        entry.id = 'elec_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        entry.effectiveRate = entry.kwhUsed > 0 ? entry.costUSD / entry.kwhUsed : 0;
+        entries.push(entry);
+        saveData(entries);
+        return entry;
+    }
+
+    function removeEntry(id) {
+        var entries = getData();
+        var filtered = [];
+        for (var i = 0; i < entries.length; i++) {
+            if (entries[i].id !== id) filtered.push(entries[i]);
+        }
+        saveData(filtered);
+    }
+
+    function getSummary() {
+        var entries = getData();
+        var totalCost = 0, totalKWh = 0;
+        for (var i = 0; i < entries.length; i++) {
+            totalCost += entries[i].costUSD;
+            totalKWh += entries[i].kwhUsed;
+        }
+        var months = entries.length || 1;
+        return {
+            totalCost: totalCost,
+            totalKWh: totalKWh,
+            avgMonthly: totalCost / months,
+            effectiveRate: totalKWh > 0 ? totalCost / totalKWh : 0,
+            count: entries.length
+        };
+    }
+
+    return {
+        getData: getData,
+        addEntry: addEntry,
+        removeEntry: removeEntry,
+        getSummary: getSummary
     };
 })();
 
@@ -208,6 +270,58 @@ function renderPayoutPage() {
     }
 
     renderPayoutTable();
+    renderElectricitySummary();
+    renderElectricityTable();
+}
+
+// ===== ELECTRICITY RENDER =====
+function renderElectricitySummary() {
+    var sum = ElectricityData.getSummary();
+    document.getElementById('elecTotalCost').textContent = fmtUSD(sum.totalCost);
+    document.getElementById('elecAvgMonthly').textContent = fmtUSD(sum.avgMonthly);
+    document.getElementById('elecTotalKWh').textContent = sum.totalKWh.toLocaleString() + ' kWh';
+    document.getElementById('elecEffRate').textContent = '$' + sum.effectiveRate.toFixed(4) + '/kWh';
+}
+
+function renderElectricityTable() {
+    var entries = ElectricityData.getData();
+    var tbody = document.getElementById('elecTableBody');
+
+    if (entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No electricity bills logged yet</td></tr>';
+        return;
+    }
+
+    var sorted = entries.slice().sort(function(a, b) {
+        return new Date(b.date) - new Date(a.date);
+    });
+
+    var html = '';
+    for (var i = 0; i < sorted.length; i++) {
+        var e = sorted[i];
+        html += '<tr>' +
+            '<td>' + e.date + '</td>' +
+            '<td>' + e.kwhUsed.toLocaleString() + '</td>' +
+            '<td style="color:#ef4444">' + fmtUSD(e.costUSD) + '</td>' +
+            '<td>$' + e.effectiveRate.toFixed(4) + '</td>' +
+            '<td>' + (e.notes || '--') + '</td>' +
+            '<td><button class="delete-elec" data-id="' + e.id + '">&times;</button></td>' +
+        '</tr>';
+    }
+    tbody.innerHTML = html;
+
+    var btns = tbody.querySelectorAll('.delete-elec');
+    for (var j = 0; j < btns.length; j++) {
+        (function(btn) {
+            btn.addEventListener('click', function() {
+                if (confirm('Delete this electricity entry?')) {
+                    ElectricityData.removeEntry(btn.getAttribute('data-id'));
+                    renderPayoutPage();
+                    updateRevCostChart();
+                }
+            });
+        })(btns[j]);
+    }
 }
 
 function renderPayoutTable() {
@@ -260,6 +374,42 @@ function renderPayoutTable() {
 // ===== PANEL HANDLERS =====
 var addPayoutPanel = document.getElementById('addPayoutPanel');
 var exportPanel = document.getElementById('exportPanel');
+var addBillPanel = document.getElementById('addBillPanel');
+
+// -- Add Bill panel --
+document.getElementById('btnAddBill').addEventListener('click', function() {
+    document.getElementById('fbDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fbKwh').value = '';
+    document.getElementById('fbCost').value = '';
+    document.getElementById('fbNotes').value = '';
+    addPayoutPanel.classList.remove('open');
+    exportPanel.classList.remove('open');
+    addBillPanel.classList.toggle('open');
+});
+
+document.getElementById('cancelBill').addEventListener('click', function() {
+    addBillPanel.classList.remove('open');
+});
+
+document.getElementById('saveBill').addEventListener('click', function() {
+    var date = document.getElementById('fbDate').value;
+    var kwhUsed = parseFloat(document.getElementById('fbKwh').value);
+    var costUSD = parseFloat(document.getElementById('fbCost').value);
+    var notes = document.getElementById('fbNotes').value.trim();
+
+    if (!date || !kwhUsed || kwhUsed <= 0 || !costUSD || costUSD <= 0) return;
+
+    ElectricityData.addEntry({
+        date: date,
+        kwhUsed: kwhUsed,
+        costUSD: costUSD,
+        notes: notes
+    });
+
+    addBillPanel.classList.remove('open');
+    renderPayoutPage();
+    updateRevCostChart();
+});
 
 document.getElementById('btnAddPayout').addEventListener('click', function() {
     document.getElementById('fpDate').value = new Date().toISOString().split('T')[0];
@@ -268,6 +418,7 @@ document.getElementById('btnAddPayout').addEventListener('click', function() {
     document.getElementById('fpTxHash').value = '';
     document.getElementById('fpNotes').value = '';
     exportPanel.classList.remove('open');
+    addBillPanel.classList.remove('open');
     addPayoutPanel.classList.toggle('open');
 });
 
@@ -509,7 +660,132 @@ function updatePayoutChart() {
     if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
 }
 
+// ===== REVENUE VS COSTS CHART =====
+var revCostChart = null;
+
+function initRevCostChart() {
+    var ctx = document.getElementById('revVsCostChart');
+    if (!ctx) return;
+    var chartData = generateRevCostData();
+
+    revCostChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Cumulative Revenue',
+                    data: chartData.revenue,
+                    borderColor: '#4ade80',
+                    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.3
+                },
+                {
+                    label: 'Cumulative Electricity Cost',
+                    data: chartData.costs,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: true, position: 'top', labels: { color: '#e8e8e8', font: { size: 11 } } },
+                tooltip: {
+                    backgroundColor: 'rgba(10, 10, 10, 0.92)',
+                    borderColor: 'rgba(255, 255, 255, 0.10)',
+                    borderWidth: 1,
+                    titleColor: '#e8e8e8',
+                    bodyColor: '#e8e8e8',
+                    padding: 10,
+                    callbacks: {
+                        label: function(ctx) { return ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y); }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#888', font: { size: 11 } },
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                },
+                y: {
+                    ticks: {
+                        color: '#e8e8e8',
+                        font: { size: 11 },
+                        callback: function(v) { return '$' + v.toLocaleString(); }
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                }
+            }
+        }
+    });
+
+    var emptyMsg = document.getElementById('revCostEmptyMsg');
+    if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
+}
+
+function generateRevCostData() {
+    var payoutData = PayoutData.getData();
+    var elecEntries = ElectricityData.getData();
+
+    // Build date-keyed map of all events
+    var dateMap = {};
+    for (var i = 0; i < payoutData.payouts.length; i++) {
+        var p = payoutData.payouts[i];
+        if (!dateMap[p.date]) dateMap[p.date] = { revenue: 0, cost: 0 };
+        dateMap[p.date].revenue += p.usdValue;
+    }
+    for (var s = 0; s < payoutData.snapshots.length; s++) {
+        var snap = payoutData.snapshots[s];
+        if (!dateMap[snap.date]) dateMap[snap.date] = { revenue: 0, cost: 0 };
+        dateMap[snap.date].revenue += snap.btcEarned * snap.btcPrice;
+    }
+    for (var e = 0; e < elecEntries.length; e++) {
+        var bill = elecEntries[e];
+        if (!dateMap[bill.date]) dateMap[bill.date] = { revenue: 0, cost: 0 };
+        dateMap[bill.date].cost += bill.costUSD;
+    }
+
+    // Sort dates
+    var dates = Object.keys(dateMap).sort();
+    var labels = [];
+    var revenue = [];
+    var costs = [];
+    var cumRev = 0, cumCost = 0;
+
+    for (var d = 0; d < dates.length; d++) {
+        cumRev += dateMap[dates[d]].revenue;
+        cumCost += dateMap[dates[d]].cost;
+        labels.push(dates[d]);
+        revenue.push(Math.round(cumRev * 100) / 100);
+        costs.push(Math.round(cumCost * 100) / 100);
+    }
+
+    return { labels: labels, revenue: revenue, costs: costs };
+}
+
+function updateRevCostChart() {
+    if (!revCostChart) return;
+    var chartData = generateRevCostData();
+    revCostChart.data.labels = chartData.labels;
+    revCostChart.data.datasets[0].data = chartData.revenue;
+    revCostChart.data.datasets[1].data = chartData.costs;
+    revCostChart.update();
+    var emptyMsg = document.getElementById('revCostEmptyMsg');
+    if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
+}
+
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=47').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=48').catch(function() {});
 }
