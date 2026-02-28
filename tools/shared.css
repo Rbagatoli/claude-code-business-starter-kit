@@ -1029,6 +1029,30 @@ footer {
 .table-scroll tr:hover td {
     background: rgba(255, 255, 255, 0.02);
 }
+/* ===== BLOCK EXPLORER ===== */
+#blockExplorerTable {
+    max-height: 420px;
+    overflow-y: auto;
+}
+#blockExplorerTable thead th {
+    position: sticky;
+    top: 0;
+    background: rgba(10, 10, 10, 0.95);
+    z-index: 1;
+}
+.block-pool-badge {
+    display: inline-block;
+    background: rgba(247, 147, 26, 0.10);
+    color: #f7931a;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.block-time-ago {
+    color: #888;
+    font-size: 12px;
+}
 .delete-payout {
     background: transparent;
     border: none;

@@ -6,11 +6,15 @@ var statusEl = document.getElementById('chartsStatus');
 var priceChartInstance = null;
 var diffChartInstance = null;
 var hashChartInstance = null;
+var hashPriceChartInstance = null;
+var poolChartInstance = null;
 
 // Live value display elements
 var priceValueEl = document.getElementById('priceValue');
 var diffValueEl = document.getElementById('diffValue');
 var hashValueEl = document.getElementById('hashValue');
+var hashPriceValueEl = document.getElementById('hashPriceValue');
+var poolValueEl = document.getElementById('poolValue');
 
 // Cached raw data — fetched once, filtered client-side
 var allPriceData = null;
@@ -20,6 +24,7 @@ var allMiningData = null;
 var latestPrice = null;
 var latestDiff = null;
 var latestHash = null;
+var latestHashPrice = null;
 
 var chartOptions = {
     responsive: true,
@@ -78,12 +83,16 @@ function formatDiffValue(v) {
 function formatHashValue(v) {
     return v.toFixed(1) + ' EH/s';
 }
+function formatHashPriceValue(v) {
+    return '$' + v.toFixed(4) + '/TH';
+}
 
 // ===== Label maps =====
 
 var priceDaysLabels = { '7': '7 Days', '30': '30 Days', '90': '90 Days', '180': '6 Months', '365': '1 Year', 'max': 'All Time' };
 var miningTfLabels = { '3m': '3 Months', '6m': '6 Months', '1y': '1 Year', '3y': '3 Years', 'all': 'All Time' };
 var miningTfDays = { '3m': 90, '6m': 180, '1y': 365, '3y': 1095, 'all': Infinity };
+var poolTfLabels = { '24h': '24 Hours', '3d': '3 Days', '1w': '1 Week', '1m': '1 Month', '3m': '3 Months', '6m': '6 Months', '1y': '1 Year', 'all': 'All Time' };
 
 // ===== Button helpers =====
 
@@ -360,6 +369,7 @@ chartContainers.forEach(function(container) {
         if (priceValueEl && latestPrice != null) priceValueEl.textContent = formatPriceValue(latestPrice);
         if (diffValueEl && latestDiff != null) diffValueEl.textContent = formatDiffValue(latestDiff);
         if (hashValueEl && latestHash != null) hashValueEl.textContent = formatHashValue(latestHash);
+        if (hashPriceValueEl && latestHashPrice != null) hashPriceValueEl.textContent = formatHashPriceValue(latestHashPrice);
     });
 });
 
@@ -371,6 +381,14 @@ document.getElementById('priceRange').addEventListener('click', function(e) {
     setActiveButton(this, btn);
     var days = btn.dataset.days === 'max' ? 'max' : parseInt(btn.dataset.days);
     renderPriceChart(days);
+});
+
+document.getElementById('hashPriceRange').addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    setActiveButton(this, btn);
+    var days = btn.dataset.days === 'max' ? 'max' : parseInt(btn.dataset.days);
+    renderHashPriceChart(days);
 });
 
 document.getElementById('miningRange').addEventListener('click', function(e) {
@@ -385,6 +403,13 @@ document.getElementById('hashRange').addEventListener('click', function(e) {
     if (!btn) return;
     setActiveButton(this, btn);
     renderHashrateChart(btn.dataset.tf);
+});
+
+document.getElementById('poolRange').addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    setActiveButton(this, btn);
+    loadPoolDominance(btn.getAttribute('data-tf'));
 });
 
 // ===== Initial data load — fetch once, render from cache =====
@@ -434,11 +459,13 @@ document.getElementById('hashRange').addEventListener('click', function(e) {
     if (priceOk && miningOk) {
         statusEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
         statusEl.style.color = '#4ade80';
+        renderHashPriceChart(90);
     }
 
     // Load network stats (non-blocking)
     loadNetworkStats();
     loadDifficultyAdjustment();
+    loadPoolDominance('1w');
 })();
 
 // ===== NETWORK STATS =====
@@ -525,9 +552,18 @@ async function loadNetworkStats() {
         document.getElementById('nsAvgBlockTimeSub').textContent = 'last ' + (blockCount - 1) + ' blocks';
     }
 
-    // Store block height for halving countdown
+    // Store block height for halving countdown + supply tracker
     window.currentBlockHeight = results.height;
     renderHalvingCountdown();
+    renderSupplyTracker();
+
+    // Render block explorer from already-fetched blocks
+    if (results.blocks) {
+        renderBlockExplorer(results.blocks);
+    }
+    if (!blockRefreshTimer) {
+        blockRefreshTimer = setInterval(refreshBlockExplorer, 60000);
+    }
 }
 
 // ===== DIFFICULTY ADJUSTMENT COUNTDOWN =====
@@ -617,6 +653,334 @@ function renderHalvingCountdown() {
     document.getElementById('halvingProgressSub').textContent = blocksIntoEpoch.toLocaleString() + ' / ' + HALVING_INTERVAL.toLocaleString();
     document.getElementById('halvingDays').textContent = daysRemaining;
     document.getElementById('halvingProgressBar').style.width = progressPct + '%';
+}
+
+// ===== BLOCK EXPLORER =====
+
+var blockRefreshTimer = null;
+
+function formatTimeAgo(timestamp) {
+    var diff = Math.floor(Date.now() / 1000) - timestamp;
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+}
+
+function renderBlockExplorer(blocks) {
+    if (!blocks || blocks.length === 0) return;
+
+    var heightEl = document.getElementById('blockExplorerHeight');
+    if (heightEl) heightEl.textContent = '#' + blocks[0].height.toLocaleString();
+
+    var tbody = document.getElementById('blockExplorerBody');
+    if (!tbody) return;
+
+    var html = '';
+    for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i];
+        var ago = formatTimeAgo(b.timestamp);
+        var sizeMB = (b.size / 1e6).toFixed(2);
+        var feesBTC = ((b.extras && b.extras.totalFees != null) ? b.extras.totalFees : 0) / 1e8;
+        var poolName = 'Unknown';
+        if (b.extras && b.extras.pool && b.extras.pool.name) poolName = b.extras.pool.name;
+
+        html += '<tr>' +
+            '<td><span class="btc-orange" style="font-weight:600;">' + b.height.toLocaleString() + '</span></td>' +
+            '<td><span class="block-time-ago">' + ago + '</span></td>' +
+            '<td><span class="block-pool-badge">' + poolName + '</span></td>' +
+            '<td>' + b.tx_count.toLocaleString() + '</td>' +
+            '<td>' + sizeMB + ' MB</td>' +
+            '<td>' + feesBTC.toFixed(4) + ' BTC</td>' +
+            '</tr>';
+    }
+    tbody.innerHTML = html;
+}
+
+async function refreshBlockExplorer() {
+    try {
+        var res = await fetch('https://mempool.space/api/v1/blocks');
+        if (res.ok) {
+            var blocks = await res.json();
+            renderBlockExplorer(blocks);
+        }
+    } catch (e) { /* silent */ }
+}
+
+// ===== BITCOIN SUPPLY TRACKER =====
+
+var MAX_SUPPLY = 21000000;
+
+function calculateSupply(blockHeight) {
+    var supply = 0;
+    var reward = 50;
+    var blocksProcessed = 0;
+
+    while (blocksProcessed < blockHeight && reward >= 0.00000001) {
+        var epochEnd = (Math.floor(blocksProcessed / HALVING_INTERVAL) + 1) * HALVING_INTERVAL;
+        var blocksInThisEpoch = Math.min(blockHeight - blocksProcessed, epochEnd - blocksProcessed);
+        supply += blocksInThisEpoch * reward;
+        blocksProcessed += blocksInThisEpoch;
+        if (blocksProcessed % HALVING_INTERVAL === 0) {
+            reward /= 2;
+        }
+    }
+    return supply;
+}
+
+function renderSupplyTracker() {
+    var card = document.getElementById('supplyCard');
+    var height = window.currentBlockHeight;
+
+    if (!height) {
+        card.style.display = 'none';
+        return;
+    }
+
+    card.style.display = '';
+
+    var supply = calculateSupply(height);
+    var pctMined = (supply / MAX_SUPPLY) * 100;
+    var remaining = MAX_SUPPLY - supply;
+
+    var epoch = Math.floor(height / HALVING_INTERVAL);
+    var currentReward = 50 / Math.pow(2, epoch);
+
+    var blocksPerYear = 365.25 * 144;
+    var annualNewBTC = blocksPerYear * currentReward;
+    var inflationRate = (annualNewBTC / supply) * 100;
+    var s2f = supply / annualNewBTC;
+
+    document.getElementById('supplyMined').textContent = Math.floor(supply).toLocaleString() + ' BTC';
+    document.getElementById('supplyTotal').textContent = Math.floor(supply).toLocaleString();
+    document.getElementById('supplyTotalSub').textContent = 'of ' + MAX_SUPPLY.toLocaleString() + ' BTC';
+    document.getElementById('supplyPercent').textContent = pctMined.toFixed(2) + '%';
+    document.getElementById('supplyPercentSub').textContent = 'mined';
+    document.getElementById('supplyInflation').textContent = inflationRate.toFixed(2) + '%';
+    document.getElementById('supplyS2F').textContent = s2f.toFixed(1);
+    document.getElementById('supplyS2FSub').textContent = 'years of production';
+    document.getElementById('supplyRemaining').textContent = Math.floor(remaining).toLocaleString();
+    document.getElementById('supplyProgressBar').style.width = pctMined.toFixed(2) + '%';
+}
+
+// ===== HASH PRICE ($/TH/day) =====
+
+var GENESIS_TS = 1231006505;
+
+function getBlockReward(ts) {
+    var daysSinceGenesis = (ts - GENESIS_TS) / 86400;
+    var approxHeight = daysSinceGenesis * 144;
+    var epoch = Math.floor(approxHeight / 210000);
+    return 50 / Math.pow(2, epoch);
+}
+
+function computeHashPriceData() {
+    if (!allPriceData || !allMiningData || !allMiningData.hashrates) return null;
+
+    var hashrates = allMiningData.hashrates;
+
+    // Build sorted hashrate lookup (day -> TH/s)
+    var hashByDay = {};
+    for (var h = 0; h < hashrates.length; h++) {
+        var dayKey = Math.floor(hashrates[h].timestamp / 86400) * 86400;
+        hashByDay[dayKey] = hashrates[h].avgHashrate / 1e12;
+    }
+    var hashDays = Object.keys(hashByDay).map(Number).sort(function(a, b) { return a - b; });
+
+    function getHashrateForDay(dayTs) {
+        var result = null;
+        for (var i = 0; i < hashDays.length; i++) {
+            if (hashDays[i] <= dayTs) result = hashByDay[hashDays[i]];
+            else break;
+        }
+        return result;
+    }
+
+    var result = [];
+    for (var p = 0; p < allPriceData.length; p++) {
+        var dayTs = Math.floor(allPriceData[p].time / 86400) * 86400;
+        var hr = getHashrateForDay(dayTs);
+        if (hr === null || hr <= 0) continue;
+
+        var reward = getBlockReward(allPriceData[p].time);
+        var hashPrice = (144 * reward * allPriceData[p].close) / hr;
+
+        result.push({ time: allPriceData[p].time, hashPrice: hashPrice });
+    }
+    return result;
+}
+
+function renderHashPriceChart(days) {
+    var allData = computeHashPriceData();
+    if (!allData || allData.length === 0) return;
+
+    var filtered = (days === 'max') ? allData : allData.filter(function(d) {
+        return d.time >= (Date.now() / 1000) - (days * 86400);
+    });
+
+    var labels = [];
+    var values = [];
+    var maxPoints = 120;
+    var step = Math.max(1, Math.floor(filtered.length / maxPoints));
+
+    for (var i = 0; i < filtered.length; i += step) {
+        var tsMs = filtered[i].time * 1000;
+        if (days === 'max' || days >= 365) {
+            labels.push(formatFullDate(tsMs));
+        } else {
+            labels.push(formatDate(tsMs));
+        }
+        values.push(parseFloat(filtered[i].hashPrice.toFixed(4)));
+    }
+
+    latestHashPrice = values[values.length - 1];
+    if (hashPriceValueEl) hashPriceValueEl.textContent = formatHashPriceValue(latestHashPrice);
+
+    if (hashPriceChartInstance) hashPriceChartInstance.destroy();
+
+    var hpOptions = JSON.parse(JSON.stringify(chartOptions));
+    hpOptions.scales.y.ticks = { color: '#a78bfa', font: { size: 11 }, callback: function(v) { return '$' + v.toFixed(2); } };
+
+    hashPriceChartInstance = new Chart(document.getElementById('hashPriceChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Hash Price ($/TH/day)',
+                data: values,
+                borderColor: '#a78bfa',
+                backgroundColor: 'rgba(167, 139, 250, 0.10)',
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.3
+            }]
+        },
+        options: hpOptions,
+        plugins: [{
+            id: 'hashPriceMouseLeave',
+            beforeEvent: function(chart, args) {
+                if (args.event.type === 'mouseout' && hashPriceValueEl && latestHashPrice != null) {
+                    hashPriceValueEl.textContent = formatHashPriceValue(latestHashPrice);
+                }
+            }
+        }]
+    });
+
+    document.getElementById('hashPriceTitle').textContent = 'Hash Price (' + priceDaysLabels[days] + ')';
+}
+
+// ===== MINING POOL DOMINANCE =====
+
+var poolDataCache = {};
+var poolColors = [
+    '#f7931a', '#60a5fa', '#4ade80', '#ef4444',
+    '#fbbf24', '#a78bfa', '#f472b6', '#34d399', '#9ca3af'
+];
+
+async function loadPoolDominance(timeframe) {
+    if (poolDataCache[timeframe]) {
+        renderPoolChart(timeframe, poolDataCache[timeframe]);
+        return;
+    }
+    try {
+        var res = await fetch('https://mempool.space/api/v1/mining/pools/' + timeframe);
+        if (!res.ok) return;
+        var data = await res.json();
+        poolDataCache[timeframe] = data;
+        renderPoolChart(timeframe, data);
+    } catch (e) {
+        if (poolValueEl) poolValueEl.textContent = 'Error';
+    }
+}
+
+function renderPoolChart(timeframe, data) {
+    if (!data || !data.pools || data.pools.length === 0) return;
+
+    var pools = data.pools.slice();
+    var totalBlocks = data.blockCount || 0;
+
+    pools.sort(function(a, b) { return b.blockCount - a.blockCount; });
+
+    var topPools = pools.slice(0, 8);
+    var otherBlocks = 0;
+    for (var i = 8; i < pools.length; i++) {
+        otherBlocks += pools[i].blockCount;
+    }
+
+    var labels = [];
+    var values = [];
+    var colors = [];
+    for (var j = 0; j < topPools.length; j++) {
+        var pct = totalBlocks > 0 ? ((topPools[j].blockCount / totalBlocks) * 100).toFixed(1) : '0';
+        labels.push(topPools[j].name + ' (' + pct + '%)');
+        values.push(topPools[j].blockCount);
+        colors.push(poolColors[j]);
+    }
+    if (otherBlocks > 0) {
+        var otherPct = totalBlocks > 0 ? ((otherBlocks / totalBlocks) * 100).toFixed(1) : '0';
+        labels.push('Other (' + otherPct + '%)');
+        values.push(otherBlocks);
+        colors.push(poolColors[8]);
+    }
+
+    if (poolValueEl && topPools.length > 0) {
+        var topPct = totalBlocks > 0 ? ((topPools[0].blockCount / totalBlocks) * 100).toFixed(1) : '0';
+        poolValueEl.textContent = topPools[0].name + ' ' + topPct + '%';
+    }
+
+    document.getElementById('poolTitle').textContent = 'Mining Pool Dominance (' + (poolTfLabels[timeframe] || timeframe) + ')';
+
+    if (poolChartInstance) poolChartInstance.destroy();
+
+    var legendPos = window.innerWidth < 600 ? 'bottom' : 'right';
+
+    poolChartInstance = new Chart(document.getElementById('poolChart'), {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderColor: 'rgba(6, 6, 6, 0.8)',
+                borderWidth: 2,
+                hoverBorderColor: '#e8e8e8',
+                hoverBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    display: true,
+                    position: legendPos,
+                    labels: {
+                        color: '#e8e8e8',
+                        font: { size: 11 },
+                        padding: 12,
+                        usePointStyle: true,
+                        pointStyleWidth: 10
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(10, 10, 10, 0.92)',
+                    borderColor: 'rgba(255, 255, 255, 0.10)',
+                    borderWidth: 1,
+                    titleColor: '#e8e8e8',
+                    bodyColor: '#e8e8e8',
+                    padding: 10,
+                    callbacks: {
+                        label: function(ctx) {
+                            var pctVal = totalBlocks > 0 ? ((ctx.parsed / totalBlocks) * 100).toFixed(1) : '0';
+                            return ctx.label.split(' (')[0] + ': ' + ctx.parsed.toLocaleString() + ' blocks (' + pctVal + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 // ===== FEE RATE CHART =====
@@ -818,5 +1182,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=40').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=41').catch(function() {});
 }
