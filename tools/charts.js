@@ -438,6 +438,7 @@ document.getElementById('hashRange').addEventListener('click', function(e) {
 
     // Load network stats (non-blocking)
     loadNetworkStats();
+    loadDifficultyAdjustment();
 })();
 
 // ===== NETWORK STATS =====
@@ -527,6 +528,50 @@ async function loadNetworkStats() {
     // Store block height for halving countdown
     window.currentBlockHeight = results.height;
     renderHalvingCountdown();
+}
+
+// ===== DIFFICULTY ADJUSTMENT COUNTDOWN =====
+
+async function loadDifficultyAdjustment() {
+    try {
+        var resp = await fetch('https://mempool.space/api/v1/difficulty-adjustment');
+        if (!resp.ok) return;
+        var d = await resp.json();
+
+        // Blocks remaining
+        document.getElementById('diffBlocks').textContent = (d.remainingBlocks || 0).toLocaleString();
+        document.getElementById('diffProgress').textContent = (d.progressPercent || 0).toFixed(1) + '% complete';
+
+        // Time remaining
+        var ms = d.remainingTime || 0;
+        var days = Math.floor(ms / 86400000);
+        var hrs = Math.floor((ms % 86400000) / 3600000);
+        document.getElementById('diffTime').textContent = days + 'd ' + hrs + 'h';
+
+        // Retarget date
+        if (d.estimatedRetargetDate) {
+            var dt = new Date(d.estimatedRetargetDate);
+            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            document.getElementById('diffDate').textContent = months[dt.getMonth()] + ' ' + dt.getDate();
+        }
+
+        // Difficulty change %
+        var change = d.difficultyChange || 0;
+        var changeEl = document.getElementById('diffChange');
+        var sign = change >= 0 ? '+' : '';
+        changeEl.textContent = sign + change.toFixed(2) + '%';
+        changeEl.className = 'value ' + (change >= 0 ? 'negative' : 'positive');
+
+        // Current difficulty (from mining data if available)
+        if (allMiningData && allMiningData.currentDifficulty) {
+            document.getElementById('diffCurrent').textContent = (allMiningData.currentDifficulty / 1e12).toFixed(2) + 'T';
+        } else if (d.previousRetarget) {
+            document.getElementById('diffCurrent').textContent = (d.previousRetarget / 1e12).toFixed(2) + 'T';
+        }
+
+        // Progress bar
+        document.getElementById('diffProgressBar').style.width = (d.progressPercent || 0).toFixed(1) + '%';
+    } catch (e) { /* silent fail — cards stay at "--" */ }
 }
 
 // ===== HALVING COUNTDOWN =====
@@ -773,5 +818,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=39').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=40').catch(function() {});
 }

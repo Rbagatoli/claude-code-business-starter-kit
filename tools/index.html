@@ -7,11 +7,11 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./shared.css">
     <script>
-    if (!localStorage.getItem('sw_clean_v39') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v40') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v39', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v40', '1'); location.reload(); });
         });
     }
     </script>
@@ -74,36 +74,6 @@
             <div class="sub">kW</div>
         </div>
     </section>
-
-    <!-- ===== NETWORK STATUS ===== -->
-    <div class="section-label">Network Status</div>
-    <section class="fleet-grid" style="grid-template-columns: repeat(4, 1fr);">
-        <div class="metric-card">
-            <div class="label">Blocks Remaining</div>
-            <div class="value btc-orange" id="diffBlocks">--</div>
-            <div class="sub" id="diffProgress">--% complete</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Est. Time Remaining</div>
-            <div class="value" id="diffTime">--</div>
-            <div class="sub" id="diffDate">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Est. Difficulty Change</div>
-            <div class="value" id="diffChange">--</div>
-            <div class="sub">vs current epoch</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Current Difficulty</div>
-            <div class="value" id="diffCurrent">--</div>
-            <div class="sub">trillions</div>
-        </div>
-    </section>
-    <div class="card" style="padding: 14px 20px;">
-        <div class="halving-progress-bar">
-            <div class="halving-progress-fill" id="diffProgressBar" style="width: 0%"></div>
-        </div>
-    </div>
 
     <!-- ===== ACTION BUTTONS ===== -->
     <div class="dashboard-actions">
