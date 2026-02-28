@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Calculator</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=57">
+    <link rel="stylesheet" href="./shared.css?v=58">
     <script>
     // Force-clear old service workers and caches (runs before any external scripts)
-    if (!localStorage.getItem('sw_clean_v57') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v58') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v57', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v58', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=57"></script>
+    <script src="./chart.min.js?v=58"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -378,12 +378,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=57"></script>
-<script src="./sync.js?v=57"></script>
-<script src="./shared.js?v=57"></script>
-<script src="./fleet-data.js?v=57"></script>
-<script src="./miner-db.js?v=57"></script>
-<script src="./calculator.js?v=57"></script>
-<script src="./alerts.js?v=57"></script>
+<script src="./firebase-config.js?v=58"></script>
+<script src="./sync.js?v=58"></script>
+<script src="./shared.js?v=58"></script>
+<script src="./fleet-data.js?v=58"></script>
+<script src="./miner-db.js?v=58"></script>
+<script src="./calculator.js?v=58"></script>
+<script src="./alerts.js?v=58"></script>
 </body>
 </html>

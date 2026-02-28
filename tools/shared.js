@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v57')) return;
+    if (localStorage.getItem('sw_clean_v58')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v57', '1');
+            localStorage.setItem('sw_clean_v58', '1');
             location.reload();
         });
     });
@@ -98,11 +98,21 @@ function initNav(activePage) {
                 syncBtn.title = 'Signed in as ' + (user.displayName || user.email) + ' — click to sign out';
                 syncBtn.className = 'ion-nav-sync-btn signed-in';
                 // Start listening for remote changes
-                var reloadTimer = null;
                 Object.keys(SyncEngine.SYNC_KEYS).forEach(function(key) {
                     SyncEngine.listen(key, function() {
-                        if (reloadTimer) clearTimeout(reloadTimer);
-                        reloadTimer = setTimeout(function() { location.reload(); }, 1000);
+                        // Show a subtle sync toast — no auto-reload
+                        var existing = document.getElementById('syncToast');
+                        if (existing) return; // already showing
+                        var toast = document.createElement('div');
+                        toast.id = 'syncToast';
+                        toast.className = 'sync-toast';
+                        toast.innerHTML = 'Data synced from another device <button onclick="location.reload()">Refresh</button>';
+                        document.body.appendChild(toast);
+                        setTimeout(function() { toast.classList.add('show'); }, 10);
+                        setTimeout(function() {
+                            toast.classList.remove('show');
+                            setTimeout(function() { toast.remove(); }, 300);
+                        }, 8000);
                     });
                 });
             } else {
