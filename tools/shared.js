@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v55')) return;
+    if (localStorage.getItem('sw_clean_v56')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v55', '1');
+            localStorage.setItem('sw_clean_v56', '1');
             location.reload();
         });
     });
@@ -97,10 +97,19 @@ function initNav(activePage) {
                 syncBtn.innerHTML = '<span class="ion-nav-avatar">' + initial + '</span>';
                 syncBtn.title = 'Signed in as ' + (user.displayName || user.email) + ' — click to sign out';
                 syncBtn.className = 'ion-nav-sync-btn signed-in';
+                // Start listening for remote changes
+                var reloadTimer = null;
+                Object.keys(SyncEngine.SYNC_KEYS).forEach(function(key) {
+                    SyncEngine.listen(key, function() {
+                        if (reloadTimer) clearTimeout(reloadTimer);
+                        reloadTimer = setTimeout(function() { location.reload(); }, 1000);
+                    });
+                });
             } else {
                 syncBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
                 syncBtn.title = 'Sign in to sync across devices';
                 syncBtn.className = 'ion-nav-sync-btn';
+                SyncEngine.stopAll();
             }
         });
 

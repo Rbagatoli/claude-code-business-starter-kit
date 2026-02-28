@@ -352,5 +352,5 @@ document.getElementById('btnRefreshBalances').addEventListener('click', function
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=55').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=56').catch(function() {});
 }
