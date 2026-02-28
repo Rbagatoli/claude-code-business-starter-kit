@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ion-mining-v41';
+const CACHE_NAME = 'ion-mining-v42';
 const ASSETS = [
   './index.html',
   './calculator.html',
