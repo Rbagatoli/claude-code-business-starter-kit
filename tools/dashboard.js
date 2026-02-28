@@ -19,7 +19,7 @@ initNav('dashboard');
 (async function() {
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
-    window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderDashboard(); };
+    window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderDashboard(); updateEarningsChart(); };
     if (data.difficulty) liveDifficulty = data.difficulty;
     else liveDifficulty = 125.86;
     await loadF2PoolData();
@@ -72,8 +72,8 @@ function renderDashboard() {
     document.getElementById('fleetDailyUSD').textContent = fmtUSD(dailyUSD);
     document.getElementById('fleetPower').textContent = totalPower.toFixed(2);
     document.getElementById('fleetEfficiency').textContent = efficiency.toFixed(1);
-    document.getElementById('fleetAvgCost').textContent = fmtUSD(avgCost);
-    document.getElementById('fleetTotalCost').textContent = 'Total: ' + fmtUSD(totalCost);
+    document.getElementById('fleetAvgCost').textContent = fmtUSD(avgCost * getCurrencyMultiplier());
+    document.getElementById('fleetTotalCost').textContent = 'Total: ' + fmtUSD(totalCost * getCurrencyMultiplier());
     var avgHashrate = totalMachines > 0 ? totalHashrate / totalMachines : 0;
     var avgPower = totalMachines > 0 ? totalPower / totalMachines : 0;
     document.getElementById('fleetAvgHashrate').textContent = avgHashrate.toFixed(1);
@@ -248,7 +248,7 @@ function buildMinerCard(m, eff, mDailyUSD, isLive, isGroupSummary, isExpanded) {
             '<div class="miner-card-stat"><div class="stat-label">Hashrate</div><div class="stat-value">' + m.hashrate + ' TH/s</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">Power</div><div class="stat-value">' + (m.power ? m.power + ' kW' : '--') + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">Efficiency</div><div class="stat-value">' + (m.power ? eff + ' J/TH' : '--') + '</div></div>' +
-            '<div class="miner-card-stat"><div class="stat-label">Cost</div><div class="stat-value">' + (m.cost ? fmtUSD(m.cost) : '--') + '</div></div>' +
+            '<div class="miner-card-stat"><div class="stat-label">Cost</div><div class="stat-value">' + (m.cost ? fmtUSD(m.cost * getCurrencyMultiplier()) : '--') + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">Status</div><div class="stat-value"><span class="status-dot ' + m.status + (isLive && m.status === 'online' ? ' online-pulse' : '') + '"></span>' + m.status + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">' + (isGroupSummary ? 'Daily (each)' : 'Daily Est.') + '</div><div class="stat-value" style="color:#f7931a">' + fmtUSD(mDailyUSD) + '</div></div>' +
             totalRow +
@@ -646,7 +646,7 @@ function initEarningsChart() {
         data: {
             labels: chartData.labels,
             datasets: [{
-                label: 'Daily Earnings (USD)',
+                label: 'Daily Earnings',
                 data: chartData.values,
                 backgroundColor: 'rgba(247, 147, 26, 0.50)',
                 borderColor: '#f7931a',
@@ -686,8 +686,9 @@ function initEarningsChart() {
                         color: '#f7931a',
                         font: { size: 11 },
                         callback: function(v) {
-                            if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'k';
-                            return '$' + v.toFixed(0);
+                            var s = getCurrencySymbol();
+                            if (v >= 1e3) return s + (v / 1e3).toFixed(1) + 'k';
+                            return s + v.toFixed(0);
                         }
                     },
                     grid: { color: 'rgba(255, 255, 255, 0.06)' }
@@ -741,5 +742,5 @@ function updateEarningsChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=58').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=60').catch(function() {});
 }

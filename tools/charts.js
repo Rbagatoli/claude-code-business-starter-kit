@@ -25,6 +25,13 @@ var latestPrice = null;
 var latestDiff = null;
 var latestHash = null;
 var latestHashPrice = null;
+var currentPriceDays = 90;
+var currentHashPriceDays = 90;
+
+window.onCurrencyChange = function() {
+    if (allPriceData) renderPriceChart(currentPriceDays);
+    if (allPriceData && allMiningData) renderHashPriceChart(currentHashPriceDays);
+};
 
 var chartOptions = {
     responsive: true,
@@ -75,7 +82,7 @@ function formatFullDate(ts) {
 // ===== Value formatters =====
 
 function formatPriceValue(v) {
-    return '$' + Math.round(v).toLocaleString();
+    return getCurrencySymbol() + Math.round(v).toLocaleString();
 }
 function formatDiffValue(v) {
     return v.toFixed(2) + ' T';
@@ -84,7 +91,7 @@ function formatHashValue(v) {
     return v.toFixed(1) + ' EH/s';
 }
 function formatHashPriceValue(v) {
-    return '$' + v.toFixed(4) + '/TH';
+    return getCurrencySymbol() + v.toFixed(4) + '/TH';
 }
 
 // ===== Label maps =====
@@ -136,7 +143,7 @@ function renderPriceChart(days) {
         } else {
             priceLabels.push(formatDate(tsMs));
         }
-        priceValues.push(Math.round(filtered[i].close));
+        priceValues.push(Math.round(filtered[i].close * getCurrencyMultiplier()));
     }
 
     // Set latest value
@@ -150,7 +157,7 @@ function renderPriceChart(days) {
         data: {
             labels: priceLabels,
             datasets: [{
-                label: 'BTC Price (USD)',
+                label: 'BTC Price (' + (window.selectedCurrency || 'usd').toUpperCase() + ')',
                 data: priceValues,
                 borderColor: '#f7931a',
                 backgroundColor: 'rgba(247, 147, 26, 0.10)',
@@ -167,9 +174,10 @@ function renderPriceChart(days) {
                         color: '#f7931a',
                         font: { size: 11 },
                         callback: function(v) {
-                            if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
-                            if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'k';
-                            return '$' + v;
+                            var s = getCurrencySymbol();
+                            if (v >= 1e6) return s + (v / 1e6).toFixed(1) + 'M';
+                            if (v >= 1e3) return s + (v / 1e3).toFixed(0) + 'k';
+                            return s + v;
                         }
                     },
                     grid: { color: 'rgba(255, 255, 255, 0.06)' }
@@ -178,7 +186,7 @@ function renderPriceChart(days) {
             plugins: Object.assign({}, chartOptions.plugins, {
                 tooltip: Object.assign({}, chartOptions.plugins.tooltip, {
                     callbacks: {
-                        label: function(ctx) { return '$' + ctx.parsed.y.toLocaleString(); }
+                        label: function(ctx) { return getCurrencySymbol() + ctx.parsed.y.toLocaleString(); }
                     },
                     external: function(context) {
                         var tooltip = context.tooltip;
@@ -380,6 +388,7 @@ document.getElementById('priceRange').addEventListener('click', function(e) {
     if (!btn) return;
     setActiveButton(this, btn);
     var days = btn.dataset.days === 'max' ? 'max' : parseInt(btn.dataset.days);
+    currentPriceDays = days;
     renderPriceChart(days);
 });
 
@@ -388,6 +397,7 @@ document.getElementById('hashPriceRange').addEventListener('click', function(e) 
     if (!btn) return;
     setActiveButton(this, btn);
     var days = btn.dataset.days === 'max' ? 'max' : parseInt(btn.dataset.days);
+    currentHashPriceDays = days;
     renderHashPriceChart(days);
 });
 
@@ -841,7 +851,7 @@ function renderHashPriceChart(days) {
         } else {
             labels.push(formatDate(tsMs));
         }
-        values.push(parseFloat(filtered[i].hashPrice.toFixed(4)));
+        values.push(parseFloat((filtered[i].hashPrice * getCurrencyMultiplier()).toFixed(4)));
     }
 
     latestHashPrice = values[values.length - 1];
@@ -850,14 +860,14 @@ function renderHashPriceChart(days) {
     if (hashPriceChartInstance) hashPriceChartInstance.destroy();
 
     var hpOptions = JSON.parse(JSON.stringify(chartOptions));
-    hpOptions.scales.y.ticks = { color: '#a78bfa', font: { size: 11 }, callback: function(v) { return '$' + v.toFixed(2); } };
+    hpOptions.scales.y.ticks = { color: '#a78bfa', font: { size: 11 }, callback: function(v) { return getCurrencySymbol() + v.toFixed(2); } };
 
     hashPriceChartInstance = new Chart(document.getElementById('hashPriceChart'), {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Hash Price ($/TH/day)',
+                label: 'Hash Price (' + getCurrencySymbol() + '/TH/day)',
                 data: values,
                 borderColor: '#a78bfa',
                 backgroundColor: 'rgba(167, 139, 250, 0.10)',
@@ -1193,5 +1203,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=58').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=60').catch(function() {});
 }

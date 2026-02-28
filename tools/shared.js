@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v59')) return;
+    if (localStorage.getItem('sw_clean_v60')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v59', '1');
+            localStorage.setItem('sw_clean_v60', '1');
             location.reload();
         });
     });
@@ -36,6 +36,11 @@ function getCurrencySymbol() {
 function getCurrencyDecimals() {
     var c = CURRENCY_CONFIG[window.selectedCurrency];
     return (c && c.decimals !== undefined) ? c.decimals : 2;
+}
+function getCurrencyMultiplier() {
+    if (window.selectedCurrency === 'usd' || !window.liveBtcPrices || !window.liveBtcPrices.usd) return 1;
+    var target = window.liveBtcPrices[window.selectedCurrency];
+    return target ? target / window.liveBtcPrices.usd : 1;
 }
 function switchCurrency(code) {
     if (!CURRENCY_CONFIG[code]) return;
