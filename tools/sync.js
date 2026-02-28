@@ -67,17 +67,29 @@ var SyncEngine = (function() {
         var ref = getUserDocRef(key);
         if (!ref) return;
 
+        var isFirst = true;
         _listeners[key] = ref.onSnapshot(function(doc) {
+            // Skip the initial snapshot (fires immediately with current data)
+            if (isFirst) { isFirst = false; return; }
+
+            // Skip local writes — only react to server-confirmed remote changes
+            if (doc.metadata.hasPendingWrites) return;
+
             // Skip if this change came from our own save (avoid loops)
             if (_syncing) return;
 
             if (doc.exists) {
                 var remote = doc.data();
                 if (remote && remote.data) {
+                    // Compare with current localStorage — skip if identical
+                    var lsKey = SYNC_KEYS[key].lsKey;
+                    var current = localStorage.getItem(lsKey);
+                    var remoteStr = (key === 'currency') ? remote.data : JSON.stringify(remote.data);
+                    if (current === remoteStr) return;
+
                     _syncing = true;
 
                     // Update localStorage
-                    var lsKey = SYNC_KEYS[key].lsKey;
                     if (key === 'currency') {
                         localStorage.setItem(lsKey, remote.data);
                     } else {

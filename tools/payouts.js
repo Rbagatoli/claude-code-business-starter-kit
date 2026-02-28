@@ -848,5 +848,5 @@ function updateRevCostChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=56').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=57').catch(function() {});
 }
