@@ -841,7 +841,7 @@ function renderComparison() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=48').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=49').catch(() => {});
 }
 
 // ===== INIT =====

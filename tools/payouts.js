@@ -274,6 +274,57 @@ function renderPayoutPage() {
     renderElectricityTable();
 }
 
+// ===== AUTO-ESTIMATE ELECTRICITY FROM FLEET =====
+function autoEstimateElectricity() {
+    var summary = FleetData.getFleetSummary();
+    if (summary.totalPower <= 0) {
+        alert('No online miners in fleet. Add miners on the Dashboard page first.');
+        return false;
+    }
+
+    // Get electricity rate and uptime from calculator settings or fleet defaults
+    var calcSettings = null;
+    try {
+        var raw = localStorage.getItem('btcMinerCalcSettings');
+        if (raw) calcSettings = JSON.parse(raw);
+    } catch(e) {}
+
+    var elecCost = (calcSettings && calcSettings.elecCost) ? parseFloat(calcSettings.elecCost) : summary.defaults.elecCost;
+    var uptime = (calcSettings && calcSettings.uptime !== undefined) ? parseFloat(calcSettings.uptime) : 100;
+
+    // Calculate for current month
+    var now = new Date();
+    var year = now.getFullYear();
+    var month = now.getMonth();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var monthLabel = now.toLocaleString('default', { month: 'long' }) + ' ' + year;
+    var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+
+    // Check if fleet estimate already exists for this month
+    var entries = ElectricityData.getData();
+    for (var i = 0; i < entries.length; i++) {
+        if (entries[i].notes && entries[i].notes.indexOf('Fleet estimate') === 0 &&
+            entries[i].date.substring(0, 7) === dateStr.substring(0, 7)) {
+            alert('Fleet estimate for ' + monthLabel + ' already exists. Delete it first to re-estimate.');
+            return false;
+        }
+    }
+
+    var totalKWh = summary.totalPower * 24 * daysInMonth * (uptime / 100);
+    var totalCost = totalKWh * elecCost;
+
+    ElectricityData.addEntry({
+        date: dateStr,
+        kwhUsed: Math.round(totalKWh),
+        costUSD: Math.round(totalCost * 100) / 100,
+        notes: 'Fleet estimate — ' + monthLabel + ' (' + summary.totalPower.toFixed(2) + ' kW \u00d7 ' + daysInMonth + 'd @ $' + elecCost.toFixed(4) + '/kWh)'
+    });
+
+    renderPayoutPage();
+    updateRevCostChart();
+    return true;
+}
+
 // ===== ELECTRICITY RENDER =====
 function renderElectricitySummary() {
     var sum = ElectricityData.getSummary();
@@ -389,6 +440,14 @@ document.getElementById('btnAddBill').addEventListener('click', function() {
 
 document.getElementById('cancelBill').addEventListener('click', function() {
     addBillPanel.classList.remove('open');
+});
+
+// -- Estimate from Fleet button --
+document.getElementById('btnEstimateFleet').addEventListener('click', function() {
+    addPayoutPanel.classList.remove('open');
+    exportPanel.classList.remove('open');
+    addBillPanel.classList.remove('open');
+    autoEstimateElectricity();
 });
 
 document.getElementById('saveBill').addEventListener('click', function() {
@@ -787,5 +846,5 @@ function updateRevCostChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=48').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=49').catch(function() {});
 }
