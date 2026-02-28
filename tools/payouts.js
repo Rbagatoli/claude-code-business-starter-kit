@@ -298,7 +298,7 @@ function autoEstimateElectricity() {
     var month = now.getMonth();
     var daysInMonth = new Date(year, month + 1, 0).getDate();
     var monthLabel = now.toLocaleString('default', { month: 'long' }) + ' ' + year;
-    var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+    var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
     // Check if fleet estimate already exists for this month
     var entries = ElectricityData.getData();
