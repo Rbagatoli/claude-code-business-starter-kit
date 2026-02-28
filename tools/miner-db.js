@@ -8,6 +8,7 @@ var MinerDB = (function() {
         // --- Bitmain Antminer S21 Series ---
         { model: 'Antminer S21 XP Hyd.',  hashrate: 473, power: 5.676, cost: 13500, efficiency: 12.0 },
         { model: 'Antminer S21 Hyd.',     hashrate: 335, power: 5.360, cost: 9000,  efficiency: 16.0 },
+        { model: 'Antminer S21e Hyd.',   hashrate: 332, power: 5.644, cost: 2070,  efficiency: 17.0 },
         { model: 'Antminer S21 Pro',      hashrate: 234, power: 3.510, cost: 4260,  efficiency: 15.0 },
         { model: 'Antminer S21',          hashrate: 200, power: 3.500, cost: 3200,  efficiency: 17.5 },
 
