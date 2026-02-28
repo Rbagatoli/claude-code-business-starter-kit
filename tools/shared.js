@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v31')) return;
+    if (localStorage.getItem('sw_clean_v32')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v31', '1');
+            localStorage.setItem('sw_clean_v32', '1');
             location.reload();
         });
     });
@@ -21,16 +21,18 @@ function initNav(activePage) {
     const nav = document.getElementById('ion-nav');
     if (!nav) return;
     nav.className = 'ion-nav';
+    var mobile = window.innerWidth < 600;
+    var labels = mobile ? ['Calc', 'Home', 'Data', 'Pay'] : ['Calculator', 'Dashboard', 'Data', 'Payouts'];
     nav.innerHTML =
         '<a class="ion-nav-brand" href="./index.html">' +
             '<span class="icon">\u26A1</span>' +
             '<span class="name">Ion Mining Group</span>' +
         '</a>' +
         '<div class="ion-nav-tabs">' +
-            '<a href="./calculator.html" class="' + (activePage === 'calculator' ? 'active' : '') + '">Calculator</a>' +
-            '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">Dashboard</a>' +
-            '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">Data</a>' +
-            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">Payouts</a>' +
+            '<a href="./calculator.html" class="' + (activePage === 'calculator' ? 'active' : '') + '">' + labels[0] + '</a>' +
+            '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">' + labels[1] + '</a>' +
+            '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">' + labels[2] + '</a>' +
+            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[3] + '</a>' +
         '</div>' +
         '<button class="ion-nav-bell" onclick="window.toggleAlertSidebar && window.toggleAlertSidebar()">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
