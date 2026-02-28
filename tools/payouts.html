@@ -7,11 +7,11 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./shared.css">
     <script>
-    if (!localStorage.getItem('sw_clean_v35') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v36') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v35', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v36', '1'); location.reload(); });
         });
     }
     </script>
