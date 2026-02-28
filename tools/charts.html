@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Charts</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css">
+    <link rel="stylesheet" href="./shared.css?v=41">
     <script>
     if (!localStorage.getItem('sw_clean_v41') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -15,7 +15,7 @@
         });
     }
     </script>
-    <script src="./chart.min.js"></script>
+    <script src="./chart.min.js?v=41"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -29,6 +29,25 @@
 </header>
 
 <main>
+
+    <!-- ===== BTC PRICE CHART ===== -->
+    <div class="card" style="margin-bottom:20px;">
+        <div class="chart-title-row">
+            <h3 id="priceTitle">BTC Price (90 Days)</h3>
+            <span id="priceValue" class="chart-live-value" style="color:#f7931a;">--</span>
+        </div>
+        <div class="time-range-selector" id="priceRange">
+            <button data-days="7">7D</button>
+            <button data-days="30">30D</button>
+            <button data-days="90" class="active">90D</button>
+            <button data-days="180">180D</button>
+            <button data-days="365">1Y</button>
+            <button data-days="max">MAX</button>
+        </div>
+        <div class="earnings-chart-container">
+            <canvas id="priceChart"></canvas>
+        </div>
+    </div>
 
     <!-- ===== NETWORK STATS ===== -->
     <div class="section-label">Network Stats</div>
@@ -70,28 +89,41 @@
         </div>
     </section>
 
-    <!-- ===== BLOCK EXPLORER ===== -->
-    <div class="card" id="blockExplorerCard" style="margin-bottom:20px;">
+    <!-- ===== BITCOIN SUPPLY TRACKER ===== -->
+    <div class="card" id="supplyCard" style="display:none; margin-bottom:20px;">
         <div class="chart-title-row">
-            <h3>Latest Blocks</h3>
-            <span class="chart-live-value btc-orange" id="blockExplorerHeight">--</span>
+            <h3>Bitcoin Supply Tracker</h3>
+            <span class="chart-live-value btc-orange" id="supplyMined">--</span>
         </div>
-        <div class="table-scroll" id="blockExplorerTable">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Height</th>
-                        <th>Time</th>
-                        <th>Pool</th>
-                        <th>TXs</th>
-                        <th>Size</th>
-                        <th>Fees</th>
-                    </tr>
-                </thead>
-                <tbody id="blockExplorerBody">
-                    <tr><td colspan="6" style="text-align:center; color:#555;">Loading...</td></tr>
-                </tbody>
-            </table>
+        <div class="fleet-grid" style="margin-bottom:16px;">
+            <div class="metric-card">
+                <div class="label">Total Mined</div>
+                <div class="value btc-orange" id="supplyTotal">--</div>
+                <div class="sub" id="supplyTotalSub">BTC</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">% of 21M</div>
+                <div class="value positive" id="supplyPercent">--%</div>
+                <div class="sub" id="supplyPercentSub">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Inflation Rate</div>
+                <div class="value neutral" id="supplyInflation">--%</div>
+                <div class="sub">annual</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Stock-to-Flow</div>
+                <div class="value" id="supplyS2F">--</div>
+                <div class="sub" id="supplyS2FSub">ratio</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Remaining BTC</div>
+                <div class="value negative" id="supplyRemaining">--</div>
+                <div class="sub">left to mine</div>
+            </div>
+        </div>
+        <div class="halving-progress-bar">
+            <div class="halving-progress-fill" id="supplyProgressBar" style="width:0%"></div>
         </div>
     </div>
 
@@ -133,44 +165,6 @@
         </div>
     </div>
 
-    <!-- ===== BITCOIN SUPPLY TRACKER ===== -->
-    <div class="card" id="supplyCard" style="display:none; margin-bottom:20px;">
-        <div class="chart-title-row">
-            <h3>Bitcoin Supply Tracker</h3>
-            <span class="chart-live-value btc-orange" id="supplyMined">--</span>
-        </div>
-        <div class="fleet-grid" style="margin-bottom:16px;">
-            <div class="metric-card">
-                <div class="label">Total Mined</div>
-                <div class="value btc-orange" id="supplyTotal">--</div>
-                <div class="sub" id="supplyTotalSub">BTC</div>
-            </div>
-            <div class="metric-card">
-                <div class="label">% of 21M</div>
-                <div class="value positive" id="supplyPercent">--%</div>
-                <div class="sub" id="supplyPercentSub">--</div>
-            </div>
-            <div class="metric-card">
-                <div class="label">Inflation Rate</div>
-                <div class="value neutral" id="supplyInflation">--%</div>
-                <div class="sub">annual</div>
-            </div>
-            <div class="metric-card">
-                <div class="label">Stock-to-Flow</div>
-                <div class="value" id="supplyS2F">--</div>
-                <div class="sub" id="supplyS2FSub">ratio</div>
-            </div>
-            <div class="metric-card">
-                <div class="label">Remaining BTC</div>
-                <div class="value negative" id="supplyRemaining">--</div>
-                <div class="sub">left to mine</div>
-            </div>
-        </div>
-        <div class="halving-progress-bar">
-            <div class="halving-progress-fill" id="supplyProgressBar" style="width:0%"></div>
-        </div>
-    </div>
-
     <!-- ===== DIFFICULTY ADJUSTMENT COUNTDOWN ===== -->
     <div class="section-label">Difficulty Adjustment</div>
     <section class="fleet-grid" style="grid-template-columns: repeat(4, 1fr);">
@@ -201,21 +195,39 @@
         </div>
     </div>
 
+    <!-- ===== NETWORK DIFFICULTY CHART ===== -->
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
-            <h3 id="priceTitle">BTC Price (90 Days)</h3>
-            <span id="priceValue" class="chart-live-value" style="color:#f7931a;">--</span>
+            <h3 id="diffTitle">Network Difficulty (1 Year)</h3>
+            <span id="diffValue" class="chart-live-value" style="color:#4ade80;">--</span>
         </div>
-        <div class="time-range-selector" id="priceRange">
-            <button data-days="7">7D</button>
-            <button data-days="30">30D</button>
-            <button data-days="90" class="active">90D</button>
-            <button data-days="180">180D</button>
-            <button data-days="365">1Y</button>
-            <button data-days="max">MAX</button>
+        <div class="time-range-selector" id="miningRange">
+            <button data-tf="3m">3M</button>
+            <button data-tf="6m">6M</button>
+            <button data-tf="1y" class="active">1Y</button>
+            <button data-tf="3y">3Y</button>
+            <button data-tf="all">ALL</button>
         </div>
         <div class="earnings-chart-container">
-            <canvas id="priceChart"></canvas>
+            <canvas id="difficultyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ===== NETWORK HASHRATE CHART ===== -->
+    <div class="card" style="margin-bottom:20px;">
+        <div class="chart-title-row">
+            <h3 id="hashTitle">Network Hashrate (1 Year)</h3>
+            <span id="hashValue" class="chart-live-value" style="color:#60a5fa;">--</span>
+        </div>
+        <div class="time-range-selector" id="hashRange">
+            <button data-tf="3m">3M</button>
+            <button data-tf="6m">6M</button>
+            <button data-tf="1y" class="active">1Y</button>
+            <button data-tf="3y">3Y</button>
+            <button data-tf="all">ALL</button>
+        </div>
+        <div class="earnings-chart-container">
+            <canvas id="hashrateChart"></canvas>
         </div>
     </div>
 
@@ -238,40 +250,7 @@
         </div>
     </div>
 
-    <div class="card" style="margin-bottom:20px;">
-        <div class="chart-title-row">
-            <h3 id="diffTitle">Network Difficulty (1 Year)</h3>
-            <span id="diffValue" class="chart-live-value" style="color:#4ade80;">--</span>
-        </div>
-        <div class="time-range-selector" id="miningRange">
-            <button data-tf="3m">3M</button>
-            <button data-tf="6m">6M</button>
-            <button data-tf="1y" class="active">1Y</button>
-            <button data-tf="3y">3Y</button>
-            <button data-tf="all">ALL</button>
-        </div>
-        <div class="earnings-chart-container">
-            <canvas id="difficultyChart"></canvas>
-        </div>
-    </div>
-
-    <div class="card" style="margin-bottom:20px;">
-        <div class="chart-title-row">
-            <h3 id="hashTitle">Network Hashrate (1 Year)</h3>
-            <span id="hashValue" class="chart-live-value" style="color:#60a5fa;">--</span>
-        </div>
-        <div class="time-range-selector" id="hashRange">
-            <button data-tf="3m">3M</button>
-            <button data-tf="6m">6M</button>
-            <button data-tf="1y" class="active">1Y</button>
-            <button data-tf="3y">3Y</button>
-            <button data-tf="all">ALL</button>
-        </div>
-        <div class="earnings-chart-container">
-            <canvas id="hashrateChart"></canvas>
-        </div>
-    </div>
-
+    <!-- ===== FEE RATE HISTORY ===== -->
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="feeTitle">Fee Rate History</h3>
@@ -312,15 +291,40 @@
         </div>
     </div>
 
+    <!-- ===== BLOCK EXPLORER ===== -->
+    <div class="card" id="blockExplorerCard" style="margin-bottom:20px;">
+        <div class="chart-title-row">
+            <h3>Latest Blocks</h3>
+            <span class="chart-live-value btc-orange" id="blockExplorerHeight">--</span>
+        </div>
+        <div class="table-scroll" id="blockExplorerTable">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Height</th>
+                        <th>Time</th>
+                        <th>Pool</th>
+                        <th>TXs</th>
+                        <th>Size</th>
+                        <th>Fees</th>
+                    </tr>
+                </thead>
+                <tbody id="blockExplorerBody">
+                    <tr><td colspan="6" style="text-align:center; color:#555;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </main>
 
 <footer>
     <p>Ion Mining Group &copy; 2025</p>
 </footer>
 
-<script src="./shared.js"></script>
-<script src="./fleet-data.js"></script>
-<script src="./charts.js"></script>
-<script src="./alerts.js"></script>
+<script src="./shared.js?v=41"></script>
+<script src="./fleet-data.js?v=41"></script>
+<script src="./charts.js?v=41"></script>
+<script src="./alerts.js?v=41"></script>
 </body>
 </html>
