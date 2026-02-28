@@ -511,5 +511,5 @@ function updatePayoutChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=45').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=46').catch(function() {});
 }

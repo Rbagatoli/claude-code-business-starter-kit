@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Charts</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=45">
+    <link rel="stylesheet" href="./shared.css?v=46">
     <script>
-    if (!localStorage.getItem('sw_clean_v45') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v46') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v45', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v46', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=45"></script>
+    <script src="./chart.min.js?v=46"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -56,6 +56,11 @@
             <div class="label">Block Height</div>
             <div class="value btc-orange" id="nsBlockHeight">--</div>
             <div class="sub" id="nsBlockHeightSub">loading...</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Block Reward</div>
+            <div class="value btc-orange" id="nsBlockReward">--</div>
+            <div class="sub" id="nsBlockRewardSub">BTC per block</div>
         </div>
         <div class="metric-card">
             <div class="label">Mempool Size</div>
@@ -322,9 +327,9 @@
     <p>Ion Mining Group &copy; 2025</p>
 </footer>
 
-<script src="./shared.js?v=45"></script>
-<script src="./fleet-data.js?v=45"></script>
-<script src="./charts.js?v=45"></script>
-<script src="./alerts.js?v=45"></script>
+<script src="./shared.js?v=46"></script>
+<script src="./fleet-data.js?v=46"></script>
+<script src="./charts.js?v=46"></script>
+<script src="./alerts.js?v=46"></script>
 </body>
 </html>

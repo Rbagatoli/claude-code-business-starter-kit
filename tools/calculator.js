@@ -684,7 +684,7 @@ document.getElementById('resetDefaults').addEventListener('click', () => {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=45').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=46').catch(() => {});
 }
 
 // ===== INIT =====

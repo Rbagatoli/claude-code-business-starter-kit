@@ -489,10 +489,14 @@ async function loadNetworkStats() {
         // Partial failure is OK — individual cards show "--"
     }
 
-    // Block Height
+    // Block Height + Block Reward
     if (results.height != null) {
         document.getElementById('nsBlockHeight').textContent = results.height.toLocaleString();
-        document.getElementById('nsBlockHeightSub').textContent = 'epoch ' + Math.floor(results.height / 210000);
+        var epoch = Math.floor(results.height / 210000);
+        document.getElementById('nsBlockHeightSub').textContent = 'epoch ' + epoch;
+        var reward = 50 / Math.pow(2, epoch);
+        document.getElementById('nsBlockReward').textContent = reward + ' BTC';
+        document.getElementById('nsBlockRewardSub').textContent = 'epoch ' + epoch + ' (halving #' + epoch + ')';
     } else {
         document.getElementById('nsBlockHeightSub').textContent = 'offline';
     }
@@ -1189,5 +1193,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=45').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=46').catch(function() {});
 }

@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v45')) return;
+    if (localStorage.getItem('sw_clean_v46')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v45', '1');
+            localStorage.setItem('sw_clean_v46', '1');
             location.reload();
         });
     });
@@ -55,9 +55,20 @@ function initNav(activePage) {
         while (el && el !== document.body) {
             if (ignore.indexOf(el.tagName) !== -1) return true;
             if (el.classList && el.classList.contains('earnings-chart-container')) return true;
+            if (el.classList && el.classList.contains('combo-chart-container')) return true;
             if (el.classList && el.classList.contains('metric-card')) return true;
             if (el.classList && el.classList.contains('miner-card')) return true;
+            if (el.classList && el.classList.contains('card')) return true;
             if (el.classList && el.classList.contains('slide-panel')) return true;
+            if (el.classList && el.classList.contains('table-scroll')) return true;
+            if (el.classList && el.classList.contains('time-range-selector')) return true;
+            if (el.classList && el.classList.contains('delete-dialog-overlay')) return true;
+            if (el.classList && el.classList.contains('fleet-toggle-row')) return true;
+            if (el.classList && el.classList.contains('reinvest-row')) return true;
+            if (el.classList && el.classList.contains('hodl-row')) return true;
+            if (el.classList && el.classList.contains('inputs-grid')) return true;
+            if (el.classList && el.classList.contains('mock-banner')) return true;
+            if (el.classList && el.classList.contains('halving-progress-bar')) return true;
             if (el.type === 'range') return true;
             el = el.parentElement;
         }
