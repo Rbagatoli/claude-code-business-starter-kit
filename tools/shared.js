@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v46')) return;
+    if (localStorage.getItem('sw_clean_v47')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v46', '1');
+            localStorage.setItem('sw_clean_v47', '1');
             location.reload();
         });
     });
@@ -22,7 +22,7 @@ function initNav(activePage) {
     if (!nav) return;
     nav.className = 'ion-nav';
     var mobile = window.innerWidth < 600;
-    var labels = mobile ? ['Calc', 'Home', 'Data', 'Pay', 'Wallet'] : ['Calculator', 'Dashboard', 'Data', 'Payouts', 'Wallet'];
+    var labels = mobile ? ['Calc', 'Data', 'Home', 'Pay', 'Wallet'] : ['Calculator', 'Data', 'Dashboard', 'Payouts', 'Wallet'];
     nav.innerHTML =
         '<a class="ion-nav-brand" href="./index.html">' +
             '<span class="icon"><svg width="24" height="24" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="8" fill="#f7931a"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(120 50 50)"/></svg></span>' +
@@ -30,8 +30,8 @@ function initNav(activePage) {
         '</a>' +
         '<div class="ion-nav-tabs">' +
             '<a href="./calculator.html" class="' + (activePage === 'calculator' ? 'active' : '') + '">' + labels[0] + '</a>' +
-            '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">' + labels[1] + '</a>' +
-            '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">' + labels[2] + '</a>' +
+            '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">' + labels[1] + '</a>' +
+            '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">' + labels[2] + '</a>' +
             '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[3] + '</a>' +
             '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[4] + '</a>' +
         '</div>' +
@@ -43,7 +43,7 @@ function initNav(activePage) {
 
 // --- Swipe / Slide Page Navigation ---
 (function() {
-    var pages = ['calculator.html', 'index.html', 'charts.html', 'payouts.html', 'wallet.html'];
+    var pages = ['calculator.html', 'charts.html', 'index.html', 'payouts.html', 'wallet.html'];
     var current = pages.indexOf(location.pathname.split('/').pop());
     if (current === -1) current = 0;
 
