@@ -659,7 +659,7 @@ function renderHalvingCountdown() {
 
 var blockRefreshTimer = null;
 
-function formatTimeAgo(timestamp) {
+function blockTimeAgo(timestamp) {
     if (!timestamp || timestamp < 1e9) {
         var d = new Date(timestamp * 1000);
         return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
@@ -686,7 +686,7 @@ function renderBlockExplorer(blocks) {
     var html = '';
     for (var i = 0; i < blocks.length; i++) {
         var b = blocks[i];
-        var ago = formatTimeAgo(b.timestamp);
+        var ago = blockTimeAgo(b.timestamp);
         var sizeMB = (b.size / 1e6).toFixed(2);
         var feesBTC = ((b.extras && b.extras.totalFees != null) ? b.extras.totalFees : 0) / 1e8;
         var poolName = 'Unknown';
@@ -1189,5 +1189,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=42').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=43').catch(function() {});
 }
