@@ -29,6 +29,7 @@ var FleetData = (function() {
 
     function saveFleet(fleet) {
         try { localStorage.setItem(FLEET_KEY, JSON.stringify(fleet)); } catch(e) {}
+        if (typeof SyncEngine !== 'undefined') SyncEngine.save('fleet', fleet);
     }
 
     function addMiner(miner) {
@@ -137,6 +138,7 @@ var FleetData = (function() {
 
     function saveSettings(settings) {
         try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e) {}
+        if (typeof SyncEngine !== 'undefined') SyncEngine.save('settings', settings);
     }
 
     // --- Mock Data ---

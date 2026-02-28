@@ -42,6 +42,7 @@ function saveAlertData() {
             alertData.alerts = alertData.alerts.slice(0, MAX_ALERTS);
         }
         localStorage.setItem(ALERTS_KEY, JSON.stringify(alertData));
+        if (typeof SyncEngine !== 'undefined') SyncEngine.save('alerts', alertData);
     } catch (e) {}
 }
 

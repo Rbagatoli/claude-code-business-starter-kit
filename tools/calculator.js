@@ -129,6 +129,7 @@ function saveSettings() {
     settings.savingsElec = savingsElecToggle.checked;
     settings._v = 3;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch(e) {}
+    if (typeof SyncEngine !== 'undefined') SyncEngine.save('calculator', settings);
 }
 
 function loadSettings() {
@@ -841,7 +842,7 @@ function renderComparison() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=54').catch(() => {});
+    navigator.serviceWorker.register('./sw.js?v=55').catch(() => {});
 }
 
 // ===== INIT =====

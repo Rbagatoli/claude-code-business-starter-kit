@@ -1193,5 +1193,5 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=54').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=55').catch(function() {});
 }

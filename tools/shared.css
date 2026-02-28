@@ -819,6 +819,20 @@ footer {
     justify-self: end;
 }
 .ion-nav-bell:hover { background: rgba(255,255,255,0.06); color: #e8e8e8; }
+.ion-nav-sync-btn {
+    position: relative; background: none; border: none; color: #888;
+    cursor: pointer; padding: 8px; border-radius: 6px;
+    transition: background 0.2s, color 0.2s; display: flex;
+    align-items: center; flex-shrink: 0;
+}
+.ion-nav-sync-btn:hover { background: rgba(255,255,255,0.06); color: #e8e8e8; }
+.ion-nav-sync-btn.signed-in { color: #f7931a; }
+.ion-nav-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(247, 147, 26, 0.2); color: #f7931a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+}
 .ion-nav-bell-badge {
     position: absolute;
     top: 2px; right: 2px;

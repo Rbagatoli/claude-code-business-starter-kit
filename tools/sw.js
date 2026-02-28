@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ion-mining-v54';
+const CACHE_NAME = 'ion-mining-v55';
 const ASSETS = [
   './index.html',
   './calculator.html',
@@ -15,6 +15,8 @@ const ASSETS = [
   './payouts.js',
   './wallet.js',
   './miner-db.js',
+  './firebase-config.js',
+  './sync.js',
   './alerts.js',
   './chart.min.js',
   './manifest.json'

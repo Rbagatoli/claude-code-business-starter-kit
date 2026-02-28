@@ -38,6 +38,7 @@ var PayoutData = (function() {
 
     function saveData(data) {
         try { localStorage.setItem(PAYOUT_KEY, JSON.stringify(data)); } catch(e) {}
+        if (typeof SyncEngine !== 'undefined') SyncEngine.save('payouts', data);
     }
 
     function addSnapshot(snapshot) {
@@ -99,6 +100,7 @@ var ElectricityData = (function() {
 
     function saveData(entries) {
         try { localStorage.setItem(ELEC_KEY, JSON.stringify(entries)); } catch(e) {}
+        if (typeof SyncEngine !== 'undefined') SyncEngine.save('electricity', entries);
     }
 
     function addEntry(entry) {
@@ -846,5 +848,5 @@ function updateRevCostChart() {
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=54').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=55').catch(function() {});
 }

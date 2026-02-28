@@ -33,6 +33,7 @@ var WalletData = (function() {
 
     function saveData(data) {
         try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e) {}
+        if (typeof SyncEngine !== 'undefined') SyncEngine.save('wallet', data);
     }
 
     function addAddress(address, label) {
@@ -351,5 +352,5 @@ document.getElementById('btnRefreshBalances').addEventListener('click', function
 
 // ===== PWA SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=54').catch(function() {});
+    navigator.serviceWorker.register('./sw.js?v=55').catch(function() {});
 }

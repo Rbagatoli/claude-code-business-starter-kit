@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v54')) return;
+    if (localStorage.getItem('sw_clean_v55')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v54', '1');
+            localStorage.setItem('sw_clean_v55', '1');
             location.reload();
         });
     });
@@ -41,6 +41,7 @@ function switchCurrency(code) {
     if (!CURRENCY_CONFIG[code]) return;
     window.selectedCurrency = code;
     localStorage.setItem('ionMiningCurrency', code);
+    if (typeof SyncEngine !== 'undefined') SyncEngine.save('currency', code);
     if (window.liveBtcPrices[code]) {
         window.liveBtcPrice = window.liveBtcPrices[code];
     }
@@ -80,9 +81,53 @@ function initNav(activePage) {
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
                 '<span class="ion-nav-bell-badge" id="alertBellBadge" style="display:none">0</span>' +
             '</button>' +
+            '<button class="ion-nav-sync-btn" id="syncBtn" title="Sign in to sync across devices">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+            '</button>' +
         '</div>';
     var sel = document.getElementById('currencySelect');
     if (sel) sel.addEventListener('change', function() { switchCurrency(this.value); });
+
+    // Auth button handler
+    var syncBtn = document.getElementById('syncBtn');
+    if (syncBtn && typeof IonAuth !== 'undefined') {
+        IonAuth.onAuthChange(function(user) {
+            if (user) {
+                var initial = (user.displayName || user.email || '?').charAt(0).toUpperCase();
+                syncBtn.innerHTML = '<span class="ion-nav-avatar">' + initial + '</span>';
+                syncBtn.title = 'Signed in as ' + (user.displayName || user.email) + ' — click to sign out';
+                syncBtn.className = 'ion-nav-sync-btn signed-in';
+            } else {
+                syncBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+                syncBtn.title = 'Sign in to sync across devices';
+                syncBtn.className = 'ion-nav-sync-btn';
+            }
+        });
+
+        syncBtn.addEventListener('click', function() {
+            if (IonAuth.isSignedIn()) {
+                if (confirm('Sign out of sync? Your data stays on this device.')) {
+                    SyncEngine.stopAll();
+                    IonAuth.signOut();
+                }
+            } else {
+                IonAuth.signIn().then(function() {
+                    // On first sign-in, check if cloud has data
+                    SyncEngine.pullAll(function(pulled) {
+                        if (pulled > 0) {
+                            location.reload();
+                        } else {
+                            SyncEngine.pushAll();
+                        }
+                    });
+                }).catch(function(err) {
+                    if (err.code !== 'auth/popup-closed-by-user') {
+                        console.warn('[Auth] Sign-in failed:', err.message);
+                    }
+                });
+            }
+        });
+    }
 }
 
 // --- Swipe / Slide Page Navigation ---
