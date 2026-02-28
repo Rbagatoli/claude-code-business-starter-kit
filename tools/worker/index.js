@@ -93,6 +93,12 @@ export default {
                     currency: 'bitcoin',
                     mining_user_name: user
                 }, apiSecret);
+            } else if (path === '/payouts') {
+                data = await f2poolRequest('/assets/transactions/list', {
+                    currency: 'bitcoin',
+                    mining_user_name: user,
+                    type: 'payout'
+                }, apiSecret);
             } else if (path === '/ping') {
                 // Health check — just verify the API secret works
                 data = await f2poolRequest('/hash_rate/info', {
