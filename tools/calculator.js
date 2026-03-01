@@ -839,12 +839,6 @@ function renderComparison() {
         '</tbody></table></div>';
     container.innerHTML = html;
 }
-
-// ===== PWA SERVICE WORKER =====
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=58').catch(() => {});
-}
-
 // ===== INIT =====
 initNav('calculator');
 initChart();

@@ -1200,8 +1200,3 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
     btn.classList.add('active');
     loadFeeRateHistory(btn.getAttribute('data-tf'));
 });
-
-// PWA Service Worker
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=62').catch(function() {});
-}

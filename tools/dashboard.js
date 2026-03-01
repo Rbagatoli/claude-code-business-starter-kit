@@ -1026,8 +1026,3 @@ function updateEarningsChart() {
     earningsChart.data.datasets[0].data = chartData.values;
     earningsChart.update();
 }
-
-// ===== PWA SERVICE WORKER =====
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=62').catch(function() {});
-}

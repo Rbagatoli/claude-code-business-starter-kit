@@ -792,8 +792,3 @@ function updateRevCostChart() {
     var emptyMsg = document.getElementById('revCostEmptyMsg');
     if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
 }
-
-// ===== PWA SERVICE WORKER =====
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=58').catch(function() {});
-}

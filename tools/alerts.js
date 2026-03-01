@@ -62,7 +62,11 @@ function defaultSettings() {
         diffAdjustmentEnabled: true,
         payoutAlertEnabled: true,
         balanceAlertEnabled: false,
-        balanceAlertThreshold: 0
+        balanceAlertThreshold: 0,
+        profitAlertEnabled: false,
+        profitThreshold: 0,
+        efficiencyAlertEnabled: false,
+        efficiencyThreshold: 30
     };
 }
 
@@ -186,6 +190,33 @@ function injectAlertSidebar() {
                     '</div>' +
                 '</div>' +
             '</div>' +
+            // --- Profitability section ---
+            '<div style="margin:16px 0 8px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.5px">Profitability</div>' +
+            // Daily Profit Alert
+            '<div class="alert-setting-row">' +
+                '<label class="toggle-switch"><input type="checkbox" id="asProfitAlert"><span class="slider"></span></label>' +
+                '<div class="alert-setting-info">' +
+                    '<strong>Daily Profit</strong>' +
+                    '<p>Alert when estimated daily profit drops below</p>' +
+                    '<div class="alert-threshold-row">' +
+                        '<span>$</span>' +
+                        '<input type="number" id="asProfitThreshold" min="-1000" step="1" value="0" class="alert-threshold-input alert-threshold-wide">' +
+                        '<span>USD/day</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            // Fleet Efficiency Alert
+            '<div class="alert-setting-row">' +
+                '<label class="toggle-switch"><input type="checkbox" id="asEfficiencyAlert"><span class="slider"></span></label>' +
+                '<div class="alert-setting-info">' +
+                    '<strong>Fleet Efficiency</strong>' +
+                    '<p>Alert when fleet efficiency exceeds</p>' +
+                    '<div class="alert-threshold-row">' +
+                        '<input type="number" id="asEfficiencyThreshold" min="1" step="1" value="30" class="alert-threshold-input">' +
+                        '<span>J/TH</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
             // Browser Notifications
             '<div class="alert-setting-row">' +
                 '<label class="toggle-switch"><input type="checkbox" id="asNotifications"><span class="slider"></span></label>' +
@@ -207,11 +238,11 @@ function injectAlertSidebar() {
     });
 
     // Settings change listeners
-    var settingInputs = ['asMinorOffline', 'asHashrateDrop', 'asPriceAlert', 'asDifficulty', 'asPriceMilestone', 'asDiffAdjustment', 'asPayoutAlert', 'asBalanceAlert', 'asNotifications'];
+    var settingInputs = ['asMinorOffline', 'asHashrateDrop', 'asPriceAlert', 'asDifficulty', 'asPriceMilestone', 'asDiffAdjustment', 'asPayoutAlert', 'asBalanceAlert', 'asProfitAlert', 'asEfficiencyAlert', 'asNotifications'];
     for (var i = 0; i < settingInputs.length; i++) {
         document.getElementById(settingInputs[i]).addEventListener('change', saveSettingsFromUI);
     }
-    var thresholdInputs = ['asHashrateThreshold', 'asPriceHigh', 'asPriceLow', 'asDiffThreshold', 'asBalanceThreshold'];
+    var thresholdInputs = ['asHashrateThreshold', 'asPriceHigh', 'asPriceLow', 'asDiffThreshold', 'asBalanceThreshold', 'asProfitThreshold', 'asEfficiencyThreshold'];
     for (var j = 0; j < thresholdInputs.length; j++) {
         document.getElementById(thresholdInputs[j]).addEventListener('change', saveSettingsFromUI);
     }
@@ -257,6 +288,10 @@ function loadSettingsToUI() {
     document.getElementById('asPayoutAlert').checked = s.payoutAlertEnabled;
     document.getElementById('asBalanceAlert').checked = s.balanceAlertEnabled;
     document.getElementById('asBalanceThreshold').value = s.balanceAlertThreshold || '';
+    document.getElementById('asProfitAlert').checked = s.profitAlertEnabled;
+    document.getElementById('asProfitThreshold').value = s.profitThreshold;
+    document.getElementById('asEfficiencyAlert').checked = s.efficiencyAlertEnabled;
+    document.getElementById('asEfficiencyThreshold').value = s.efficiencyThreshold;
     document.getElementById('asNotifications').checked = s.notificationsEnabled;
 }
 
@@ -275,6 +310,10 @@ function saveSettingsFromUI() {
     s.payoutAlertEnabled = document.getElementById('asPayoutAlert').checked;
     s.balanceAlertEnabled = document.getElementById('asBalanceAlert').checked;
     s.balanceAlertThreshold = parseFloat(document.getElementById('asBalanceThreshold').value) || 0;
+    s.profitAlertEnabled = document.getElementById('asProfitAlert').checked;
+    s.profitThreshold = parseFloat(document.getElementById('asProfitThreshold').value) || 0;
+    s.efficiencyAlertEnabled = document.getElementById('asEfficiencyAlert').checked;
+    s.efficiencyThreshold = parseFloat(document.getElementById('asEfficiencyThreshold').value) || 30;
     s.notificationsEnabled = document.getElementById('asNotifications').checked;
 
     // Request notification permission if enabling
@@ -499,6 +538,16 @@ async function runAlertChecks() {
     // Check wallet payout received + balance threshold
     if (s.payoutAlertEnabled || s.balanceAlertEnabled) {
         await checkWalletAlerts();
+    }
+
+    // Check profitability
+    if (s.profitAlertEnabled) {
+        await checkProfitAlert();
+    }
+
+    // Check fleet efficiency
+    if (s.efficiencyAlertEnabled) {
+        await checkEfficiencyAlert();
     }
 
     alertData.lastCheck = Date.now();
@@ -747,6 +796,90 @@ async function checkWalletAlerts() {
             }
             alertData.previousState.totalWalletBTC = totalBTC;
         }
+    } catch (e) {}
+}
+
+// --- Profit Alert ---
+async function checkProfitAlert() {
+    try {
+        var summary = FleetData.getFleetSummary();
+        if (summary.totalMachines === 0 || summary.totalHashrate === 0) return;
+
+        // Get BTC price — reuse cached value from price check, or fetch
+        var price = alertData.previousState.price;
+        if (!price || price <= 0) {
+            var res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+            if (res.ok) {
+                var data = await res.json();
+                price = data.bitcoin && data.bitcoin.usd;
+                if (price) alertData.previousState.price = price;
+            }
+        }
+        if (!price || price <= 0) return;
+
+        // Get difficulty — reuse cached value, or fetch
+        var difficulty = alertData.previousState.difficulty;
+        if (!difficulty || difficulty <= 0) {
+            var res2 = await fetch('https://mempool.space/api/v1/mining/hashrate/1d');
+            if (res2.ok) {
+                var data2 = await res2.json();
+                var diffs = data2.difficulty;
+                if (diffs && diffs.length > 0) {
+                    difficulty = diffs[diffs.length - 1].difficulty / 1e12;
+                    alertData.previousState.difficulty = difficulty;
+                }
+            }
+        }
+        if (!difficulty || difficulty <= 0) return;
+
+        // Calculate daily profit (same formula as dashboard.js)
+        var hashrateH = summary.totalHashrate * 1e12;
+        var diffFull = difficulty * 1e12;
+        var dailyBTC = (hashrateH * 86400 * 3.125) / (diffFull * 4294967296);
+        var elecRate = (summary.defaults && summary.defaults.elecCost) || 0.07;
+        var dailyElecCost = summary.totalPower * 24 * elecRate;
+        var dailyProfit = (dailyBTC * price) - dailyElecCost;
+
+        var threshold = alertData.settings.profitThreshold;
+
+        // Only alert on threshold crossing (was above, now below)
+        var prevProfit = alertData.previousState.lastDailyProfit;
+        if (prevProfit !== undefined && prevProfit >= threshold && dailyProfit < threshold) {
+            var msg = 'Estimated daily profit dropped to ' + (dailyProfit >= 0 ? '$' : '-$') + Math.abs(dailyProfit).toFixed(2) + '/day';
+            if (dailyProfit < 0) msg += ' (mining at a loss)';
+            createAlert(
+                'profit_low', 'high',
+                'Profit Alert',
+                msg,
+                { dailyProfit: dailyProfit, threshold: threshold, price: price, difficulty: difficulty }
+            );
+        }
+
+        alertData.previousState.lastDailyProfit = dailyProfit;
+    } catch (e) {}
+}
+
+// --- Efficiency Alert ---
+async function checkEfficiencyAlert() {
+    try {
+        var summary = FleetData.getFleetSummary();
+        if (summary.totalMachines === 0 || summary.totalHashrate === 0) return;
+
+        var efficiency = summary.efficiency; // J/TH
+        var threshold = alertData.settings.efficiencyThreshold;
+
+        // Only alert on threshold crossing (was below, now above)
+        var prevEff = alertData.previousState.lastEfficiency;
+        if (prevEff !== undefined && prevEff <= threshold && efficiency > threshold) {
+            createAlert(
+                'efficiency_high', 'medium',
+                'Efficiency Alert',
+                'Fleet efficiency degraded to ' + efficiency.toFixed(1) + ' J/TH (threshold: ' + threshold + ' J/TH)',
+                { efficiency: efficiency, threshold: threshold }
+            );
+        }
+
+        alertData.previousState.lastEfficiency = efficiency;
     } catch (e) {}
 }
 

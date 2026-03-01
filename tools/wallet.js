@@ -349,8 +349,3 @@ document.getElementById('saveAddress').addEventListener('click', async function(
 document.getElementById('btnRefreshBalances').addEventListener('click', function() {
     loadAndRefreshWallet();
 });
-
-// ===== PWA SERVICE WORKER =====
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=58').catch(function() {});
-}
