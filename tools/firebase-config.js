@@ -44,12 +44,19 @@
             if (typeof firebase === 'undefined') return Promise.reject('Firebase not loaded');
             return firebase.auth().createUserWithEmailAndPassword(email, password)
                 .then(function(credential) {
-                    var promises = [];
+                    var chain = Promise.resolve();
                     if (displayName) {
-                        promises.push(credential.user.updateProfile({ displayName: displayName }));
+                        chain = chain.then(function() {
+                            return credential.user.updateProfile({ displayName: displayName });
+                        });
                     }
-                    promises.push(credential.user.sendEmailVerification());
-                    return Promise.all(promises).then(function() { return credential; });
+                    // Send verification email best-effort (don't block sign-up if it fails)
+                    chain = chain.then(function() {
+                        return credential.user.sendEmailVerification().catch(function(err) {
+                            console.warn('Verification email failed:', err.code, err.message);
+                        });
+                    });
+                    return chain.then(function() { return credential; });
                 });
         },
 

@@ -119,11 +119,23 @@
         if (resendLink) {
             resendLink.addEventListener('click', function(e) {
                 e.preventDefault();
+                resendLink.textContent = 'Sending...';
+                resendLink.style.pointerEvents = 'none';
                 IonAuth.resendVerification().then(function() {
-                    resendLink.textContent = 'Sent!';
-                    resendLink.style.pointerEvents = 'none';
-                }).catch(function() {
-                    resendLink.textContent = 'Failed';
+                    resendLink.textContent = 'Sent! Check inbox & spam.';
+                    resendLink.style.color = '#4ade80';
+                }).catch(function(err) {
+                    console.error('Resend verification failed:', err.code, err.message);
+                    var msg = 'Failed';
+                    if (err.code === 'auth/too-many-requests') msg = 'Too many attempts — try later';
+                    else if (err.message) msg = err.message;
+                    resendLink.textContent = msg;
+                    resendLink.style.color = '#ef4444';
+                    setTimeout(function() {
+                        resendLink.textContent = 'Resend';
+                        resendLink.style.color = '';
+                        resendLink.style.pointerEvents = '';
+                    }, 5000);
                 });
             });
         }
