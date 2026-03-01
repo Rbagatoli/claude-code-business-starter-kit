@@ -702,6 +702,7 @@ footer {
     gap: 8px;
     flex-wrap: wrap;
     position: relative;
+    margin-top: 12px;
 }
 
 /* Earnings chart container */
@@ -1651,7 +1652,7 @@ main { display: flex; flex-direction: column; }
     position: sticky; top: 60px; z-index: 50; display: flex; justify-content: flex-end;
     pointer-events: none; height: 0; overflow: visible; margin-bottom: 0;
 }
-.widget-gear-btn { font-size: 16px; padding: 8px 12px; line-height: 1; position: relative; pointer-events: auto; }
+.widget-gear-btn { font-size: 14px; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; position: relative; pointer-events: auto; border-radius: 8px; }
 .widget-popover {
     position: absolute; right: 0; top: 100%; margin-top: 8px; z-index: 100;
     background: var(--bg-card, #101214); border: 1px solid var(--border, rgba(255,255,255,0.06));

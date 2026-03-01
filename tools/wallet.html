@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=71">
+    <link rel="stylesheet" href="./shared.css?v=72">
     <script>
-    if (!localStorage.getItem('sw_clean_v71') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v72') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v71', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v72', '1'); location.reload(); });
         });
     }
     </script>
@@ -126,13 +126,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=71"></script>
-<script src="./sync.js?v=71"></script>
-<script src="./auth-ui.js?v=71"></script>
-<script src="./profile-panel.js?v=71"></script>
-<script src="./shared.js?v=71"></script>
-<script src="./fleet-data.js?v=71"></script>
-<script src="./wallet.js?v=71"></script>
-<script src="./alerts.js?v=71"></script>
+<script src="./firebase-config.js?v=72"></script>
+<script src="./sync.js?v=72"></script>
+<script src="./auth-ui.js?v=72"></script>
+<script src="./profile-panel.js?v=72"></script>
+<script src="./shared.js?v=72"></script>
+<script src="./fleet-data.js?v=72"></script>
+<script src="./wallet.js?v=72"></script>
+<script src="./alerts.js?v=72"></script>
 </body>
 </html>
