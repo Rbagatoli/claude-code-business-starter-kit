@@ -1687,7 +1687,7 @@ main { display: flex; flex-direction: column; }
 [data-theme="light"] .pool-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
 
 /* ===== MOBILE COMPACT LAYOUT ===== */
-@media (max-width: 600px) {
+@media (max-width: 600px), (max-height: 500px) and (orientation: landscape) {
     /* Main layout */
     main { padding: 12px 8px; gap: 14px; }
 
@@ -1704,7 +1704,7 @@ main { display: flex; flex-direction: column; }
     /* Metric cards */
     .metrics-grid { gap: 6px; }
     .metric-card { padding: 8px; border-radius: 8px; }
-    .metric-card .value { font-size: 15px; }
+    .metric-card .value { font-size: 15px; overflow-wrap: break-word; word-break: break-word; }
     .metric-card .label { font-size: 9px; }
     .metric-card .sub { font-size: 9px; }
 
@@ -1721,6 +1721,8 @@ main { display: flex; flex-direction: column; }
     .miner-card-header { margin-bottom: 6px; }
     .miner-card-model { font-size: 13px; }
     .miner-card-stats { gap: 4px; margin-bottom: 6px; }
+    .miner-card-actions { flex-wrap: wrap; }
+    .miner-card-actions button { font-size: 10px; padding: 5px 6px; }
 
     /* Inputs */
     .inputs-grid { gap: 8px; }
