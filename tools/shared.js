@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v67')) return;
+    if (localStorage.getItem('sw_clean_v68')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v67', '1');
+            localStorage.setItem('sw_clean_v68', '1');
             location.reload();
         });
     });
@@ -128,27 +128,39 @@ function initNav(activePage) {
             }
         });
 
+        // Post-auth handler — called after sign-in from any method
+        window.handlePostAuth = function() {
+            SyncEngine.pullAll(function(pulled) {
+                if (pulled > 0) {
+                    location.reload();
+                } else {
+                    SyncEngine.pushAll();
+                }
+            });
+        };
+
         syncBtn.addEventListener('click', function() {
             if (IonAuth.isSignedIn()) {
-                if (confirm('Sign out of sync? Your data stays on this device.')) {
-                    SyncEngine.stopAll();
-                    IonAuth.signOut();
+                if (typeof IonProfile !== 'undefined') {
+                    IonProfile.show();
+                } else {
+                    if (confirm('Sign out of sync? Your data stays on this device.')) {
+                        SyncEngine.stopAll();
+                        IonAuth.signOut();
+                    }
                 }
             } else {
-                IonAuth.signIn().then(function() {
-                    // On first sign-in, check if cloud has data
-                    SyncEngine.pullAll(function(pulled) {
-                        if (pulled > 0) {
-                            location.reload();
-                        } else {
-                            SyncEngine.pushAll();
+                if (typeof IonAuthUI !== 'undefined') {
+                    IonAuthUI.show('signin');
+                } else {
+                    IonAuth.signIn().then(function() {
+                        window.handlePostAuth();
+                    }).catch(function(err) {
+                        if (err.code !== 'auth/popup-closed-by-user') {
+                            console.warn('[Auth] Sign-in failed:', err.message);
                         }
                     });
-                }).catch(function(err) {
-                    if (err.code !== 'auth/popup-closed-by-user') {
-                        console.warn('[Auth] Sign-in failed:', err.message);
-                    }
-                });
+                }
             }
         });
     }

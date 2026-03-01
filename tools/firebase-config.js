@@ -28,10 +28,62 @@
             return !!this.getUser();
         },
 
+        // Google sign-in (original method)
         signIn: function() {
+            return this.signInWithGoogle();
+        },
+
+        signInWithGoogle: function() {
             if (typeof firebase === 'undefined') return Promise.reject('Firebase not loaded');
             var provider = new firebase.auth.GoogleAuthProvider();
             return firebase.auth().signInWithPopup(provider);
+        },
+
+        // Email/password sign-up
+        signUpWithEmail: function(email, password, displayName) {
+            if (typeof firebase === 'undefined') return Promise.reject('Firebase not loaded');
+            return firebase.auth().createUserWithEmailAndPassword(email, password)
+                .then(function(credential) {
+                    var promises = [];
+                    if (displayName) {
+                        promises.push(credential.user.updateProfile({ displayName: displayName }));
+                    }
+                    promises.push(credential.user.sendEmailVerification());
+                    return Promise.all(promises).then(function() { return credential; });
+                });
+        },
+
+        // Email/password sign-in
+        signInWithEmail: function(email, password) {
+            if (typeof firebase === 'undefined') return Promise.reject('Firebase not loaded');
+            return firebase.auth().signInWithEmailAndPassword(email, password);
+        },
+
+        // Password reset
+        sendPasswordReset: function(email) {
+            if (typeof firebase === 'undefined') return Promise.reject('Firebase not loaded');
+            return firebase.auth().sendPasswordResetEmail(email);
+        },
+
+        // Update display name
+        updateDisplayName: function(name) {
+            var user = this.getUser();
+            if (!user) return Promise.reject('Not signed in');
+            return user.updateProfile({ displayName: name });
+        },
+
+        // Resend verification email
+        resendVerification: function() {
+            var user = this.getUser();
+            if (!user) return Promise.reject('Not signed in');
+            return user.sendEmailVerification();
+        },
+
+        // Delete account
+        deleteAccount: function() {
+            var user = this.getUser();
+            if (!user) return Promise.reject('Not signed in');
+            return user.delete();
         },
 
         signOut: function() {
