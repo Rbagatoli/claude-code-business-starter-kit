@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Charts</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=73">
+    <link rel="stylesheet" href="./shared.css?v=74">
     <script>
-    if (!localStorage.getItem('sw_clean_v73') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v74') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v73', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v74', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=73"></script>
+    <script src="./chart.min.js?v=74"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -184,29 +184,29 @@
     <!-- ===== DIFFICULTY ADJUSTMENT COUNTDOWN ===== -->
     <div class="widget-section" data-widget="difficulty">
     <div class="section-label">Difficulty Adjustment</div>
-    <section class="fleet-grid">
-        <div class="metric-card">
-            <div class="label">Blocks Remaining</div>
-            <div class="value btc-orange" id="diffBlocks">--</div>
-            <div class="sub" id="diffProgress">--% complete</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Est. Time Remaining</div>
-            <div class="value" id="diffTime">--</div>
-            <div class="sub" id="diffDate">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Est. Difficulty Change</div>
-            <div class="value" id="diffChange">--</div>
-            <div class="sub">vs current epoch</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Current Difficulty</div>
-            <div class="value" id="diffCurrent">--</div>
-            <div class="sub">trillions</div>
-        </div>
-    </section>
-    <div class="card" style="padding: 14px 20px; margin-bottom:20px;">
+    <div class="card" style="margin-bottom:20px;">
+        <section class="fleet-grid" style="margin-bottom:16px;">
+            <div class="metric-card">
+                <div class="label">Blocks Remaining</div>
+                <div class="value btc-orange" id="diffBlocks">--</div>
+                <div class="sub" id="diffProgress">--% complete</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Est. Time Remaining</div>
+                <div class="value" id="diffTime">--</div>
+                <div class="sub" id="diffDate">--</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Est. Difficulty Change</div>
+                <div class="value" id="diffChange">--</div>
+                <div class="sub">vs current epoch</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Current Difficulty</div>
+                <div class="value" id="diffCurrent">--</div>
+                <div class="sub">trillions</div>
+            </div>
+        </section>
         <div class="halving-progress-bar">
             <div class="halving-progress-fill" id="diffProgressBar" style="width: 0%"></div>
         </div>
@@ -361,14 +361,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=73"></script>
-<script src="./sync.js?v=73"></script>
-<script src="./auth-ui.js?v=73"></script>
-<script src="./profile-panel.js?v=73"></script>
-<script src="./shared.js?v=73"></script>
-<script src="./fleet-data.js?v=73"></script>
-<script src="./charts.js?v=73"></script>
-<script src="./widget-settings.js?v=73"></script>
-<script src="./alerts.js?v=73"></script>
+<script src="./firebase-config.js?v=74"></script>
+<script src="./sync.js?v=74"></script>
+<script src="./auth-ui.js?v=74"></script>
+<script src="./profile-panel.js?v=74"></script>
+<script src="./shared.js?v=74"></script>
+<script src="./fleet-data.js?v=74"></script>
+<script src="./charts.js?v=74"></script>
+<script src="./widget-settings.js?v=74"></script>
+<script src="./alerts.js?v=74"></script>
 </body>
 </html>
