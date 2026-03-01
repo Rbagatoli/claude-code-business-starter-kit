@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Payouts</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=78">
+    <link rel="stylesheet" href="./shared.css?v=79">
     <script>
-    if (!localStorage.getItem('sw_clean_v78') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v79') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v78', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v79', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=78"></script>
+    <script src="./chart.min.js?v=79"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -58,7 +58,7 @@
     <!-- ===== ACTION BUTTONS ===== -->
     <div class="dashboard-actions">
         <button class="btn btn-primary" id="btnAddPayout">+ Add Payout</button>
-        <button class="btn btn-secondary" id="btnExportCSV">Export CSV</button>
+        <a href="./accounting.html" class="btn btn-secondary" style="text-decoration:none;">Tax Exports &rarr; Accounting</a>
     </div>
 
     <div id="f2poolSyncStatus" style="text-align:center; color:#555; font-size:12px; margin-top:8px;"></div>
@@ -180,51 +180,6 @@
         </div>
     </div>
 
-    <!-- Export Options Slide Panel -->
-    <div class="slide-panel" id="exportPanel">
-        <div class="panel-inner">
-            <h4>Export CSV for Tax Reporting</h4>
-            <div class="panel-form-grid">
-                <div class="input-group">
-                    <label>Report Type</label>
-                    <div class="input-wrapper">
-                        <select id="exReportType">
-                            <option value="simple">Simple (Payouts Only)</option>
-                            <option value="tax">Tax Report (Detailed)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label>Year Preset</label>
-                    <div class="input-wrapper">
-                        <select id="exYearPreset">
-                            <option value="">Custom Range</option>
-                            <option value="2026">2026 Tax Year</option>
-                            <option value="2025">2025 Tax Year</option>
-                            <option value="2024">2024 Tax Year</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label>Start Date</label>
-                    <div class="input-wrapper">
-                        <input type="date" id="exStartDate">
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label>End Date</label>
-                    <div class="input-wrapper">
-                        <input type="date" id="exEndDate">
-                    </div>
-                </div>
-            </div>
-            <div class="panel-actions">
-                <button class="btn btn-secondary" id="cancelExport">Cancel</button>
-                <button class="btn btn-primary" id="downloadCSV">Download CSV</button>
-            </div>
-        </div>
-    </div>
-
     <!-- ===== PAYOUT LOG TABLE ===== -->
     <div class="widget-section" data-widget="payout-log">
     <div class="card">
@@ -306,14 +261,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=78"></script>
-<script src="./sync.js?v=78"></script>
-<script src="./auth-ui.js?v=78"></script>
-<script src="./profile-panel.js?v=78"></script>
-<script src="./shared.js?v=78"></script>
-<script src="./fleet-data.js?v=78"></script>
-<script src="./payouts.js?v=78"></script>
-<script src="./widget-settings.js?v=78"></script>
-<script src="./alerts.js?v=78"></script>
+<script src="./firebase-config.js?v=79"></script>
+<script src="./sync.js?v=79"></script>
+<script src="./auth-ui.js?v=79"></script>
+<script src="./profile-panel.js?v=79"></script>
+<script src="./shared.js?v=79"></script>
+<script src="./fleet-data.js?v=79"></script>
+<script src="./payouts.js?v=79"></script>
+<script src="./widget-settings.js?v=79"></script>
+<script src="./alerts.js?v=79"></script>
 </body>
 </html>
