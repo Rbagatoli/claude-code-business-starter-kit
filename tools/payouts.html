@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Payouts</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=65">
+    <link rel="stylesheet" href="./shared.css?v=66">
     <script>
-    if (!localStorage.getItem('sw_clean_v65') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v66') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v65', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v66', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=65"></script>
+    <script src="./chart.min.js?v=66"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -285,11 +285,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=65"></script>
-<script src="./sync.js?v=65"></script>
-<script src="./shared.js?v=65"></script>
-<script src="./fleet-data.js?v=65"></script>
-<script src="./payouts.js?v=65"></script>
-<script src="./alerts.js?v=65"></script>
+<script src="./firebase-config.js?v=66"></script>
+<script src="./sync.js?v=66"></script>
+<script src="./shared.js?v=66"></script>
+<script src="./fleet-data.js?v=66"></script>
+<script src="./payouts.js?v=66"></script>
+<script src="./alerts.js?v=66"></script>
 </body>
 </html>
