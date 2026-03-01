@@ -1685,3 +1685,66 @@ main { display: flex; flex-direction: column; }
 .pool-card-status.negative { color: #f55; }
 .pool-card-status.coming-soon { color: #f7931a; }
 [data-theme="light"] .pool-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
+
+/* ===== MOBILE COMPACT LAYOUT ===== */
+@media (max-width: 600px) {
+    /* Main layout */
+    main { padding: 12px 8px; gap: 14px; }
+
+    /* Cards */
+    .card { padding: 12px; }
+    .card h3 { font-size: 14px; margin-bottom: 10px; }
+
+    /* Section labels */
+    .section-label { font-size: 14px; margin-bottom: 6px; }
+
+    /* Footer */
+    footer { padding: 12px 8px; }
+
+    /* Metric cards */
+    .metrics-grid { gap: 6px; }
+    .metric-card { padding: 8px; border-radius: 8px; }
+    .metric-card .value { font-size: 15px; }
+    .metric-card .label { font-size: 9px; }
+    .metric-card .sub { font-size: 9px; }
+
+    /* Charts */
+    .combo-chart-container { height: 260px; padding: 8px; }
+    .earnings-chart-container { height: 200px; padding: 8px; }
+
+    /* Fleet grid */
+    .fleet-grid { gap: 6px; }
+
+    /* Miner cards */
+    .miner-cards-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    .miner-card { padding: 10px; border-radius: 8px; }
+    .miner-card-header { margin-bottom: 6px; }
+    .miner-card-model { font-size: 13px; }
+    .miner-card-stats { gap: 4px; margin-bottom: 6px; }
+
+    /* Inputs */
+    .inputs-grid { gap: 8px; }
+    .input-group { margin-bottom: 6px; }
+
+    /* Slide panels */
+    .slide-panel .panel-inner { padding: 12px; }
+    .panel-form-grid { gap: 8px; }
+    .panel-actions { margin-top: 10px; }
+
+    /* Chart title */
+    .chart-title-row { margin-bottom: 8px; }
+
+    /* Time range */
+    .time-range-selector { margin-bottom: 6px; }
+
+    /* Empty state */
+    .empty-state { padding: 20px 12px; }
+    .empty-state .icon { font-size: 32px; }
+
+    /* Delete dialog */
+    .delete-dialog { padding: 16px; }
+
+    /* Miner group units */
+    .miner-group-units { gap: 8px; }
+    .miner-group.expanded { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
