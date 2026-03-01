@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Dashboard</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=68">
+    <link rel="stylesheet" href="./shared.css?v=69">
     <script>
-    if (!localStorage.getItem('sw_clean_v68') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v69') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v68', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v69', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=68"></script>
+    <script src="./chart.min.js?v=69"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -31,6 +31,7 @@
     </div>
 
     <!-- ===== FLEET OVERVIEW ===== -->
+    <div class="widget-section" data-widget="fleet">
     <div class="section-label">Fleet Overview</div>
     <section class="fleet-grid">
         <div class="metric-card">
@@ -73,13 +74,20 @@
             <div class="value" id="fleetAvgPower">--</div>
             <div class="sub">kW</div>
         </div>
+        <div class="metric-card">
+            <div class="label">Fleet ROI</div>
+            <div class="value" id="fleetROI">--</div>
+            <div class="sub" id="fleetROISub">est. return on investment</div>
+        </div>
     </section>
 
     <!-- ===== ACTION BUTTONS ===== -->
     <div class="dashboard-actions">
         <button class="btn btn-primary" id="btnAddMiner">+ Add Miner</button>
-        <button class="btn btn-secondary" id="btnConnectAPI">Connect F2Pool API</button>
+        <button class="btn btn-secondary" id="btnConnectAPI">Connect Mining Pool</button>
     </div>
+    <div id="poolListContainer"></div>
+    </div><!-- /widget fleet -->
 
     <!-- Add Miner Slide Panel -->
     <div class="slide-panel" id="addMinerPanel">
@@ -130,6 +138,12 @@
                         </select>
                     </div>
                 </div>
+                <div class="input-group">
+                    <label>Purchase Date</label>
+                    <div class="input-wrapper">
+                        <input type="date" id="fmPurchaseDate">
+                    </div>
+                </div>
             </div>
             <div class="panel-actions">
                 <button class="btn btn-secondary" id="cancelMiner">Cancel</button>
@@ -141,8 +155,26 @@
     <!-- Connect API Slide Panel -->
     <div class="slide-panel" id="apiPanel">
         <div class="panel-inner">
-            <h4>Connect F2Pool API</h4>
+            <h4>Connect Mining Pool</h4>
             <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Pool Type</label>
+                    <div class="input-wrapper">
+                        <select id="fmPoolType">
+                            <option value="f2pool" selected>F2Pool</option>
+                            <option value="luxor">Luxor</option>
+                            <option value="braiins">Braiins Pool</option>
+                            <option value="viabtc">ViaBTC</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="poolComingSoon" style="display:none;margin:16px 0;padding:16px;background:rgba(247,147,26,0.08);border:1px solid rgba(247,147,26,0.2);border-radius:8px;text-align:center;">
+                <div style="font-size:18px;margin-bottom:6px">&#x1F6A7;</div>
+                <div style="color:#f7931a;font-weight:600;margin-bottom:4px">Coming Soon</div>
+                <div style="font-size:12px;color:#888">This pool integration requires a dedicated Cloudflare Worker proxy. Stay tuned!</div>
+            </div>
+            <div id="poolFormFields" class="panel-form-grid">
                 <div class="input-group">
                     <label>Proxy Worker URL</label>
                     <div class="input-wrapper">
@@ -180,13 +212,48 @@
         </div>
     </div>
 
+    <!-- ===== PROFITABILITY SUMMARY ===== -->
+    <div class="widget-section" data-widget="profit">
+    <div class="section-label">Profitability</div>
+    <section class="fleet-grid" id="profitGrid">
+        <div class="metric-card">
+            <div class="label">Total Revenue</div>
+            <div class="value positive" id="profRevenue">--</div>
+            <div class="sub" id="profRevenueSub">from payouts</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total Electricity</div>
+            <div class="value negative" id="profElectricity">--</div>
+            <div class="sub" id="profElecSub">operating cost</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Fleet CAPEX</div>
+            <div class="value neutral" id="profCapex">--</div>
+            <div class="sub" id="profCapexSub">hardware cost</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Net P&amp;L</div>
+            <div class="value" id="profPnL">--</div>
+            <div class="sub" id="profPnLSub">revenue - costs</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Profit</div>
+            <div class="value" id="profDaily">--</div>
+            <div class="sub" id="profDailySub">est. at current rate</div>
+        </div>
+    </section>
+    </div><!-- /widget profit -->
+
     <!-- ===== MINER CARDS ===== -->
+    <div class="widget-section" data-widget="miners">
     <div class="section-label">Miners</div>
     <div class="miner-cards-grid" id="minerCardsGrid">
         <!-- Rendered by JS -->
     </div>
+    </div><!-- /widget miners -->
 
     <!-- ===== PAYMENT TRACKER ===== -->
+    <div class="widget-section" data-widget="pool">
     <div id="paymentTrackerSection" style="display:none">
         <div class="section-label">F2Pool Earnings</div>
         <section class="fleet-grid">
@@ -231,17 +298,21 @@
         <div class="section-label">F2Pool Earnings</div>
         <div class="empty-state" style="padding:20px;">
             <p>Connect F2Pool to see your earnings</p>
-            <div class="hint">Click "Connect F2Pool API" above to get started</div>
+            <div class="hint">Click "Connect Mining Pool" above to get started</div>
         </div>
     </div>
+    </div><!-- /widget pool -->
 
     <!-- ===== EARNINGS CHART ===== -->
+    <div class="widget-section" data-widget="chart">
+    <div class="section-label">Earnings Chart</div>
     <div class="card">
         <h3>Estimated Daily Earnings (14-Day) <span style="font-size:11px; color:#555; font-weight:400;">*simulated variance</span></h3>
         <div class="earnings-chart-container">
             <canvas id="earningsChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget chart -->
 
 </main>
 
@@ -253,14 +324,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=68"></script>
-<script src="./sync.js?v=68"></script>
-<script src="./auth-ui.js?v=68"></script>
-<script src="./profile-panel.js?v=68"></script>
-<script src="./shared.js?v=68"></script>
-<script src="./fleet-data.js?v=68"></script>
-<script src="./miner-db.js?v=68"></script>
-<script src="./dashboard.js?v=68"></script>
-<script src="./alerts.js?v=68"></script>
+<script src="./firebase-config.js?v=69"></script>
+<script src="./sync.js?v=69"></script>
+<script src="./auth-ui.js?v=69"></script>
+<script src="./profile-panel.js?v=69"></script>
+<script src="./shared.js?v=69"></script>
+<script src="./fleet-data.js?v=69"></script>
+<script src="./miner-db.js?v=69"></script>
+<script src="./dashboard.js?v=69"></script>
+<script src="./onboarding.js?v=69"></script>
+<script src="./widget-settings.js?v=69"></script>
+<script src="./alerts.js?v=69"></script>
 </body>
 </html>

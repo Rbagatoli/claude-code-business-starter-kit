@@ -534,7 +534,12 @@ document.getElementById('exYearPreset').addEventListener('change', function() {
 document.getElementById('downloadCSV').addEventListener('click', function() {
     var startDate = document.getElementById('exStartDate').value;
     var endDate = document.getElementById('exEndDate').value;
-    exportCSV(startDate, endDate);
+    var reportType = document.getElementById('exReportType').value;
+    if (reportType === 'tax') {
+        exportTaxReport(startDate, endDate);
+    } else {
+        exportCSV(startDate, endDate);
+    }
     exportPanel.classList.remove('open');
 });
 
@@ -593,6 +598,124 @@ function exportCSV(startDate, endDate) {
     var a = document.createElement('a');
     a.href = url;
     a.download = 'ion-mining-payouts-' + startDate + '-to-' + endDate + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ===== TAX REPORT EXPORT =====
+function exportTaxReport(startDate, endDate) {
+    var payoutData = PayoutData.getData();
+    var elecData = ElectricityData.getData();
+    var fleet = FleetData.getFleet();
+    var rows = [['Date', 'Description', 'BTC Amount', 'BTC Price (USD)', 'USD Value', 'Cost Basis', 'Gain/Loss', 'Category']];
+
+    var totalIncome = 0;
+    var totalExpenses = 0;
+    var totalCapex = 0;
+
+    // Section 1: Mining Income — Payouts
+    var payouts = [];
+    for (var i = 0; i < payoutData.payouts.length; i++) {
+        var p = payoutData.payouts[i];
+        if (p.date >= startDate && p.date <= endDate) payouts.push(p);
+    }
+    for (var s = 0; s < payoutData.snapshots.length; s++) {
+        var snap = payoutData.snapshots[s];
+        if (snap.date >= startDate && snap.date <= endDate) {
+            payouts.push({
+                date: snap.date,
+                btcAmount: snap.btcEarned,
+                btcPrice: snap.btcPrice,
+                usdValue: snap.btcEarned * snap.btcPrice,
+                notes: 'Daily mining snapshot'
+            });
+        }
+    }
+    payouts.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+    for (var pi = 0; pi < payouts.length; pi++) {
+        var pay = payouts[pi];
+        var usd = pay.usdValue || (pay.btcAmount * pay.btcPrice);
+        totalIncome += usd;
+        rows.push([
+            pay.date,
+            'Mining income' + (pay.notes ? ' - ' + pay.notes : ''),
+            pay.btcAmount.toFixed(8),
+            pay.btcPrice.toFixed(2),
+            usd.toFixed(2),
+            usd.toFixed(2),
+            '0.00',
+            'Mining Income'
+        ]);
+    }
+
+    // Section 2: Operating Expenses — Electricity
+    var bills = [];
+    for (var e = 0; e < elecData.bills.length; e++) {
+        var bill = elecData.bills[e];
+        if (bill.date >= startDate && bill.date <= endDate) bills.push(bill);
+    }
+    bills.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+    for (var bi = 0; bi < bills.length; bi++) {
+        var b = bills[bi];
+        totalExpenses += b.cost;
+        rows.push([
+            b.date,
+            'Electricity' + (b.notes ? ' - ' + b.notes : '') + ' (' + b.kwh + ' kWh)',
+            '', '',
+            '-' + b.cost.toFixed(2),
+            '', '',
+            'Electricity Expense'
+        ]);
+    }
+
+    // Section 3: Capital Expenditures — Miners
+    for (var mi = 0; mi < fleet.miners.length; mi++) {
+        var m = fleet.miners[mi];
+        var pDate = m.purchaseDate || m.dateAdded.split('T')[0];
+        if (pDate >= startDate && pDate <= endDate) {
+            var minerCost = m.cost * m.quantity;
+            totalCapex += minerCost;
+            rows.push([
+                pDate,
+                'Equipment: ' + m.model + ' x' + m.quantity,
+                '', '',
+                '-' + minerCost.toFixed(2),
+                minerCost.toFixed(2),
+                '',
+                'Equipment Purchase'
+            ]);
+        }
+    }
+
+    // Section 4: Summary
+    var netTaxable = totalIncome - totalExpenses - totalCapex;
+    rows.push([]);
+    rows.push(['', 'SUMMARY', '', '', '', '', '', '']);
+    rows.push(['', 'Total Mining Income', '', '', totalIncome.toFixed(2), '', '', '']);
+    rows.push(['', 'Total Electricity Expenses', '', '', '-' + totalExpenses.toFixed(2), '', '', '']);
+    rows.push(['', 'Total Equipment Purchases', '', '', '-' + totalCapex.toFixed(2), '', '', '']);
+    rows.push(['', 'Net Taxable Income', '', '', netTaxable.toFixed(2), '', '', '']);
+
+    var csv = '';
+    for (var r = 0; r < rows.length; r++) {
+        var line = '';
+        var row = rows[r];
+        for (var c = 0; c < 8; c++) {
+            if (c > 0) line += ',';
+            line += '"' + String(row[c] !== undefined ? row[c] : '').replace(/"/g, '""') + '"';
+        }
+        csv += line + '\n';
+    }
+
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'ion-mining-tax-report-' + startDate + '-to-' + endDate + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

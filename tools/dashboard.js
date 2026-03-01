@@ -24,6 +24,7 @@ initNav('dashboard');
     else liveDifficulty = 125.86;
     await loadF2PoolData();
     renderDashboard();
+    renderPoolList();
     initEarningsChart();
     initMinerDbAutocomplete();
 })();
@@ -79,6 +80,21 @@ function renderDashboard() {
     document.getElementById('fleetAvgHashrate').textContent = avgHashrate.toFixed(1);
     document.getElementById('fleetAvgPower').textContent = avgPower.toFixed(2);
 
+    // Fleet ROI
+    var fleetROIEl = document.getElementById('fleetROI');
+    var fleetROISubEl = document.getElementById('fleetROISub');
+    if (fleetROIEl && totalCost > 0) {
+        var fleetEstEarnings = dailyUSD * 30; // rough 30-day projection
+        var fleetROI = ((fleetEstEarnings * 12 - totalCost) / totalCost) * 100; // annualized
+        var roiSign = fleetROI >= 0 ? '+' : '';
+        fleetROIEl.textContent = roiSign + fleetROI.toFixed(1) + '%';
+        fleetROIEl.className = 'value ' + (fleetROI >= 0 ? 'positive' : 'negative');
+        fleetROISubEl.textContent = 'annualized est.';
+    }
+
+    // Render profitability summary
+    renderProfitability(totalCost, totalPower, dailyBTC);
+
     // Render miner cards
     renderMinerCards(miners);
 
@@ -87,13 +103,78 @@ function renderDashboard() {
 
 }
 
+// ===== PROFITABILITY SUMMARY =====
+function renderProfitability(fleetCapex, totalPowerKW, dailyBTC) {
+    var price = liveBtcPrice || 0;
+    var mult = getCurrencyMultiplier();
+
+    // Total Revenue — sum of all payout USD values
+    var totalRevenue = 0;
+    var payoutCount = 0;
+    try {
+        var raw = localStorage.getItem('ionMiningPayouts');
+        if (raw) {
+            var payoutData = JSON.parse(raw);
+            var payouts = payoutData && payoutData.payouts ? payoutData.payouts : [];
+            payoutCount = payouts.length;
+            for (var i = 0; i < payouts.length; i++) {
+                totalRevenue += payouts[i].usdValue || (payouts[i].btcAmount * (payouts[i].btcPrice || price));
+            }
+        }
+    } catch(e) {}
+
+    // Total Electricity — sum of all electricity bills
+    var totalElec = 0;
+    try {
+        var elecRaw = localStorage.getItem('ionMiningElectricity');
+        if (elecRaw) {
+            var elecEntries = JSON.parse(elecRaw);
+            if (Array.isArray(elecEntries)) {
+                for (var j = 0; j < elecEntries.length; j++) {
+                    totalElec += elecEntries[j].costUSD || 0;
+                }
+            }
+        }
+    } catch(e) {}
+
+    // Net P&L = Revenue - Electricity - CAPEX
+    var netPnL = totalRevenue - totalElec - fleetCapex;
+
+    // Daily Profit = (daily BTC × price) - daily electricity cost
+    // Daily elec cost = totalPowerKW × 24h × elec rate
+    var fleet = FleetData.getFleet();
+    var elecRate = (fleet.defaults && fleet.defaults.elecCost) || 0.07;
+    var dailyElecCost = totalPowerKW * 24 * elecRate;
+    var dailyProfit = (dailyBTC * price) - dailyElecCost;
+
+    // Update DOM
+    document.getElementById('profRevenue').textContent = fmtUSD(totalRevenue * mult);
+    document.getElementById('profRevenueSub').textContent = payoutCount > 0 ? payoutCount + ' payouts' : 'from payouts';
+
+    document.getElementById('profElectricity').textContent = fmtUSD(totalElec * mult);
+
+    document.getElementById('profCapex').textContent = fmtUSD(fleetCapex * mult);
+
+    var pnlEl = document.getElementById('profPnL');
+    pnlEl.textContent = fmtUSD(netPnL * mult);
+    pnlEl.className = 'value ' + (netPnL >= 0 ? 'positive' : 'negative');
+
+    var dailyEl = document.getElementById('profDaily');
+    dailyEl.textContent = fmtUSD(dailyProfit * mult);
+    dailyEl.className = 'value ' + (dailyProfit >= 0 ? 'positive' : 'negative');
+    document.getElementById('profDailySub').textContent = 'elec: ' + fmtUSD(dailyElecCost * mult) + '/day';
+}
+
 function renderPaymentTracker() {
     var settings = FleetData.getSettings();
     var section = document.getElementById('paymentTrackerSection');
     var hint = document.getElementById('paymentTrackerHint');
 
-    var f2pool = settings.f2pool || {};
-    if (!f2pool.enabled) {
+    var f2pool = null;
+    for (var p = 0; p < (settings.pools || []).length; p++) {
+        if (settings.pools[p].type === 'f2pool' && settings.pools[p].enabled) { f2pool = settings.pools[p]; break; }
+    }
+    if (!f2pool) {
         section.style.display = 'none';
         hint.style.display = '';
         return;
@@ -210,9 +291,26 @@ function buildMinerCard(m, eff, mDailyUSD, isLive, isGroupSummary, isExpanded) {
     var card = document.createElement('div');
     card.className = 'miner-card' + (isGroupSummary ? ' miner-card-stacked' : '');
 
+    // ROI calculation
+    var roiBadge = '';
+    var daysOwnedText = '';
+    if (m.purchaseDate && m.cost > 0) {
+        var purchaseMs = new Date(m.purchaseDate).getTime();
+        var nowMs = Date.now();
+        var daysOwned = Math.max(1, Math.floor((nowMs - purchaseMs) / 86400000));
+        var totalCostGroup = m.cost * m.quantity;
+        var estEarnings = mDailyUSD * m.quantity * daysOwned;
+        var roi = ((estEarnings - totalCostGroup) / totalCostGroup) * 100;
+        var roiColor = roi >= 0 ? '#4caf50' : '#f55';
+        var roiSign = roi >= 0 ? '+' : '';
+        roiBadge = '<div class="miner-card-qty" style="background:' + roiColor + '22;color:' + roiColor + ';border:1px solid ' + roiColor + '44">ROI: ' + roiSign + roi.toFixed(1) + '%</div>';
+        daysOwnedText = '<div class="miner-card-stat"><div class="stat-label">Days Owned</div><div class="stat-value">' + daysOwned + '</div></div>';
+    }
+
     var badges = '';
     if (isLive) badges += '<div class="miner-card-qty live-badge">LIVE</div>';
     if (isGroupSummary) badges += '<div class="miner-card-qty qty-badge">x' + m.quantity + '</div>';
+    badges += roiBadge;
 
     var totalRow = '';
     if (isGroupSummary) {
@@ -251,6 +349,7 @@ function buildMinerCard(m, eff, mDailyUSD, isLive, isGroupSummary, isExpanded) {
             '<div class="miner-card-stat"><div class="stat-label">Cost</div><div class="stat-value">' + (m.cost ? fmtUSD(m.cost * getCurrencyMultiplier()) : '--') + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">Status</div><div class="stat-value"><span class="status-dot ' + m.status + (isLive && m.status === 'online' ? ' online-pulse' : '') + '"></span>' + m.status + '</div></div>' +
             '<div class="miner-card-stat"><div class="stat-label">' + (isGroupSummary ? 'Daily (each)' : 'Daily Est.') + '</div><div class="stat-value" style="color:#f7931a">' + fmtUSD(mDailyUSD) + '</div></div>' +
+            daysOwnedText +
             totalRow +
         '</div>' +
         actions + footer;
@@ -416,6 +515,7 @@ document.getElementById('btnAddMiner').addEventListener('click', function() {
     document.getElementById('fmCost').value = '';
     document.getElementById('fmQuantity').value = '1';
     document.getElementById('fmStatus').value = 'online';
+    document.getElementById('fmPurchaseDate').value = new Date().toISOString().split('T')[0];
     apiPanel.classList.remove('open');
     addMinerPanel.classList.toggle('open');
 });
@@ -432,14 +532,15 @@ document.getElementById('saveMiner').addEventListener('click', function() {
     var cost = document.getElementById('fmCost').value;
     var quantity = document.getElementById('fmQuantity').value;
     var status = document.getElementById('fmStatus').value;
+    var purchaseDate = document.getElementById('fmPurchaseDate').value || new Date().toISOString().split('T')[0];
 
     if (!model || !hashrate || !power) return;
 
     if (editingMinerId) {
-        FleetData.updateMiner(editingMinerId, { model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status });
+        FleetData.updateMiner(editingMinerId, { model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate });
         editingMinerId = null;
     } else {
-        FleetData.addMiner({ model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status });
+        FleetData.addMiner({ model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate });
     }
 
     addMinerPanel.classList.remove('open');
@@ -465,6 +566,7 @@ function startEditMiner(id) {
     document.getElementById('fmCost').value = miner.cost || '';
     document.getElementById('fmQuantity').value = miner.quantity;
     document.getElementById('fmStatus').value = miner.status;
+    document.getElementById('fmPurchaseDate').value = miner.purchaseDate || '';
     apiPanel.classList.remove('open');
     addMinerPanel.classList.add('open');
 }
@@ -525,8 +627,15 @@ var apiStatusText = document.getElementById('apiStatusText');
 
 document.getElementById('btnConnectAPI').addEventListener('click', function() {
     var settings = FleetData.getSettings();
-    document.getElementById('fmWorkerUrl').value = settings.f2pool.workerUrl || '';
-    document.getElementById('fmUsername').value = settings.f2pool.username || '';
+    var poolType = document.getElementById('fmPoolType');
+    if (poolType) poolType.value = 'f2pool';
+    var existing = null;
+    for (var p = 0; p < settings.pools.length; p++) {
+        if (settings.pools[p].type === 'f2pool') { existing = settings.pools[p]; break; }
+    }
+    document.getElementById('fmWorkerUrl').value = existing ? existing.workerUrl || '' : '';
+    document.getElementById('fmUsername').value = existing ? existing.username || '' : '';
+    updatePoolPanelState();
     apiStatusEl.style.display = 'none';
     addMinerPanel.classList.remove('open');
     apiPanel.classList.toggle('open');
@@ -566,12 +675,36 @@ document.getElementById('testAPI').addEventListener('click', async function() {
 
 document.getElementById('saveAPI').addEventListener('click', async function() {
     var settings = FleetData.getSettings();
-    settings.f2pool.workerUrl = document.getElementById('fmWorkerUrl').value.trim().replace(/\/+$/, '');
-    settings.f2pool.username = document.getElementById('fmUsername').value.trim();
-    settings.f2pool.enabled = !!(settings.f2pool.workerUrl && settings.f2pool.username);
+    var poolTypeEl = document.getElementById('fmPoolType');
+    var poolType = poolTypeEl ? poolTypeEl.value : 'f2pool';
+    var workerUrl = document.getElementById('fmWorkerUrl').value.trim().replace(/\/+$/, '');
+    var username = document.getElementById('fmUsername').value.trim();
+    var enabled = !!(workerUrl && username);
+    var POOL_NAMES = { f2pool: 'F2Pool', luxor: 'Luxor', braiins: 'Braiins Pool', viabtc: 'ViaBTC' };
+    var found = false;
+    for (var p = 0; p < settings.pools.length; p++) {
+        if (settings.pools[p].type === poolType) {
+            settings.pools[p].workerUrl = workerUrl;
+            settings.pools[p].username = username;
+            settings.pools[p].enabled = enabled;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        settings.pools.push({
+            id: 'pool_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+            type: poolType,
+            name: POOL_NAMES[poolType] || poolType,
+            workerUrl: workerUrl,
+            username: username,
+            enabled: enabled
+        });
+    }
     FleetData.saveSettings(settings);
     apiPanel.classList.remove('open');
-    if (settings.f2pool.enabled) {
+    renderPoolList();
+    if (poolType === 'f2pool' && enabled) {
         await loadF2PoolData();
         renderDashboard();
         updateEarningsChart();
@@ -583,9 +716,13 @@ var f2poolMiners = [];
 
 async function loadF2PoolData() {
     var settings = FleetData.getSettings();
-    if (!settings.f2pool.enabled) return;
-    var url = settings.f2pool.workerUrl;
-    var user = settings.f2pool.username;
+    var f2cfg = null;
+    for (var p = 0; p < settings.pools.length; p++) {
+        if (settings.pools[p].type === 'f2pool' && settings.pools[p].enabled) { f2cfg = settings.pools[p]; break; }
+    }
+    if (!f2cfg) return;
+    var url = f2cfg.workerUrl;
+    var user = f2cfg.username;
 
     try {
         var [workersRes, earningsRes] = await Promise.all([
@@ -628,6 +765,72 @@ async function loadF2PoolData() {
         f2poolMiners = [];
     }
 }
+
+// ===== POOL LIST =====
+var POOL_TYPES = [
+    { type: 'f2pool', name: 'F2Pool', supported: true },
+    { type: 'luxor', name: 'Luxor', supported: false },
+    { type: 'braiins', name: 'Braiins Pool', supported: false },
+    { type: 'viabtc', name: 'ViaBTC', supported: false }
+];
+
+function renderPoolList() {
+    var container = document.getElementById('poolListContainer');
+    if (!container) return;
+    var settings = FleetData.getSettings();
+    if (settings.pools.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    var html = '<div class="section-label" style="margin-top:12px;font-size:13px">Connected Pools</div>';
+    for (var i = 0; i < settings.pools.length; i++) {
+        var pool = settings.pools[i];
+        var supported = pool.type === 'f2pool';
+        var statusText = !supported ? 'Coming Soon' : (pool.enabled ? 'Connected' : 'Disconnected');
+        var statusClass = !supported ? 'coming-soon' : (pool.enabled ? 'positive' : 'negative');
+        html += '<div class="pool-card">' +
+            '<div class="pool-card-info">' +
+                '<span class="pool-card-name">' + escapeHtml(pool.name) + '</span>' +
+                '<span class="pool-type-badge">' + pool.type + '</span>' +
+            '</div>' +
+            '<span class="pool-card-status ' + statusClass + '">' + statusText + '</span>' +
+        '</div>';
+    }
+    container.innerHTML = html;
+}
+
+function updatePoolPanelState() {
+    var poolType = document.getElementById('fmPoolType');
+    var comingSoon = document.getElementById('poolComingSoon');
+    var formFields = document.getElementById('poolFormFields');
+    var testBtn = document.getElementById('testAPI');
+    var saveBtn = document.getElementById('saveAPI');
+    if (!poolType) return;
+    var type = poolType.value;
+    var supported = type === 'f2pool';
+    if (comingSoon) comingSoon.style.display = supported ? 'none' : '';
+    if (formFields) formFields.style.display = supported ? '' : 'none';
+    if (testBtn) testBtn.style.display = supported ? '' : 'none';
+    if (saveBtn) saveBtn.style.display = supported ? '' : 'none';
+    var settings = FleetData.getSettings();
+    var existing = null;
+    for (var p = 0; p < settings.pools.length; p++) {
+        if (settings.pools[p].type === type) { existing = settings.pools[p]; break; }
+    }
+    if (supported) {
+        document.getElementById('fmWorkerUrl').value = existing ? existing.workerUrl || '' : '';
+        document.getElementById('fmUsername').value = existing ? existing.username || '' : '';
+    }
+}
+
+(function() {
+    var poolTypeEl = document.getElementById('fmPoolType');
+    if (poolTypeEl) {
+        poolTypeEl.addEventListener('change', function() {
+            updatePoolPanelState();
+        });
+    }
+})();
 
 // ===== MOCK BANNER =====
 document.getElementById('dismissMock').addEventListener('click', function() {

@@ -57,7 +57,12 @@ function defaultSettings() {
         priceAlertHigh: 0,
         priceAlertLow: 0,
         difficultyAlertsEnabled: true,
-        difficultyChangeThreshold: 3
+        difficultyChangeThreshold: 3,
+        priceMilestoneEnabled: true,
+        diffAdjustmentEnabled: true,
+        payoutAlertEnabled: true,
+        balanceAlertEnabled: false,
+        balanceAlertThreshold: 0
     };
 }
 
@@ -145,6 +150,42 @@ function injectAlertSidebar() {
                     '</div>' +
                 '</div>' +
             '</div>' +
+            // $10k Price Milestones
+            '<div class="alert-setting-row">' +
+                '<label class="toggle-switch"><input type="checkbox" id="asPriceMilestone"><span class="slider"></span></label>' +
+                '<div class="alert-setting-info">' +
+                    '<strong>$10K Price Milestones</strong>' +
+                    '<p>Alert when BTC crosses a $10,000 level</p>' +
+                '</div>' +
+            '</div>' +
+            // Difficulty Epoch Adjustment
+            '<div class="alert-setting-row">' +
+                '<label class="toggle-switch"><input type="checkbox" id="asDiffAdjustment"><span class="slider"></span></label>' +
+                '<div class="alert-setting-info">' +
+                    '<strong>Difficulty Adjustment</strong>' +
+                    '<p>Alert on every 2016-block epoch change</p>' +
+                '</div>' +
+            '</div>' +
+            // Payout Received
+            '<div class="alert-setting-row">' +
+                '<label class="toggle-switch"><input type="checkbox" id="asPayoutAlert"><span class="slider"></span></label>' +
+                '<div class="alert-setting-info">' +
+                    '<strong>Payout Received</strong>' +
+                    '<p>Alert when wallet balance increases</p>' +
+                '</div>' +
+            '</div>' +
+            // Wallet Balance Threshold
+            '<div class="alert-setting-row">' +
+                '<label class="toggle-switch"><input type="checkbox" id="asBalanceAlert"><span class="slider"></span></label>' +
+                '<div class="alert-setting-info">' +
+                    '<strong>Balance Threshold</strong>' +
+                    '<p>Alert when total wallet balance crosses</p>' +
+                    '<div class="alert-threshold-row">' +
+                        '<input type="number" id="asBalanceThreshold" min="0" step="0.01" value="0" class="alert-threshold-input alert-threshold-wide">' +
+                        '<span>BTC</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
             // Browser Notifications
             '<div class="alert-setting-row">' +
                 '<label class="toggle-switch"><input type="checkbox" id="asNotifications"><span class="slider"></span></label>' +
@@ -166,11 +207,11 @@ function injectAlertSidebar() {
     });
 
     // Settings change listeners
-    var settingInputs = ['asMinorOffline', 'asHashrateDrop', 'asPriceAlert', 'asDifficulty', 'asNotifications'];
+    var settingInputs = ['asMinorOffline', 'asHashrateDrop', 'asPriceAlert', 'asDifficulty', 'asPriceMilestone', 'asDiffAdjustment', 'asPayoutAlert', 'asBalanceAlert', 'asNotifications'];
     for (var i = 0; i < settingInputs.length; i++) {
         document.getElementById(settingInputs[i]).addEventListener('change', saveSettingsFromUI);
     }
-    var thresholdInputs = ['asHashrateThreshold', 'asPriceHigh', 'asPriceLow', 'asDiffThreshold'];
+    var thresholdInputs = ['asHashrateThreshold', 'asPriceHigh', 'asPriceLow', 'asDiffThreshold', 'asBalanceThreshold'];
     for (var j = 0; j < thresholdInputs.length; j++) {
         document.getElementById(thresholdInputs[j]).addEventListener('change', saveSettingsFromUI);
     }
@@ -211,6 +252,11 @@ function loadSettingsToUI() {
     document.getElementById('asPriceLow').value = s.priceAlertLow || '';
     document.getElementById('asDifficulty').checked = s.difficultyAlertsEnabled;
     document.getElementById('asDiffThreshold').value = s.difficultyChangeThreshold;
+    document.getElementById('asPriceMilestone').checked = s.priceMilestoneEnabled;
+    document.getElementById('asDiffAdjustment').checked = s.diffAdjustmentEnabled;
+    document.getElementById('asPayoutAlert').checked = s.payoutAlertEnabled;
+    document.getElementById('asBalanceAlert').checked = s.balanceAlertEnabled;
+    document.getElementById('asBalanceThreshold').value = s.balanceAlertThreshold || '';
     document.getElementById('asNotifications').checked = s.notificationsEnabled;
 }
 
@@ -224,6 +270,11 @@ function saveSettingsFromUI() {
     s.priceAlertLow = parseFloat(document.getElementById('asPriceLow').value) || 0;
     s.difficultyAlertsEnabled = document.getElementById('asDifficulty').checked;
     s.difficultyChangeThreshold = parseInt(document.getElementById('asDiffThreshold').value) || 3;
+    s.priceMilestoneEnabled = document.getElementById('asPriceMilestone').checked;
+    s.diffAdjustmentEnabled = document.getElementById('asDiffAdjustment').checked;
+    s.payoutAlertEnabled = document.getElementById('asPayoutAlert').checked;
+    s.balanceAlertEnabled = document.getElementById('asBalanceAlert').checked;
+    s.balanceAlertThreshold = parseFloat(document.getElementById('asBalanceThreshold').value) || 0;
     s.notificationsEnabled = document.getElementById('asNotifications').checked;
 
     // Request notification permission if enabling
@@ -435,6 +486,21 @@ async function runAlertChecks() {
         await checkDifficultyAlert();
     }
 
+    // Check $10k price milestones
+    if (s.priceMilestoneEnabled) {
+        await checkPriceMilestone();
+    }
+
+    // Check difficulty epoch adjustment
+    if (s.diffAdjustmentEnabled) {
+        await checkDifficultyEpoch();
+    }
+
+    // Check wallet payout received + balance threshold
+    if (s.payoutAlertEnabled || s.balanceAlertEnabled) {
+        await checkWalletAlerts();
+    }
+
     alertData.lastCheck = Date.now();
     saveAlertData();
     updateMonitorStatus();
@@ -561,6 +627,120 @@ async function checkDifficultyAlert() {
         }
 
         alertData.previousState.difficulty = currentDiff;
+    } catch (e) {}
+}
+
+// --- $10k Price Milestone ---
+async function checkPriceMilestone() {
+    try {
+        var price = alertData.previousState.price;
+        if (!price || price <= 0) return;
+
+        var currentMilestone = Math.floor(price / 10000) * 10000;
+        var prevMilestone = alertData.previousState.lastPriceMilestone || 0;
+
+        if (prevMilestone > 0 && currentMilestone !== prevMilestone) {
+            var direction = currentMilestone > prevMilestone ? 'crossed above' : 'dropped below';
+            var severity = currentMilestone > prevMilestone ? 'medium' : 'medium';
+            createAlert(
+                'price_milestone', severity,
+                'Price Milestone',
+                'BTC ' + direction + ' $' + currentMilestone.toLocaleString() + ' (now $' + Math.round(price).toLocaleString() + ')',
+                { price: price, milestone: currentMilestone }
+            );
+        }
+
+        alertData.previousState.lastPriceMilestone = currentMilestone;
+    } catch (e) {}
+}
+
+// --- Difficulty Epoch ---
+async function checkDifficultyEpoch() {
+    try {
+        var res = await fetch('https://mempool.space/api/blocks/tip/height');
+        if (!res.ok) return;
+        var blockHeight = parseInt(await res.text());
+        if (!blockHeight || blockHeight <= 0) return;
+
+        var currentEpoch = Math.floor(blockHeight / 2016);
+        var prevEpoch = alertData.previousState.lastDifficultyEpoch || 0;
+
+        if (prevEpoch > 0 && currentEpoch !== prevEpoch) {
+            var res2 = await fetch('https://mempool.space/api/v1/mining/hashrate/1d');
+            if (res2.ok) {
+                var data = await res2.json();
+                var diffs = data.difficulty;
+                if (diffs && diffs.length > 0) {
+                    var newDiff = diffs[diffs.length - 1].difficulty / 1e12;
+                    var oldDiff = alertData.previousState.lastDifficulty || newDiff;
+                    var changePct = oldDiff > 0 ? ((newDiff - oldDiff) / oldDiff) * 100 : 0;
+                    var sign = changePct >= 0 ? '+' : '';
+                    createAlert(
+                        'diff_epoch', 'low',
+                        'Difficulty Epoch Change',
+                        'Difficulty adjusted to ' + newDiff.toFixed(2) + 'T (' + sign + changePct.toFixed(1) + '%) at block ' + blockHeight,
+                        { epoch: currentEpoch, difficulty: newDiff, change: changePct }
+                    );
+                    alertData.previousState.lastDifficulty = newDiff;
+                }
+            }
+        }
+
+        alertData.previousState.lastDifficultyEpoch = currentEpoch;
+    } catch (e) {}
+}
+
+// --- Wallet Payout Received + Balance Threshold ---
+async function checkWalletAlerts() {
+    try {
+        var walletRaw = localStorage.getItem('ionMiningWallet');
+        if (!walletRaw) return;
+        var walletData = JSON.parse(walletRaw);
+        if (!walletData || !walletData.addresses || walletData.addresses.length === 0) return;
+
+        var prevBalances = alertData.previousState.walletBalances || {};
+        var currentBalances = {};
+        var totalBTC = 0;
+
+        for (var i = 0; i < walletData.addresses.length; i++) {
+            var addr = walletData.addresses[i];
+            var address = addr.address;
+            var satoshis = addr.balance || 0;
+            var btc = satoshis / 1e8;
+            currentBalances[address] = satoshis;
+            totalBTC += btc;
+
+            // Payout received detection
+            if (alertData.settings.payoutAlertEnabled && prevBalances[address] !== undefined) {
+                var diff = satoshis - prevBalances[address];
+                if (diff > 0) {
+                    var receivedBTC = diff / 1e8;
+                    createAlert(
+                        'payout_received', 'medium',
+                        'Payout Received',
+                        'Received ' + receivedBTC.toFixed(8) + ' BTC to ' + address.substring(0, 8) + '...',
+                        { address: address, amount: receivedBTC }
+                    );
+                }
+            }
+        }
+
+        alertData.previousState.walletBalances = currentBalances;
+
+        // Balance threshold check
+        if (alertData.settings.balanceAlertEnabled && alertData.settings.balanceAlertThreshold > 0) {
+            var prevTotal = alertData.previousState.totalWalletBTC || 0;
+            var threshold = alertData.settings.balanceAlertThreshold;
+            if (prevTotal < threshold && totalBTC >= threshold) {
+                createAlert(
+                    'balance_threshold', 'low',
+                    'Balance Threshold',
+                    'Total wallet balance crossed ' + threshold + ' BTC (now ' + totalBTC.toFixed(8) + ' BTC)',
+                    { total: totalBTC, threshold: threshold }
+                );
+            }
+            alertData.previousState.totalWalletBTC = totalBTC;
+        }
     } catch (e) {}
 }
 

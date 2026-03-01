@@ -17,7 +17,8 @@ var SyncEngine = (function() {
         calculator:  { lsKey: 'btcMinerCalcSettings' },
         settings:    { lsKey: 'ionMiningSettings' },
         alerts:      { lsKey: 'ionMiningAlerts' },
-        currency:    { lsKey: 'ionMiningCurrency' }
+        currency:    { lsKey: 'ionMiningCurrency' },
+        theme:       { lsKey: 'ionMiningTheme' }
     };
 
     function getDb() {
@@ -96,13 +97,13 @@ var SyncEngine = (function() {
                     // Compare with current localStorage — skip if identical
                     var lsKey = SYNC_KEYS[key].lsKey;
                     var current = localStorage.getItem(lsKey);
-                    var remoteStr = (key === 'currency') ? remote.data : JSON.stringify(remote.data);
+                    var remoteStr = (key === 'currency' || key === 'theme') ? remote.data : JSON.stringify(remote.data);
                     if (current === remoteStr) return;
 
                     _syncing = true;
 
                     // Update localStorage
-                    if (key === 'currency') {
+                    if (key === 'currency' || key === 'theme') {
                         localStorage.setItem(lsKey, remote.data);
                     } else {
                         localStorage.setItem(lsKey, JSON.stringify(remote.data));
@@ -150,7 +151,7 @@ var SyncEngine = (function() {
                     var lsKey = SYNC_KEYS[key].lsKey;
                     var remoteData = doc.data().data;
 
-                    if (key === 'currency') {
+                    if (key === 'currency' || key === 'theme') {
                         localStorage.setItem(lsKey, remoteData);
                     } else {
                         localStorage.setItem(lsKey, JSON.stringify(remoteData));
@@ -178,7 +179,7 @@ var SyncEngine = (function() {
             if (!raw) return;
 
             var data;
-            if (key === 'currency') {
+            if (key === 'currency' || key === 'theme') {
                 data = raw;
             } else {
                 try { data = JSON.parse(raw); } catch(e) { return; }
