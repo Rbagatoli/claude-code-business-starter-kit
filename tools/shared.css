@@ -1703,8 +1703,8 @@ main { display: flex; flex-direction: column; }
 
     /* Metric cards */
     .metrics-grid { gap: 6px; }
-    .metric-card { padding: 8px; border-radius: 8px; }
-    .metric-card .value { font-size: 15px; overflow-wrap: break-word; word-break: break-word; }
+    .metric-card { padding: 8px; border-radius: 8px; min-width: 0; overflow: hidden; }
+    .metric-card .value { font-size: 14px; overflow-wrap: break-word; word-break: break-word; }
     .metric-card .label { font-size: 9px; }
     .metric-card .sub { font-size: 9px; }
 
