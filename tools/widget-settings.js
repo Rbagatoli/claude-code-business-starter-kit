@@ -32,6 +32,10 @@
         WIDGET_LABELS[key] = lbl ? lbl.textContent.trim() : (h3 ? h3.textContent.trim() : key);
     }
 
+    // SVG icons for lock/unlock
+    var lockSVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    var unlockSVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
+
     function loadConfig() {
         try {
             var raw = localStorage.getItem(WIDGET_KEY);
@@ -51,11 +55,12 @@
                     cfg.hidden = (cfg.hidden || []).filter(function(k) {
                         return DEFAULT_ORDER.indexOf(k) >= 0;
                     });
+                    if (cfg.locked === undefined) cfg.locked = true;
                     return cfg;
                 }
             }
         } catch (e) {}
-        return { order: DEFAULT_ORDER.slice(), hidden: [] };
+        return { order: DEFAULT_ORDER.slice(), hidden: [], locked: true };
     }
 
     function saveConfig(cfg) {
@@ -73,6 +78,18 @@
             var idx = config.order.indexOf(wKey);
             w.style.order = idx >= 0 ? idx : 99;
             w.style.display = config.hidden.indexOf(wKey) >= 0 ? 'none' : '';
+        }
+    }
+
+    // Apply lock/unlock state to all widgets
+    function applyLock() {
+        var widgets = document.querySelectorAll('.widget-section');
+        var handles = document.querySelectorAll('.widget-drag-handle');
+        for (var i = 0; i < widgets.length; i++) {
+            widgets[i].setAttribute('draggable', config.locked ? 'false' : 'true');
+        }
+        for (var j = 0; j < handles.length; j++) {
+            handles[j].style.display = config.locked ? 'none' : '';
         }
     }
 
@@ -94,6 +111,7 @@
             w.setAttribute('draggable', 'true');
 
             w.addEventListener('dragstart', function(e) {
+                if (config.locked) { e.preventDefault(); return; }
                 e.dataTransfer.setData('text/plain', this.dataset.widget);
                 this.classList.add('widget-dragging');
             });
@@ -107,6 +125,7 @@
             });
 
             w.addEventListener('dragover', function(e) {
+                if (config.locked) return;
                 e.preventDefault();
                 this.classList.add('widget-drag-over');
             });
@@ -116,6 +135,7 @@
             });
 
             w.addEventListener('drop', function(e) {
+                if (config.locked) return;
                 e.preventDefault();
                 this.classList.remove('widget-drag-over');
                 var fromKey = e.dataTransfer.getData('text/plain');
@@ -137,6 +157,7 @@
                 var touchStartY = 0;
 
                 widget.addEventListener('touchstart', function(e) {
+                    if (config.locked) return;
                     if (!e.target.classList.contains('widget-drag-handle')) return;
                     touchStartY = e.touches[0].clientY;
                     widget.classList.add('widget-dragging');
@@ -187,7 +208,7 @@
         }
     }
 
-    // Inject gear button + settings popover (fixed top-right of main)
+    // Inject gear button + lock button + settings popover (fixed top-right of main)
     function injectSettingsUI() {
         var main = document.querySelector('main');
         if (!main) return;
@@ -195,6 +216,23 @@
         var wrapper = document.createElement('div');
         wrapper.className = 'widget-gear-wrapper';
 
+        // Lock/unlock button
+        var lockBtn = document.createElement('button');
+        lockBtn.className = 'btn btn-secondary widget-lock-btn';
+        lockBtn.title = config.locked ? 'Unlock widgets to reorder' : 'Lock widgets in place';
+        lockBtn.innerHTML = config.locked ? lockSVG : unlockSVG;
+        wrapper.appendChild(lockBtn);
+
+        lockBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            config.locked = !config.locked;
+            saveConfig(config);
+            applyLock();
+            lockBtn.innerHTML = config.locked ? lockSVG : unlockSVG;
+            lockBtn.title = config.locked ? 'Unlock widgets to reorder' : 'Lock widgets in place';
+        });
+
+        // Gear button
         var gear = document.createElement('button');
         gear.className = 'btn btn-secondary widget-gear-btn';
         gear.innerHTML = '&#x2699;';
@@ -247,7 +285,7 @@
         }
 
         document.getElementById('widgetReset').addEventListener('click', function() {
-            config = { order: DEFAULT_ORDER.slice(), hidden: [] };
+            config = { order: DEFAULT_ORDER.slice(), hidden: [], locked: config.locked };
             saveConfig(config);
             applyLayout();
             var checks = popover.querySelectorAll('[data-widget-toggle]');
@@ -259,6 +297,7 @@
     setTimeout(function() {
         applyLayout();
         addDragHandles();
+        applyLock();
         injectSettingsUI();
     }, 100);
 })();

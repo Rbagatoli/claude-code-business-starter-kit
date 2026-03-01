@@ -1652,6 +1652,7 @@ main { display: flex; flex-direction: column; }
     position: sticky; top: 60px; z-index: 50; display: flex; justify-content: flex-end;
     pointer-events: none; height: 0; overflow: visible; margin-bottom: 0;
 }
+.widget-lock-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; pointer-events: auto; border-radius: 8px; margin-right: 4px; }
 .widget-gear-btn { font-size: 14px; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 1; position: relative; pointer-events: auto; border-radius: 8px; }
 .widget-popover {
     position: absolute; right: 0; top: 100%; margin-top: 8px; z-index: 100;
