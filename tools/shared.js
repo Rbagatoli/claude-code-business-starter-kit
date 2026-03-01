@@ -2,7 +2,7 @@
 
 // --- One-time SW cleanup (removes old cached service workers) ---
 (function() {
-    if (localStorage.getItem('sw_clean_v66')) return;
+    if (localStorage.getItem('sw_clean_v67')) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.getRegistrations().then(function(regs) {
         var promises = regs.map(function(r) { return r.unregister(); });
@@ -10,7 +10,7 @@
             return Promise.all(keys.map(function(k) { return caches.delete(k); }));
         }));
         Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v66', '1');
+            localStorage.setItem('sw_clean_v67', '1');
             location.reload();
         });
     });
@@ -358,7 +358,7 @@ async function fetchLiveMarketData() {
                 visibleRows: rowsNeeded,
                 scrollY: Math.random() * totalRows * HEX_LINE_HEIGHT,
                 speed: 8 + s * 12,
-                opacity: 0.02 + s * 0.012
+                opacity: 0.01 + s * 0.006
             });
         }
 
@@ -375,7 +375,7 @@ async function fetchLiveMarketData() {
                 end: endPct,
                 phase: Math.random() * Math.PI * 2,
                 speed: 0.2 + Math.random() * 0.6,
-                maxOpacity: 0.08 + Math.random() * 0.12,
+                maxOpacity: 0.04 + Math.random() * 0.06,
                 width: Math.random() > 0.7 ? 2 : 1,
                 glow: Math.random() > 0.6
             });
@@ -389,7 +389,7 @@ async function fetchLiveMarketData() {
                 radius: 1.5 + Math.random() * 2.5,
                 phase: Math.random() * Math.PI * 2,
                 speed: 0.3 + Math.random() * 0.8,
-                maxOpacity: 0.1 + Math.random() * 0.2,
+                maxOpacity: 0.05 + Math.random() * 0.1,
                 ring: Math.random() > 0.5
             });
         }
@@ -402,7 +402,7 @@ async function fetchLiveMarketData() {
                 progress: Math.random(),
                 speed: 0.08 + Math.random() * 0.15,
                 size: 3 + Math.random() * 4,
-                maxOpacity: 0.3 + Math.random() * 0.4
+                maxOpacity: 0.15 + Math.random() * 0.2
             });
         }
     }
