@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Charts</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=72">
+    <link rel="stylesheet" href="./shared.css?v=73">
     <script>
-    if (!localStorage.getItem('sw_clean_v72') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v73') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v72', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v73', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=72"></script>
+    <script src="./chart.min.js?v=73"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -31,6 +31,8 @@
 <main>
 
     <!-- ===== BTC PRICE CHART ===== -->
+    <div class="widget-section" data-widget="price">
+    <div class="section-label">BTC Price</div>
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="priceTitle">BTC Price (90 Days)</h3>
@@ -48,8 +50,10 @@
             <canvas id="priceChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget price -->
 
     <!-- ===== NETWORK STATS ===== -->
+    <div class="widget-section" data-widget="network">
     <div class="section-label">Network Stats</div>
     <section class="fleet-grid" id="networkStatsGrid">
         <div class="metric-card">
@@ -93,8 +97,11 @@
             <div class="sub" id="nsMempoolWeightSub">% of block capacity</div>
         </div>
     </section>
+    </div><!-- /widget network -->
 
     <!-- ===== BITCOIN SUPPLY TRACKER ===== -->
+    <div class="widget-section" data-widget="supply">
+    <div class="section-label">Supply Tracker</div>
     <div class="card" id="supplyCard" style="display:none; margin-bottom:20px;">
         <div class="chart-title-row">
             <h3>Bitcoin Supply Tracker</h3>
@@ -131,8 +138,11 @@
             <div class="halving-progress-fill" id="supplyProgressBar" style="width:0%"></div>
         </div>
     </div>
+    </div><!-- /widget supply -->
 
     <!-- ===== HALVING COUNTDOWN ===== -->
+    <div class="widget-section" data-widget="halving">
+    <div class="section-label">Halving Countdown</div>
     <div class="card" id="halvingCard" style="display:none; margin-bottom:20px;">
         <div class="chart-title-row">
             <h3>Bitcoin Halving Countdown</h3>
@@ -169,8 +179,10 @@
             <div class="halving-progress-fill" id="halvingProgressBar" style="width:0%"></div>
         </div>
     </div>
+    </div><!-- /widget halving -->
 
     <!-- ===== DIFFICULTY ADJUSTMENT COUNTDOWN ===== -->
+    <div class="widget-section" data-widget="difficulty">
     <div class="section-label">Difficulty Adjustment</div>
     <section class="fleet-grid">
         <div class="metric-card">
@@ -199,8 +211,11 @@
             <div class="halving-progress-fill" id="diffProgressBar" style="width: 0%"></div>
         </div>
     </div>
+    </div><!-- /widget difficulty -->
 
     <!-- ===== NETWORK DIFFICULTY CHART ===== -->
+    <div class="widget-section" data-widget="diff-chart">
+    <div class="section-label">Difficulty Chart</div>
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="diffTitle">Network Difficulty (1 Year)</h3>
@@ -217,8 +232,11 @@
             <canvas id="difficultyChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget diff-chart -->
 
     <!-- ===== NETWORK HASHRATE CHART ===== -->
+    <div class="widget-section" data-widget="hash-chart">
+    <div class="section-label">Hashrate Chart</div>
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="hashTitle">Network Hashrate (1 Year)</h3>
@@ -235,8 +253,11 @@
             <canvas id="hashrateChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget hash-chart -->
 
     <!-- ===== HASH PRICE ===== -->
+    <div class="widget-section" data-widget="hash-price">
+    <div class="section-label">Hash Price</div>
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="hashPriceTitle">Hash Price (90 Days)</h3>
@@ -254,8 +275,11 @@
             <canvas id="hashPriceChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget hash-price -->
 
     <!-- ===== FEE RATE HISTORY ===== -->
+    <div class="widget-section" data-widget="fees">
+    <div class="section-label">Fee Rate History</div>
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="feeTitle">Fee Rate History</h3>
@@ -274,8 +298,11 @@
             <canvas id="feeChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget fees -->
 
     <!-- ===== MINING POOL DOMINANCE ===== -->
+    <div class="widget-section" data-widget="pools">
+    <div class="section-label">Pool Dominance</div>
     <div class="card" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3 id="poolTitle">Mining Pool Dominance (1 Week)</h3>
@@ -295,8 +322,11 @@
             <canvas id="poolChart"></canvas>
         </div>
     </div>
+    </div><!-- /widget pools -->
 
     <!-- ===== BLOCK EXPLORER ===== -->
+    <div class="widget-section" data-widget="blocks">
+    <div class="section-label">Latest Blocks</div>
     <div class="card" id="blockExplorerCard" style="margin-bottom:20px;">
         <div class="chart-title-row">
             <h3>Latest Blocks</h3>
@@ -320,6 +350,7 @@
             </table>
         </div>
     </div>
+    </div><!-- /widget blocks -->
 
 </main>
 
@@ -330,13 +361,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=72"></script>
-<script src="./sync.js?v=72"></script>
-<script src="./auth-ui.js?v=72"></script>
-<script src="./profile-panel.js?v=72"></script>
-<script src="./shared.js?v=72"></script>
-<script src="./fleet-data.js?v=72"></script>
-<script src="./charts.js?v=72"></script>
-<script src="./alerts.js?v=72"></script>
+<script src="./firebase-config.js?v=73"></script>
+<script src="./sync.js?v=73"></script>
+<script src="./auth-ui.js?v=73"></script>
+<script src="./profile-panel.js?v=73"></script>
+<script src="./shared.js?v=73"></script>
+<script src="./fleet-data.js?v=73"></script>
+<script src="./charts.js?v=73"></script>
+<script src="./widget-settings.js?v=73"></script>
+<script src="./alerts.js?v=73"></script>
 </body>
 </html>

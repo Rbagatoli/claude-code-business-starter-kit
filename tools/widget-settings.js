@@ -1,27 +1,58 @@
 // ===== ION MINING GROUP — Widget Settings =====
-// Show/hide and drag-to-reorder dashboard sections.
-// Storage: ionMiningWidgets in localStorage.
+// Show/hide and drag-to-reorder page sections (all pages).
+// Storage: ionMiningWidgets_<page> in localStorage (per-page).
 
 (function initWidgets() {
-    var WIDGET_KEY = 'ionMiningWidgets';
-    var DEFAULT_ORDER = ['fleet', 'profit', 'miners', 'pool', 'chart'];
-    var WIDGET_LABELS = {
-        fleet: 'Fleet Overview',
-        profit: 'Profitability',
-        miners: 'Miners',
-        pool: 'F2Pool Earnings',
-        chart: 'Earnings Chart'
-    };
 
-    // Only run on dashboard
-    if (!document.getElementById('btnAddMiner')) return;
+    // Detect page from filename
+    var path = window.location.pathname.split('/').pop() || 'index.html';
+    var page = path.replace('.html', '') || 'index';
+    var WIDGET_KEY = 'ionMiningWidgets_' + page;
+
+    // Migrate old dashboard key (one-time backward compat)
+    if (page === 'index') {
+        var old = localStorage.getItem('ionMiningWidgets');
+        if (old && !localStorage.getItem(WIDGET_KEY)) {
+            localStorage.setItem(WIDGET_KEY, old);
+            localStorage.removeItem('ionMiningWidgets');
+        }
+    }
+
+    // Build DEFAULT_ORDER and WIDGET_LABELS dynamically from the page's DOM
+    var sections = document.querySelectorAll('.widget-section[data-widget]');
+    if (sections.length === 0) return; // No widgets on this page
+
+    var DEFAULT_ORDER = [];
+    var WIDGET_LABELS = {};
+    for (var s = 0; s < sections.length; s++) {
+        var key = sections[s].dataset.widget;
+        DEFAULT_ORDER.push(key);
+        var lbl = sections[s].querySelector('.section-label');
+        var h3 = sections[s].querySelector('h3');
+        WIDGET_LABELS[key] = lbl ? lbl.textContent.trim() : (h3 ? h3.textContent.trim() : key);
+    }
 
     function loadConfig() {
         try {
             var raw = localStorage.getItem(WIDGET_KEY);
             if (raw) {
                 var cfg = JSON.parse(raw);
-                if (cfg && cfg.order) return cfg;
+                if (cfg && cfg.order) {
+                    // Add any new widgets not in saved order
+                    for (var i = 0; i < DEFAULT_ORDER.length; i++) {
+                        if (cfg.order.indexOf(DEFAULT_ORDER[i]) < 0) {
+                            cfg.order.push(DEFAULT_ORDER[i]);
+                        }
+                    }
+                    // Remove stale widgets no longer on the page
+                    cfg.order = cfg.order.filter(function(k) {
+                        return DEFAULT_ORDER.indexOf(k) >= 0;
+                    });
+                    cfg.hidden = (cfg.hidden || []).filter(function(k) {
+                        return DEFAULT_ORDER.indexOf(k) >= 0;
+                    });
+                    return cfg;
+                }
             }
         } catch (e) {}
         return { order: DEFAULT_ORDER.slice(), hidden: [] };
@@ -38,10 +69,10 @@
         var widgets = document.querySelectorAll('.widget-section');
         for (var i = 0; i < widgets.length; i++) {
             var w = widgets[i];
-            var key = w.dataset.widget;
-            var idx = config.order.indexOf(key);
+            var wKey = w.dataset.widget;
+            var idx = config.order.indexOf(wKey);
             w.style.order = idx >= 0 ? idx : 99;
-            w.style.display = config.hidden.indexOf(key) >= 0 ? 'none' : '';
+            w.style.display = config.hidden.indexOf(wKey) >= 0 ? 'none' : '';
         }
     }
 
@@ -50,7 +81,7 @@
         var widgets = document.querySelectorAll('.widget-section');
         for (var i = 0; i < widgets.length; i++) {
             var w = widgets[i];
-            var label = w.querySelector('.section-label');
+            var label = w.querySelector('.section-label') || w.querySelector('h3');
             if (!label || label.querySelector('.widget-drag-handle')) continue;
 
             var handle = document.createElement('span');
@@ -104,7 +135,6 @@
             // Touch support
             (function(widget) {
                 var touchStartY = 0;
-                var touchClone = null;
 
                 widget.addEventListener('touchstart', function(e) {
                     if (!e.target.classList.contains('widget-drag-handle')) return;
@@ -178,12 +208,12 @@
 
         var html = '<div class="widget-popover-title">Show / Hide Widgets</div>';
         for (var i = 0; i < DEFAULT_ORDER.length; i++) {
-            var key = DEFAULT_ORDER[i];
-            var checked = config.hidden.indexOf(key) < 0 ? ' checked' : '';
+            var pKey = DEFAULT_ORDER[i];
+            var checked = config.hidden.indexOf(pKey) < 0 ? ' checked' : '';
             html +=
                 '<label class="widget-popover-row">' +
-                    '<input type="checkbox" data-widget-toggle="' + key + '"' + checked + '>' +
-                    '<span>' + WIDGET_LABELS[key] + '</span>' +
+                    '<input type="checkbox" data-widget-toggle="' + pKey + '"' + checked + '>' +
+                    '<span>' + WIDGET_LABELS[pKey] + '</span>' +
                 '</label>';
         }
         html += '<button class="btn btn-secondary widget-reset-btn" id="widgetReset">Reset Layout</button>';
@@ -225,7 +255,7 @@
         });
     }
 
-    // Init after short delay to let dashboard render
+    // Init after short delay to let page-specific JS render
     setTimeout(function() {
         applyLayout();
         addDragHandles();

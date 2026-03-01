@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Calculator</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=72">
+    <link rel="stylesheet" href="./shared.css?v=73">
     <script>
     // Force-clear old service workers and caches (runs before any external scripts)
-    if (!localStorage.getItem('sw_clean_v72') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v73') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v72', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v73', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=72"></script>
+    <script src="./chart.min.js?v=73"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -31,7 +31,11 @@
 
 <main>
 
-    <!-- ===== FLEET DATA TOGGLE ===== -->
+    <!-- ===== INPUT PANEL ===== -->
+    <div class="widget-section" data-widget="inputs">
+    <div class="section-label">Inputs</div>
+
+    <!-- Fleet Data Toggle -->
     <div class="fleet-toggle-row" id="fleetToggleRow">
         <label class="toggle-switch">
             <input type="checkbox" id="useFleetToggle">
@@ -43,7 +47,6 @@
         </div>
     </div>
 
-    <!-- ===== INPUT PANEL ===== -->
     <section class="inputs-grid">
 
         <!-- Market Parameters -->
@@ -243,8 +246,10 @@
             </div>
         </div>
     </section>
+    </div><!-- /widget inputs -->
 
     <!-- ===== SUMMARY METRICS ===== -->
+    <div class="widget-section" data-widget="snapshot">
     <div class="section-label">Snapshot (Day 1 Values)</div>
     <section class="metrics-grid">
         <div class="metric-card">
@@ -269,7 +274,9 @@
             <div class="sub">J/TH</div>
         </div>
     </section>
+    </div><!-- /widget snapshot -->
 
+    <div class="widget-section" data-widget="projection">
     <div class="section-label">Projection Totals (<span id="periodLabel">24 months</span>)</div>
     <section class="metrics-grid">
         <div class="metric-card">
@@ -301,23 +308,27 @@
             <div class="sub" id="metMachinesSub">--</div>
         </div>
     </section>
+    </div><!-- /widget projection -->
 
-    <!-- ===== DUAL-AXIS COMBO CHART ===== -->
+    <!-- ===== CHARTS ===== -->
+    <div class="widget-section" data-widget="charts">
+    <div class="section-label">Charts</div>
     <div class="card">
         <h3>BTC Accumulated &amp; Value of Assets Over Time</h3>
         <div class="combo-chart-container">
             <canvas id="comboChart"></canvas>
         </div>
     </div>
-
-    <!-- ===== PROFITABILITY HEATMAP ===== -->
     <div class="card">
         <h3>Profitability Heatmap</h3>
         <p style="font-size:12px; color:#888; margin-bottom:12px;">Daily profit across electricity cost vs BTC price scenarios. Your current position is highlighted.</p>
         <div class="table-scroll" id="heatmapContainer"></div>
     </div>
+    </div><!-- /widget charts -->
 
     <!-- ===== MINER COMPARISON TOOL ===== -->
+    <div class="widget-section" data-widget="comparison">
+    <div class="section-label">Miner Comparison</div>
     <div class="card" style="position:relative; z-index:10;">
         <h3>Miner Comparison</h3>
         <p style="font-size:12px; color:#888; margin-bottom:12px;">Compare miners side-by-side at your current electricity rate.</p>
@@ -339,8 +350,11 @@
         </div>
         <div id="comparisonResults"></div>
     </div>
+    </div><!-- /widget comparison -->
 
     <!-- ===== MONTHLY TABLE ===== -->
+    <div class="widget-section" data-widget="table">
+    <div class="section-label">Period Breakdown</div>
     <div class="card">
         <button class="toggle-btn" id="toggleTable">Show Period Breakdown</button>
         <div id="tableContainer" style="display:none">
@@ -366,6 +380,7 @@
             </div>
         </div>
     </div>
+    </div><!-- /widget table -->
 
 </main>
 
@@ -378,14 +393,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=72"></script>
-<script src="./sync.js?v=72"></script>
-<script src="./auth-ui.js?v=72"></script>
-<script src="./profile-panel.js?v=72"></script>
-<script src="./shared.js?v=72"></script>
-<script src="./fleet-data.js?v=72"></script>
-<script src="./miner-db.js?v=72"></script>
-<script src="./calculator.js?v=72"></script>
-<script src="./alerts.js?v=72"></script>
+<script src="./firebase-config.js?v=73"></script>
+<script src="./sync.js?v=73"></script>
+<script src="./auth-ui.js?v=73"></script>
+<script src="./profile-panel.js?v=73"></script>
+<script src="./shared.js?v=73"></script>
+<script src="./fleet-data.js?v=73"></script>
+<script src="./miner-db.js?v=73"></script>
+<script src="./calculator.js?v=73"></script>
+<script src="./widget-settings.js?v=73"></script>
+<script src="./alerts.js?v=73"></script>
 </body>
 </html>
