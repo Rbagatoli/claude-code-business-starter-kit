@@ -5,6 +5,7 @@ var SyncEngine = (function() {
     var _debounceTimers = {};
     var _listeners = {};
     var _syncing = false;
+    var _recentSaves = {};
 
     // Firestore collection/doc mapping
     // Each key maps to: users/{uid}/data/{key}
@@ -37,6 +38,9 @@ var SyncEngine = (function() {
         if (!IonAuth.isSignedIn()) return;
         if (!SYNC_KEYS[key]) return;
 
+        // Mark as recently saved so listener ignores our own writes
+        _recentSaves[key] = true;
+
         // Debounce: wait 500ms after last call before writing
         if (_debounceTimers[key]) clearTimeout(_debounceTimers[key]);
         _debounceTimers[key] = setTimeout(function() {
@@ -48,7 +52,10 @@ var SyncEngine = (function() {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            ref.set(payload, { merge: true }).catch(function(err) {
+            ref.set(payload, { merge: true }).then(function() {
+                setTimeout(function() { delete _recentSaves[key]; }, 3000);
+            }).catch(function(err) {
+                delete _recentSaves[key];
                 console.warn('[Sync] Write failed for ' + key + ':', err.message);
             });
         }, 500);
@@ -67,16 +74,21 @@ var SyncEngine = (function() {
         var ref = getUserDocRef(key);
         if (!ref) return;
 
-        var isFirst = true;
+        var warmup = true;
+        setTimeout(function() { warmup = false; }, 2000);
+
         _listeners[key] = ref.onSnapshot(function(doc) {
-            // Skip the initial snapshot (fires immediately with current data)
-            if (isFirst) { isFirst = false; return; }
+            // Skip all snapshots during 2-second warmup (handles page changes)
+            if (warmup) return;
 
             // Skip local writes — only react to server-confirmed remote changes
             if (doc.metadata.hasPendingWrites) return;
 
             // Skip if this change came from our own save (avoid loops)
             if (_syncing) return;
+
+            // Skip if we recently wrote this key from this device
+            if (_recentSaves[key]) return;
 
             if (doc.exists) {
                 var remote = doc.data();
