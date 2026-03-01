@@ -5,6 +5,8 @@ var acctBtcPrice = null;
 var qboData = { accounts: [], expenses: [], invoices: [] };
 var qboConnected = false;
 var acctPeriod = { start: '', end: '' };
+var pnlChart = null;
+var expenseDoughnutChart = null;
 
 // ===== INIT =====
 initNav('accounting');
@@ -308,6 +310,8 @@ function buildUnifiedPnL() {
 function renderAccounting() {
     var pnl = buildUnifiedPnL();
     renderPnLSummary(pnl);
+    updatePnLChart(pnl);
+    updateExpenseDoughnut(pnl);
     renderBankAccounts();
     renderRevenueTable(pnl.revenueEntries);
     renderExpenseTable(pnl.expenseEntries);
@@ -419,6 +423,214 @@ function renderInvoiceTable() {
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ===== P&L BAR CHART =====
+function updatePnLChart(pnl) {
+    var emptyMsg = document.getElementById('pnlChartEmpty');
+    var allEntries = pnl.revenueEntries.concat(pnl.expenseEntries);
+    if (allEntries.length === 0) {
+        emptyMsg.style.display = 'flex';
+        if (pnlChart) { pnlChart.destroy(); pnlChart = null; }
+        return;
+    }
+    emptyMsg.style.display = 'none';
+
+    // Group by month
+    var months = {};
+    for (var i = 0; i < pnl.revenueEntries.length; i++) {
+        var key = pnl.revenueEntries[i].date.substring(0, 7);
+        if (!months[key]) months[key] = { revenue: 0, expenses: 0 };
+        months[key].revenue += pnl.revenueEntries[i].usdValue;
+    }
+    for (var j = 0; j < pnl.expenseEntries.length; j++) {
+        var eKey = pnl.expenseEntries[j].date.substring(0, 7);
+        if (!months[eKey]) months[eKey] = { revenue: 0, expenses: 0 };
+        months[eKey].expenses += pnl.expenseEntries[j].amount;
+    }
+    // Add CAPEX to expense month if present
+    var fleet = FleetData.getFleet();
+    for (var mi = 0; mi < fleet.miners.length; mi++) {
+        var m = fleet.miners[mi];
+        var pDate = m.purchaseDate || m.dateAdded.split('T')[0];
+        if (pDate >= acctPeriod.start && pDate <= acctPeriod.end) {
+            var cKey = pDate.substring(0, 7);
+            if (!months[cKey]) months[cKey] = { revenue: 0, expenses: 0 };
+            months[cKey].expenses += m.cost * m.quantity;
+        }
+    }
+
+    var sortedKeys = Object.keys(months).sort();
+    var labels = sortedKeys.map(function(k) {
+        var parts = k.split('-');
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return monthNames[parseInt(parts[1], 10) - 1] + ' ' + parts[0].slice(2);
+    });
+    var revData = sortedKeys.map(function(k) { return +months[k].revenue.toFixed(2); });
+    var expData = sortedKeys.map(function(k) { return +months[k].expenses.toFixed(2); });
+    var netData = sortedKeys.map(function(k) { return +(months[k].revenue - months[k].expenses).toFixed(2); });
+
+    if (pnlChart) pnlChart.destroy();
+    var ctx = document.getElementById('pnlBarChart').getContext('2d');
+    pnlChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revData,
+                    backgroundColor: 'rgba(74, 222, 128, 0.6)',
+                    borderColor: '#4ade80',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'Expenses',
+                    data: expData,
+                    backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'Net Income',
+                    type: 'line',
+                    data: netData,
+                    borderColor: '#f7931a',
+                    backgroundColor: 'rgba(247, 147, 26, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#f7931a',
+                    fill: true,
+                    tension: 0.3,
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                tooltip: {
+                    backgroundColor: 'rgba(10, 10, 10, 0.92)',
+                    borderColor: 'rgba(255, 255, 255, 0.10)',
+                    borderWidth: 1,
+                    titleColor: '#e8e8e8',
+                    bodyColor: '#e8e8e8',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) { return ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString(); }
+                    }
+                },
+                legend: { labels: { color: '#bbb', font: { size: 12 } } }
+            },
+            scales: {
+                x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+                y: {
+                    ticks: {
+                        color: '#888',
+                        callback: function(v) { return '$' + v.toLocaleString(); }
+                    },
+                    grid: { color: 'rgba(255,255,255,0.06)' }
+                }
+            }
+        }
+    });
+}
+
+// ===== EXPENSE DOUGHNUT CHART =====
+function updateExpenseDoughnut(pnl) {
+    var emptyMsg = document.getElementById('expenseChartEmpty');
+    var hasExpenses = pnl.expenseEntries.length > 0 || pnl.capex > 0;
+    if (!hasExpenses) {
+        emptyMsg.style.display = 'flex';
+        if (expenseDoughnutChart) { expenseDoughnutChart.destroy(); expenseDoughnutChart = null; }
+        return;
+    }
+    emptyMsg.style.display = 'none';
+
+    // Group by category
+    var cats = {};
+    for (var i = 0; i < pnl.expenseEntries.length; i++) {
+        var cat = pnl.expenseEntries[i].category || 'Other';
+        // Normalize electricity categories
+        if (cat.indexOf('Electricity') === 0) cat = 'Electricity';
+        if (!cats[cat]) cats[cat] = 0;
+        cats[cat] += pnl.expenseEntries[i].amount;
+    }
+    // Add equipment CAPEX as its own slice
+    if (pnl.capex > 0) {
+        var mult = getCurrencyMultiplier();
+        cats['Equipment'] = (cats['Equipment'] || 0) + (pnl.capex / mult); // pnl.capex already multiplied
+    }
+
+    var catLabels = Object.keys(cats);
+    var catValues = catLabels.map(function(k) { return +cats[k].toFixed(2); });
+    var totalExp = catValues.reduce(function(a, b) { return a + b; }, 0);
+
+    var palette = ['#ef4444', '#f7931a', '#60a5fa', '#a78bfa', '#4ade80', '#fbbf24', '#f472b6', '#38bdf8'];
+    var colors = catLabels.map(function(_, i) { return palette[i % palette.length]; });
+
+    if (expenseDoughnutChart) expenseDoughnutChart.destroy();
+    var ctx = document.getElementById('expenseDoughnut').getContext('2d');
+    expenseDoughnutChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: catLabels,
+            datasets: [{
+                data: catValues,
+                backgroundColor: colors,
+                borderColor: 'rgba(0,0,0,0.3)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+                tooltip: {
+                    backgroundColor: 'rgba(10, 10, 10, 0.92)',
+                    borderColor: 'rgba(255, 255, 255, 0.10)',
+                    borderWidth: 1,
+                    titleColor: '#e8e8e8',
+                    bodyColor: '#e8e8e8',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) {
+                            var pct = ((ctx.parsed / totalExp) * 100).toFixed(1);
+                            return ctx.label + ': $' + ctx.parsed.toLocaleString() + ' (' + pct + '%)';
+                        }
+                    }
+                },
+                legend: { position: 'bottom', labels: { color: '#bbb', font: { size: 12 }, padding: 12 } }
+            }
+        },
+        plugins: [{
+            id: 'centerText',
+            afterDraw: function(chart) {
+                var ctx2 = chart.ctx;
+                var w = chart.width;
+                var h = chart.height;
+                ctx2.save();
+                ctx2.font = 'bold 16px sans-serif';
+                ctx2.fillStyle = '#e8e8e8';
+                ctx2.textAlign = 'center';
+                ctx2.textBaseline = 'middle';
+                ctx2.fillText('$' + totalExp.toLocaleString(undefined, { maximumFractionDigits: 0 }), w / 2, h / 2 - 8);
+                ctx2.font = '11px sans-serif';
+                ctx2.fillStyle = '#888';
+                ctx2.fillText('Total Expenses', w / 2, h / 2 + 12);
+                ctx2.restore();
+            }
+        }]
+    });
 }
 
 // ===== TAX EXPORT (moved from payouts.js) =====

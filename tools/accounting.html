@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Accounting</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=79">
+    <link rel="stylesheet" href="./shared.css?v=80">
     <script>
     if (!localStorage.getItem('sw_clean_v79') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -15,6 +15,7 @@
         });
     }
     </script>
+    <script src="./chart.min.js?v=80"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -105,6 +106,28 @@
             <div class="sub">pool balances</div>
         </div>
     </section>
+    </div>
+
+    <!-- ===== REVENUE VS EXPENSES CHART ===== -->
+    <div class="widget-section" data-widget="pnl-chart">
+    <div class="card">
+        <h3>Revenue vs Expenses</h3>
+        <div class="combo-chart-container" style="position:relative;">
+            <div id="pnlChartEmpty" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts and expenses to see the chart</div>
+            <canvas id="pnlBarChart"></canvas>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== EXPENSE BREAKDOWN CHART ===== -->
+    <div class="widget-section" data-widget="expense-chart">
+    <div class="card">
+        <h3>Expense Breakdown</h3>
+        <div class="earnings-chart-container" style="position:relative;">
+            <div id="expenseChartEmpty" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add expenses to see the breakdown</div>
+            <canvas id="expenseDoughnut"></canvas>
+        </div>
+    </div>
     </div>
 
     <!-- ===== BANK ACCOUNTS (QBO) ===== -->
@@ -245,15 +268,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=79"></script>
-<script src="./sync.js?v=79"></script>
-<script src="./auth-ui.js?v=79"></script>
-<script src="./profile-panel.js?v=79"></script>
-<script src="./shared.js?v=79"></script>
-<script src="./fleet-data.js?v=79"></script>
-<script src="./payouts.js?v=79"></script>
-<script src="./accounting.js?v=79"></script>
-<script src="./widget-settings.js?v=79"></script>
-<script src="./alerts.js?v=79"></script>
+<script src="./firebase-config.js?v=80"></script>
+<script src="./sync.js?v=80"></script>
+<script src="./auth-ui.js?v=80"></script>
+<script src="./profile-panel.js?v=80"></script>
+<script src="./shared.js?v=80"></script>
+<script src="./fleet-data.js?v=80"></script>
+<script src="./payouts.js?v=80"></script>
+<script src="./accounting.js?v=80"></script>
+<script src="./widget-settings.js?v=80"></script>
+<script src="./alerts.js?v=80"></script>
 </body>
 </html>
