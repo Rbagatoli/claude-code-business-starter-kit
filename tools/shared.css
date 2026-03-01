@@ -124,14 +124,27 @@ body > * { position: relative; z-index: 1; }
 .ion-currency-select:focus { border-color: #f7931a; }
 .ion-currency-select option { background: #1a1a1a; color: #e8e8e8; }
 
-/* Mobile nav — prevent overflow that breaks page layout */
+/* Mobile nav — two-row layout to prevent crowding */
 @media (max-width: 600px) {
     body { overflow-x: hidden; }
-    .ion-nav { padding: 8px; max-width: 100vw; }
+    .ion-nav {
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto auto;
+        padding: 8px 10px;
+        gap: 6px 0;
+        max-width: 100vw;
+    }
+    .ion-nav-brand { grid-column: 1; grid-row: 1; }
     .ion-nav-brand .name { display: none; }
     .ion-nav-brand .icon { font-size: 20px; }
-    .ion-nav-tabs { gap: 2px; min-width: 0; }
-    .ion-nav-tabs a { padding: 5px 8px; font-size: 11px; }
+    .ion-nav-actions { grid-column: 2; grid-row: 1; }
+    .ion-nav-tabs {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        gap: 2px;
+        justify-content: space-around;
+    }
+    .ion-nav-tabs a { padding: 6px 10px; font-size: 11px; }
     .ion-currency-select { font-size: 11px; padding: 3px 4px; }
 }
 
