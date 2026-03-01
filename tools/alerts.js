@@ -107,7 +107,7 @@ function injectAlertSidebar() {
                 '<label class="toggle-switch"><input type="checkbox" id="asMinorOffline"><span class="slider"></span></label>' +
                 '<div class="alert-setting-info">' +
                     '<strong>Miner Offline</strong>' +
-                    '<p>Alert when F2Pool worker goes offline</p>' +
+                    '<p>Alert when any pool worker goes offline</p>' +
                 '</div>' +
             '</div>' +
             // Hashrate Drop
@@ -506,7 +506,7 @@ async function runAlertChecks() {
     updateMonitorStatus();
 }
 
-// --- Miner offline + hashrate drop ---
+// --- Miner offline + hashrate drop (multi-pool) ---
 async function checkMinerAlerts() {
     var settings;
     try {
@@ -515,55 +515,61 @@ async function checkMinerAlerts() {
         return; // FleetData not loaded on this page
     }
 
-    if (!settings.f2pool || !settings.f2pool.enabled) return;
+    var pools = settings.pools || [];
 
-    var url = settings.f2pool.workerUrl;
-    var user = settings.f2pool.username;
+    for (var p = 0; p < pools.length; p++) {
+        var pool = pools[p];
+        if (!pool.enabled || !pool.workerUrl) continue;
 
-    try {
-        var res = await fetch(url + '/workers?user=' + encodeURIComponent(user));
-        if (!res.ok) return;
-        var data = await res.json();
-        var workers = data.workers || data.data || [];
-        var prev = alertData.previousState.workers || {};
-        var current = {};
+        var stateKey = 'workers_' + pool.type;
+        try {
+            var fetchUrl = pool.workerUrl + '/workers';
+            if (pool.username) fetchUrl += '?user=' + encodeURIComponent(pool.username);
 
-        for (var i = 0; i < workers.length; i++) {
-            var w = workers[i];
-            var name = w.worker_name || 'Worker ' + (i + 1);
-            var status = (w.status === 'Online' || w.status === 'online') ? 'online' : 'offline';
-            var hashrate = (w.hashrate || w.hashrate_current || 0) / 1e12;
+            var res = await fetch(fetchUrl);
+            if (!res.ok) continue;
+            var data = await res.json();
+            var workers = data.workers || data.data || [];
+            var prev = alertData.previousState[stateKey] || {};
+            var current = {};
 
-            current[name] = { status: status, hashrate: hashrate };
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var name = w.worker_name || 'Worker ' + (i + 1);
+                var status = (w.status === 'Online' || w.status === 'online') ? 'online' : 'offline';
+                var hashrate = (w.hashrate || w.hashrate_current || 0) / 1e12;
 
-            // Miner offline detection
-            if (alertData.settings.minerOfflineEnabled && prev[name]) {
-                if (prev[name].status === 'online' && status === 'offline') {
-                    createAlert(
-                        'miner_offline', 'high',
-                        'Miner Offline',
-                        name + ' went offline',
-                        { worker: name }
-                    );
+                current[name] = { status: status, hashrate: hashrate };
+
+                // Miner offline detection
+                if (alertData.settings.minerOfflineEnabled && prev[name]) {
+                    if (prev[name].status === 'online' && status === 'offline') {
+                        createAlert(
+                            'miner_offline', 'high',
+                            pool.name + ' — Miner Offline',
+                            name + ' went offline on ' + pool.name,
+                            { worker: name, pool: pool.type }
+                        );
+                    }
+                }
+
+                // Hashrate drop detection
+                if (alertData.settings.hashrateDropEnabled && prev[name] && prev[name].hashrate > 0 && hashrate > 0) {
+                    var dropPct = ((prev[name].hashrate - hashrate) / prev[name].hashrate) * 100;
+                    if (dropPct >= alertData.settings.hashrateDropThreshold) {
+                        createAlert(
+                            'hashrate_drop', 'medium',
+                            pool.name + ' — Hashrate Drop',
+                            name + ' dropped ' + dropPct.toFixed(0) + '% (' + prev[name].hashrate.toFixed(1) + ' \u2192 ' + hashrate.toFixed(1) + ' TH/s)',
+                            { worker: name, pool: pool.type, from: prev[name].hashrate, to: hashrate }
+                        );
+                    }
                 }
             }
 
-            // Hashrate drop detection
-            if (alertData.settings.hashrateDropEnabled && prev[name] && prev[name].hashrate > 0 && hashrate > 0) {
-                var dropPct = ((prev[name].hashrate - hashrate) / prev[name].hashrate) * 100;
-                if (dropPct >= alertData.settings.hashrateDropThreshold) {
-                    createAlert(
-                        'hashrate_drop', 'medium',
-                        'Hashrate Drop',
-                        name + ' dropped ' + dropPct.toFixed(0) + '% (' + prev[name].hashrate.toFixed(1) + ' → ' + hashrate.toFixed(1) + ' TH/s)',
-                        { worker: name, from: prev[name].hashrate, to: hashrate }
-                    );
-                }
-            }
-        }
-
-        alertData.previousState.workers = current;
-    } catch (e) {}
+            alertData.previousState[stateKey] = current;
+        } catch (e) {}
+    }
 }
 
 // --- Price alert ---

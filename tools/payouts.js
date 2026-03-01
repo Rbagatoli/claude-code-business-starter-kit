@@ -12,7 +12,7 @@ initNav('payouts');
     liveBtcPrice = data.price || 96000;
     window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderPayoutPage(); };
     checkAndLogDailySnapshot();
-    await syncF2PoolPayouts();
+    await syncAllPoolPayouts();
     renderPayoutPage();
     initPayoutChart();
     initRevCostChart();
@@ -150,83 +150,123 @@ var ElectricityData = (function() {
 function checkAndLogDailySnapshot() {
     try {
         var settings = FleetData.getSettings();
-        if (!settings.f2pool || !settings.f2pool.enabled) return;
-        if (!window.f2poolEarnings) return;
+        var pools = settings.pools || [];
+        var hasEnabled = false;
+        for (var p = 0; p < pools.length; p++) {
+            if (pools[p].enabled) { hasEnabled = true; break; }
+        }
+        if (!hasEnabled) return;
+
+        // Aggregate earnings from all pools
+        var poolEarnings = window.poolEarnings || {};
+        var agg = { yesterdayIncome: 0, balance: 0, totalIncome: 0 };
+        var hasAny = false;
+        var types = Object.keys(poolEarnings);
+        for (var k = 0; k < types.length; k++) {
+            var pe = poolEarnings[types[k]];
+            if (pe) {
+                hasAny = true;
+                agg.yesterdayIncome += pe.yesterdayIncome || 0;
+                agg.balance += pe.balance || 0;
+                agg.totalIncome += pe.totalIncome || 0;
+            }
+        }
+        // Backward compat: also check legacy f2poolEarnings
+        if (!hasAny && window.f2poolEarnings) {
+            agg.yesterdayIncome = window.f2poolEarnings.yesterdayIncome || 0;
+            agg.balance = window.f2poolEarnings.balance || 0;
+            agg.totalIncome = window.f2poolEarnings.totalIncome || 0;
+            hasAny = true;
+        }
+        if (!hasAny) return;
 
         var today = new Date().toISOString().split('T')[0];
         var data = PayoutData.getData();
         if (data.lastSnapshotDate === today) return;
 
-        var e = window.f2poolEarnings;
         PayoutData.addSnapshot({
             date: today,
-            btcEarned: e.yesterdayIncome || 0,
+            btcEarned: agg.yesterdayIncome,
             btcPrice: liveBtcPrice,
-            balance: e.balance || 0,
-            totalIncome: e.totalIncome || 0
+            balance: agg.balance,
+            totalIncome: agg.totalIncome
         });
     } catch(e) {}
 }
 
-// ===== F2POOL PAYOUT SYNC =====
-async function syncF2PoolPayouts() {
+// ===== ALL-POOL PAYOUT SYNC =====
+async function syncAllPoolPayouts() {
     var statusEl = document.getElementById('f2poolSyncStatus');
     try {
         var settings = FleetData.getSettings();
-        if (!settings.f2pool || !settings.f2pool.enabled) return;
+        var pools = settings.pools || [];
+        var totalAdded = 0;
+        var syncedPools = [];
 
-        var url = settings.f2pool.workerUrl;
-        var user = settings.f2pool.username;
-        if (!url || !user) return;
+        for (var p = 0; p < pools.length; p++) {
+            var pool = pools[p];
+            if (!pool.enabled || !pool.workerUrl) continue;
 
-        if (statusEl) statusEl.textContent = 'Syncing payouts from F2Pool...';
+            try {
+                var fetchUrl = pool.workerUrl + '/payouts';
+                if (pool.username) fetchUrl += '?user=' + encodeURIComponent(pool.username);
 
-        var res = await fetch(url + '/payouts?user=' + encodeURIComponent(user));
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        var json = await res.json();
+                if (statusEl) statusEl.textContent = 'Syncing payouts from ' + pool.name + '...';
 
-        var transactions = (json.data && json.data.transactions) || json.transactions || [];
-        var added = 0;
+                var res = await fetch(fetchUrl);
+                if (!res.ok) continue;
+                var json = await res.json();
 
-        for (var i = 0; i < transactions.length; i++) {
-            var tx = transactions[i];
-            var extra = tx.payout_extra;
-            if (!extra || !extra.tx_id) continue;
+                var transactions = (json.data && json.data.transactions) || json.transactions || [];
+                var added = 0;
 
-            if (PayoutData.hasPayoutWithTxHash(extra.tx_id)) continue;
+                for (var i = 0; i < transactions.length; i++) {
+                    var tx = transactions[i];
+                    var extra = tx.payout_extra;
+                    if (!extra || !extra.tx_id) continue;
 
-            var ts = extra.paid_time || tx.created_at;
-            var d = new Date(ts * 1000);
-            var dateStr = d.getFullYear() + '-' +
-                String(d.getMonth() + 1).padStart(2, '0') + '-' +
-                String(d.getDate()).padStart(2, '0');
+                    if (PayoutData.hasPayoutWithTxHash(extra.tx_id)) continue;
 
-            var btcAmount = parseFloat(extra.value) || Math.abs(parseFloat(tx.changed_balance)) || 0;
-            if (btcAmount <= 0) continue;
+                    var ts = extra.paid_time || tx.created_at;
+                    var d = new Date(ts * 1000);
+                    var dateStr = d.getFullYear() + '-' +
+                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(d.getDate()).padStart(2, '0');
 
-            PayoutData.addPayout({
-                date: dateStr,
-                btcAmount: btcAmount,
-                btcPrice: liveBtcPrice,
-                usdValue: btcAmount * liveBtcPrice,
-                txHash: extra.tx_id,
-                notes: 'F2Pool auto-sync'
-            });
-            added++;
+                    var btcAmount = parseFloat(extra.value) || Math.abs(parseFloat(tx.changed_balance)) || 0;
+                    if (btcAmount <= 0) continue;
+
+                    PayoutData.addPayout({
+                        date: dateStr,
+                        btcAmount: btcAmount,
+                        btcPrice: liveBtcPrice,
+                        usdValue: btcAmount * liveBtcPrice,
+                        txHash: extra.tx_id,
+                        notes: pool.name + ' auto-sync'
+                    });
+                    added++;
+                }
+                totalAdded += added;
+                if (added > 0) syncedPools.push(pool.name);
+            } catch(poolErr) {}
         }
 
-        if (added > 0) {
+        if (totalAdded > 0) {
             renderPayoutPage();
             updatePayoutChart();
         }
 
         if (statusEl) {
-            statusEl.textContent = added > 0 ? 'Synced ' + added + ' new payout' + (added > 1 ? 's' : '') + ' from F2Pool' : 'F2Pool payouts up to date';
+            if (totalAdded > 0) {
+                statusEl.textContent = 'Synced ' + totalAdded + ' new payout' + (totalAdded > 1 ? 's' : '') + ' from ' + syncedPools.join(', ');
+            } else if (pools.length > 0) {
+                statusEl.textContent = 'All pool payouts up to date';
+            }
             setTimeout(function() { statusEl.textContent = ''; }, 5000);
         }
     } catch(e) {
         if (statusEl) {
-            statusEl.textContent = 'F2Pool sync failed';
+            statusEl.textContent = 'Pool sync failed';
             setTimeout(function() { statusEl.textContent = ''; }, 5000);
         }
     }

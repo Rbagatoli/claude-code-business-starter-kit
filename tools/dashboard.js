@@ -22,7 +22,7 @@ initNav('dashboard');
     window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderDashboard(); updateEarningsChart(); };
     if (data.difficulty) liveDifficulty = data.difficulty;
     else liveDifficulty = 125.86;
-    await loadF2PoolData();
+    await loadAllPoolData();
     renderDashboard();
     renderPoolList();
     initEarningsChart();
@@ -34,9 +34,9 @@ function renderDashboard() {
     var fleet = FleetData.getFleet();
     var miners = fleet.miners;
 
-    // Append F2Pool live miners
-    if (f2poolMiners.length > 0) {
-        miners = miners.concat(f2poolMiners);
+    // Append live pool miners (all connected pools)
+    if (livePoolMiners.length > 0) {
+        miners = miners.concat(livePoolMiners);
     }
 
     useMockData = false;
@@ -170,11 +170,12 @@ function renderPaymentTracker() {
     var section = document.getElementById('paymentTrackerSection');
     var hint = document.getElementById('paymentTrackerHint');
 
-    var f2pool = null;
+    // Check if ANY pool is enabled
+    var hasEnabledPool = false;
     for (var p = 0; p < (settings.pools || []).length; p++) {
-        if (settings.pools[p].type === 'f2pool' && settings.pools[p].enabled) { f2pool = settings.pools[p]; break; }
+        if (settings.pools[p].enabled) { hasEnabledPool = true; break; }
     }
-    if (!f2pool) {
+    if (!hasEnabledPool) {
         section.style.display = 'none';
         hint.style.display = '';
         return;
@@ -182,29 +183,43 @@ function renderPaymentTracker() {
 
     hint.style.display = 'none';
 
-    if (!window.f2poolEarnings) {
+    // Aggregate earnings across all pools
+    var hasAnyEarnings = false;
+    var agg = { balance: 0, totalIncome: 0, yesterdayIncome: 0, estimatedDaily: 0 };
+    var poolTypes = Object.keys(window.poolEarnings || {});
+    for (var k = 0; k < poolTypes.length; k++) {
+        var pe = window.poolEarnings[poolTypes[k]];
+        if (pe) {
+            hasAnyEarnings = true;
+            agg.balance += pe.balance || 0;
+            agg.totalIncome += pe.totalIncome || 0;
+            agg.yesterdayIncome += pe.yesterdayIncome || 0;
+            agg.estimatedDaily += pe.estimatedDaily || 0;
+        }
+    }
+
+    if (!hasAnyEarnings) {
         section.style.display = 'none';
         return;
     }
 
     section.style.display = '';
-    var e = window.f2poolEarnings;
     var price = liveBtcPrice || 0;
 
-    document.getElementById('ptBalance').textContent = fmtBTC(e.balance, 8);
-    document.getElementById('ptYesterday').textContent = fmtBTC(e.yesterdayIncome, 8);
-    document.getElementById('ptYesterdayUSD').textContent = fmtUSD(e.yesterdayIncome * price);
-    document.getElementById('ptEstDaily').textContent = fmtBTC(e.estimatedDaily, 8);
-    document.getElementById('ptEstDailyUSD').textContent = fmtUSD(e.estimatedDaily * price);
-    document.getElementById('ptTotalIncome').textContent = fmtBTC(e.totalIncome, 8);
-    document.getElementById('ptBalanceUSD').textContent = fmtUSD(e.balance * price);
+    document.getElementById('ptBalance').textContent = fmtBTC(agg.balance, 8);
+    document.getElementById('ptYesterday').textContent = fmtBTC(agg.yesterdayIncome, 8);
+    document.getElementById('ptYesterdayUSD').textContent = fmtUSD(agg.yesterdayIncome * price);
+    document.getElementById('ptEstDaily').textContent = fmtBTC(agg.estimatedDaily, 8);
+    document.getElementById('ptEstDailyUSD').textContent = fmtUSD(agg.estimatedDaily * price);
+    document.getElementById('ptTotalIncome').textContent = fmtBTC(agg.totalIncome, 8);
+    document.getElementById('ptBalanceUSD').textContent = fmtUSD(agg.balance * price);
 
     // Days to Payout
-    var daysToPayout = (e.estimatedDaily > 0) ? Math.ceil(e.balance / e.estimatedDaily) : '--';
+    var daysToPayout = (agg.estimatedDaily > 0) ? Math.ceil(agg.balance / agg.estimatedDaily) : '--';
     document.getElementById('ptDaysToPayout').textContent = daysToPayout;
 
     // 30-Day Projected
-    var proj30 = e.estimatedDaily * 30;
+    var proj30 = agg.estimatedDaily * 30;
     document.getElementById('pt30Day').textContent = fmtBTC(proj30, 6);
     document.getElementById('pt30DayUSD').textContent = fmtUSD(proj30 * price);
 }
@@ -227,7 +242,7 @@ function renderMinerCards(miners) {
         var mDailyBTC = m.status === 'online' ? (mHashH * SECONDS_PER_DAY * CURRENT_BLOCK_REWARD) / (diffFull * TWO_POW_32) : 0;
         var mDailyUSD = mDailyBTC * liveBtcPrice;
 
-        var isLive = m.source === 'f2pool';
+        var isLive = !!m.source;
         var isGroup = m.quantity > 1;
         var isExpanded = expandedGroups.has(m.id);
 
@@ -648,20 +663,27 @@ document.getElementById('cancelAPI').addEventListener('click', function() {
 document.getElementById('testAPI').addEventListener('click', async function() {
     var workerUrl = document.getElementById('fmWorkerUrl').value.trim().replace(/\/+$/, '');
     var username = document.getElementById('fmUsername').value.trim();
-    if (!workerUrl || !username) {
-        apiStatusText.textContent = 'Please enter both fields.';
+    var poolTypeEl = document.getElementById('fmPoolType');
+    var poolType = poolTypeEl ? poolTypeEl.value : 'f2pool';
+    var poolCfg = getPoolTypeConfig(poolType);
+    var needsUsername = poolCfg && poolCfg.fields.indexOf('username') !== -1;
+
+    if (!workerUrl || (needsUsername && !username)) {
+        apiStatusText.textContent = needsUsername ? 'Please enter both fields.' : 'Please enter the Worker URL.';
         apiStatusText.style.color = '#f55';
         apiStatusEl.style.display = '';
         return;
     }
-    apiStatusText.textContent = 'Testing connection...';
+    apiStatusText.textContent = 'Testing connection to ' + (poolCfg ? poolCfg.name : poolType) + '...';
     apiStatusText.style.color = '#888';
     apiStatusEl.style.display = '';
     try {
-        var res = await fetch(workerUrl + '/ping?user=' + encodeURIComponent(username));
+        var pingUrl = workerUrl + '/ping';
+        if (needsUsername && username) pingUrl += '?user=' + encodeURIComponent(username);
+        var res = await fetch(pingUrl);
         var data = await res.json();
         if (res.ok && data.ok) {
-            apiStatusText.textContent = 'Connected successfully!';
+            apiStatusText.textContent = 'Connected to ' + (poolCfg ? poolCfg.name : poolType) + ' successfully!';
             apiStatusText.style.color = '#4caf50';
         } else {
             apiStatusText.textContent = 'Error: ' + (data.error || 'Unknown error');
@@ -679,8 +701,9 @@ document.getElementById('saveAPI').addEventListener('click', async function() {
     var poolType = poolTypeEl ? poolTypeEl.value : 'f2pool';
     var workerUrl = document.getElementById('fmWorkerUrl').value.trim().replace(/\/+$/, '');
     var username = document.getElementById('fmUsername').value.trim();
-    var enabled = !!(workerUrl && username);
-    var POOL_NAMES = { f2pool: 'F2Pool', luxor: 'Luxor', braiins: 'Braiins Pool', viabtc: 'ViaBTC' };
+    var poolCfg = getPoolTypeConfig(poolType);
+    var needsUsername = poolCfg && poolCfg.fields.indexOf('username') !== -1;
+    var enabled = needsUsername ? !!(workerUrl && username) : !!workerUrl;
     var found = false;
     for (var p = 0; p < settings.pools.length; p++) {
         if (settings.pools[p].type === poolType) {
@@ -695,7 +718,7 @@ document.getElementById('saveAPI').addEventListener('click', async function() {
         settings.pools.push({
             id: 'pool_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
             type: poolType,
-            name: POOL_NAMES[poolType] || poolType,
+            name: poolCfg ? poolCfg.name : poolType,
             workerUrl: workerUrl,
             username: username,
             enabled: enabled
@@ -704,33 +727,44 @@ document.getElementById('saveAPI').addEventListener('click', async function() {
     FleetData.saveSettings(settings);
     apiPanel.classList.remove('open');
     renderPoolList();
-    if (poolType === 'f2pool' && enabled) {
-        await loadF2PoolData();
+    if (enabled) {
+        await loadAllPoolData();
         renderDashboard();
         updateEarningsChart();
     }
 });
 
-// ===== F2POOL LIVE DATA =====
-var f2poolMiners = [];
+// ===== POOL LIVE DATA (MULTI-POOL) =====
+var livePoolMiners = [];
+window.poolEarnings = {};
 
-async function loadF2PoolData() {
-    var settings = FleetData.getSettings();
-    var f2cfg = null;
-    for (var p = 0; p < settings.pools.length; p++) {
-        if (settings.pools[p].type === 'f2pool' && settings.pools[p].enabled) { f2cfg = settings.pools[p]; break; }
+function getPoolTypeConfig(type) {
+    for (var i = 0; i < POOL_TYPES.length; i++) {
+        if (POOL_TYPES[i].type === type) return POOL_TYPES[i];
     }
-    if (!f2cfg) return;
-    var url = f2cfg.workerUrl;
-    var user = f2cfg.username;
+    return null;
+}
+
+async function loadPoolData(poolCfg) {
+    var url = poolCfg.workerUrl;
+    var user = poolCfg.username;
+    var type = poolCfg.type;
+    var poolTypeInfo = getPoolTypeConfig(type);
+    var needsUsername = poolTypeInfo && poolTypeInfo.fields.indexOf('username') !== -1;
+    var miners = [];
 
     try {
-        var [workersRes, earningsRes] = await Promise.all([
-            fetch(url + '/workers?user=' + encodeURIComponent(user)),
-            fetch(url + '/earnings?user=' + encodeURIComponent(user))
-        ]);
+        var workersFetchUrl = url + '/workers';
+        var earningsFetchUrl = url + '/earnings';
+        if (needsUsername && user) {
+            workersFetchUrl += '?user=' + encodeURIComponent(user);
+            earningsFetchUrl += '?user=' + encodeURIComponent(user);
+        }
 
-        f2poolMiners = [];
+        var [workersRes, earningsRes] = await Promise.all([
+            fetch(workersFetchUrl),
+            fetch(earningsFetchUrl)
+        ]);
 
         if (workersRes.ok) {
             var workersData = await workersRes.json();
@@ -738,40 +772,64 @@ async function loadF2PoolData() {
             for (var i = 0; i < workers.length; i++) {
                 var w = workers[i];
                 var hashTH = (w.hashrate || w.hashrate_current || 0) / 1e12;
-                f2poolMiners.push({
-                    id: 'f2pool_' + (w.worker_name || i),
+                miners.push({
+                    id: type + '_' + (w.worker_name || i),
                     model: w.worker_name || 'Worker ' + (i + 1),
                     hashrate: parseFloat(hashTH.toFixed(1)),
                     power: 0,
                     cost: 0,
                     quantity: 1,
                     status: (w.status === 'Online' || w.status === 'online') ? 'online' : 'offline',
-                    source: 'f2pool'
+                    source: type
                 });
             }
         }
 
         if (earningsRes.ok) {
             var earningsData = await earningsRes.json();
-            // Store earnings data for display
-            window.f2poolEarnings = {
+            window.poolEarnings[type] = {
                 balance: earningsData.balance || 0,
                 totalIncome: earningsData.income_total || earningsData.total_income || 0,
                 yesterdayIncome: earningsData.income_yesterday || earningsData.yesterday_income || 0,
                 estimatedDaily: earningsData.income_estimated_daily || earningsData.estimated_daily_income || 0
             };
         }
-    } catch (e) {
-        f2poolMiners = [];
-    }
+    } catch (e) {}
+
+    return miners;
 }
+
+async function loadAllPoolData() {
+    var settings = FleetData.getSettings();
+    var promises = [];
+    window.poolEarnings = {};
+
+    for (var p = 0; p < settings.pools.length; p++) {
+        if (settings.pools[p].enabled) {
+            promises.push(loadPoolData(settings.pools[p]));
+        }
+    }
+
+    var results = await Promise.all(promises);
+    livePoolMiners = [];
+    for (var r = 0; r < results.length; r++) {
+        livePoolMiners = livePoolMiners.concat(results[r]);
+    }
+
+    // Backward compat for payouts.js / alerts.js
+    window.f2poolEarnings = window.poolEarnings.f2pool || null;
+}
+
+// Legacy alias
+async function loadF2PoolData() { return loadAllPoolData(); }
 
 // ===== POOL LIST =====
 var POOL_TYPES = [
-    { type: 'f2pool', name: 'F2Pool', supported: true },
-    { type: 'luxor', name: 'Luxor', supported: false },
-    { type: 'braiins', name: 'Braiins Pool', supported: false },
-    { type: 'viabtc', name: 'ViaBTC', supported: false }
+    { type: 'f2pool',  name: 'F2Pool',       supported: true, fields: ['workerUrl', 'username'] },
+    { type: 'luxor',   name: 'Luxor',        supported: true, fields: ['workerUrl'] },
+    { type: 'braiins', name: 'Braiins Pool', supported: true, fields: ['workerUrl', 'username'] },
+    { type: 'viabtc',  name: 'ViaBTC',       supported: true, fields: ['workerUrl', 'username'] },
+    { type: 'antpool', name: 'Antpool',      supported: true, fields: ['workerUrl', 'username'] }
 ];
 
 function renderPoolList() {
@@ -785,8 +843,9 @@ function renderPoolList() {
     var html = '<div class="section-label" style="margin-top:12px;font-size:13px">Connected Pools</div>';
     for (var i = 0; i < settings.pools.length; i++) {
         var pool = settings.pools[i];
-        var supported = pool.type === 'f2pool';
-        var statusText = !supported ? 'Coming Soon' : (pool.enabled ? 'Connected' : 'Disconnected');
+        var poolCfg = getPoolTypeConfig(pool.type);
+        var supported = poolCfg ? poolCfg.supported : false;
+        var statusText = !supported ? 'Unsupported' : (pool.enabled ? 'Connected' : 'Disconnected');
         var statusClass = !supported ? 'coming-soon' : (pool.enabled ? 'positive' : 'negative');
         html += '<div class="pool-card">' +
             '<div class="pool-card-info">' +
@@ -805,13 +864,38 @@ function updatePoolPanelState() {
     var formFields = document.getElementById('poolFormFields');
     var testBtn = document.getElementById('testAPI');
     var saveBtn = document.getElementById('saveAPI');
+    var usernameGroup = document.getElementById('usernameGroup');
+    var labelWorkerUrl = document.getElementById('labelWorkerUrl');
+    var labelUsername = document.getElementById('labelUsername');
+    var workerUrlInput = document.getElementById('fmWorkerUrl');
+    var usernameInput = document.getElementById('fmUsername');
     if (!poolType) return;
     var type = poolType.value;
-    var supported = type === 'f2pool';
+    var poolCfg = getPoolTypeConfig(type);
+    var supported = poolCfg ? poolCfg.supported : false;
+    var needsUsername = poolCfg && poolCfg.fields.indexOf('username') !== -1;
+
     if (comingSoon) comingSoon.style.display = supported ? 'none' : '';
     if (formFields) formFields.style.display = supported ? '' : 'none';
     if (testBtn) testBtn.style.display = supported ? '' : 'none';
     if (saveBtn) saveBtn.style.display = supported ? '' : 'none';
+    if (usernameGroup) usernameGroup.style.display = needsUsername ? '' : 'none';
+
+    // Dynamic labels and placeholders per pool
+    var labels = {
+        f2pool:  { url: 'Proxy Worker URL', urlPh: 'https://ion-f2pool.yourname.workers.dev', user: 'F2Pool Username', userPh: 'Your F2Pool mining username' },
+        luxor:   { url: 'Proxy Worker URL', urlPh: 'https://ion-luxor.yourname.workers.dev', user: '', userPh: '' },
+        braiins: { url: 'Proxy Worker URL', urlPh: 'https://ion-braiins.yourname.workers.dev', user: 'Braiins Username', userPh: 'Your Braiins Pool username' },
+        viabtc:  { url: 'Proxy Worker URL', urlPh: 'https://ion-viabtc.yourname.workers.dev', user: 'ViaBTC Sub-account', userPh: 'Your ViaBTC sub-account name' },
+        antpool: { url: 'Proxy Worker URL', urlPh: 'https://ion-antpool.yourname.workers.dev', user: 'Antpool User ID', userPh: 'Your Antpool user ID' }
+    };
+    var lbl = labels[type] || labels.f2pool;
+    if (labelWorkerUrl) labelWorkerUrl.textContent = lbl.url;
+    if (workerUrlInput) workerUrlInput.placeholder = lbl.urlPh;
+    if (labelUsername) labelUsername.textContent = lbl.user;
+    if (usernameInput) usernameInput.placeholder = lbl.userPh;
+
+    // Load existing config for this pool type
     var settings = FleetData.getSettings();
     var existing = null;
     for (var p = 0; p < settings.pools.length; p++) {
