@@ -466,7 +466,6 @@ function renderPayoutTable() {
 
 // ===== PANEL HANDLERS =====
 var addPayoutPanel = document.getElementById('addPayoutPanel');
-var exportPanel = document.getElementById('exportPanel');
 var addBillPanel = document.getElementById('addBillPanel');
 
 // -- Add Bill panel --
@@ -476,7 +475,6 @@ document.getElementById('btnAddBill').addEventListener('click', function() {
     document.getElementById('fbCost').value = '';
     document.getElementById('fbNotes').value = '';
     addPayoutPanel.classList.remove('open');
-    exportPanel.classList.remove('open');
     addBillPanel.classList.toggle('open');
 });
 
@@ -487,7 +485,6 @@ document.getElementById('cancelBill').addEventListener('click', function() {
 // -- Estimate from Fleet button --
 document.getElementById('btnEstimateFleet').addEventListener('click', function() {
     addPayoutPanel.classList.remove('open');
-    exportPanel.classList.remove('open');
     addBillPanel.classList.remove('open');
     autoEstimateElectricity();
 });
@@ -518,7 +515,6 @@ document.getElementById('btnAddPayout').addEventListener('click', function() {
     document.getElementById('fpBtcPrice').value = '';
     document.getElementById('fpTxHash').value = '';
     document.getElementById('fpNotes').value = '';
-    exportPanel.classList.remove('open');
     addBillPanel.classList.remove('open');
     addPayoutPanel.classList.toggle('open');
 });
