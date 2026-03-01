@@ -27,7 +27,47 @@ initNav('dashboard');
     renderPoolList();
     initEarningsChart();
     initMinerDbAutocomplete();
+    initLocationDropdowns();
 })();
+
+// ===== LOCATION DROPDOWNS =====
+function initLocationDropdowns() {
+    var countrySelect = document.getElementById('fmCountry');
+    var stateSelect = document.getElementById('fmState');
+    var stateText = document.getElementById('fmStateText');
+    if (!countrySelect) return;
+
+    if (typeof GEO_DATA !== 'undefined') {
+        var countries = GEO_DATA.countries;
+        for (var i = 0; i < countries.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = countries[i].code;
+            opt.textContent = countries[i].name;
+            countrySelect.appendChild(opt);
+        }
+    }
+
+    countrySelect.addEventListener('change', function() {
+        var code = this.value;
+        var states = (typeof GEO_DATA !== 'undefined' && GEO_DATA.states[code]) || null;
+
+        if (states && states.length > 0) {
+            stateSelect.style.display = '';
+            stateText.style.display = 'none';
+            stateSelect.innerHTML = '<option value="">-- Select --</option>';
+            for (var s = 0; s < states.length; s++) {
+                var opt = document.createElement('option');
+                opt.value = states[s].name;
+                opt.textContent = states[s].name;
+                stateSelect.appendChild(opt);
+            }
+        } else {
+            stateSelect.style.display = 'none';
+            stateText.style.display = '';
+            stateText.value = '';
+        }
+    });
+}
 
 // ===== RENDER DASHBOARD =====
 function renderDashboard() {
@@ -326,6 +366,10 @@ function buildMinerCard(m, eff, mDailyUSD, isLive, isGroupSummary, isExpanded) {
     if (isLive) badges += '<div class="miner-card-qty live-badge">LIVE</div>';
     if (isGroupSummary) badges += '<div class="miner-card-qty qty-badge">x' + m.quantity + '</div>';
     badges += roiBadge;
+    if (m.country) {
+        var locLabel = m.state ? (m.state + ', ' + m.country) : m.country;
+        badges += '<span class="miner-location-badge">' + locLabel + '</span>';
+    }
 
     var totalRow = '';
     if (isGroupSummary) {
@@ -531,6 +575,8 @@ document.getElementById('btnAddMiner').addEventListener('click', function() {
     document.getElementById('fmQuantity').value = '1';
     document.getElementById('fmStatus').value = 'online';
     document.getElementById('fmPurchaseDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fmCountry').value = '';
+    document.getElementById('fmCountry').dispatchEvent(new Event('change'));
     apiPanel.classList.remove('open');
     addMinerPanel.classList.toggle('open');
 });
@@ -548,14 +594,18 @@ document.getElementById('saveMiner').addEventListener('click', function() {
     var quantity = document.getElementById('fmQuantity').value;
     var status = document.getElementById('fmStatus').value;
     var purchaseDate = document.getElementById('fmPurchaseDate').value || new Date().toISOString().split('T')[0];
+    var country = document.getElementById('fmCountry').value;
+    var stateEl = document.getElementById('fmState');
+    var stateText = document.getElementById('fmStateText');
+    var state = (stateEl.style.display !== 'none') ? stateEl.value : stateText.value.trim();
 
     if (!model || !hashrate || !power) return;
 
     if (editingMinerId) {
-        FleetData.updateMiner(editingMinerId, { model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate });
+        FleetData.updateMiner(editingMinerId, { model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate, country: country, state: state });
         editingMinerId = null;
     } else {
-        FleetData.addMiner({ model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate });
+        FleetData.addMiner({ model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate, country: country, state: state });
     }
 
     addMinerPanel.classList.remove('open');
@@ -582,6 +632,13 @@ function startEditMiner(id) {
     document.getElementById('fmQuantity').value = miner.quantity;
     document.getElementById('fmStatus').value = miner.status;
     document.getElementById('fmPurchaseDate').value = miner.purchaseDate || '';
+    document.getElementById('fmCountry').value = miner.country || '';
+    document.getElementById('fmCountry').dispatchEvent(new Event('change'));
+    setTimeout(function() {
+        var s = document.getElementById('fmState');
+        if (s.style.display !== 'none') s.value = miner.state || '';
+        else document.getElementById('fmStateText').value = miner.state || '';
+    }, 50);
     apiPanel.classList.remove('open');
     addMinerPanel.classList.add('open');
 }

@@ -59,7 +59,7 @@ function initNav(activePage) {
     if (!nav) return;
     nav.className = 'ion-nav';
     var mobile = window.innerWidth < 600;
-    var labels = mobile ? ['Calc', 'Data', 'Home', 'Pay', 'Acct', 'Wallet'] : ['Calculator', 'Data', 'Dashboard', 'Payouts', 'Accounting', 'Wallet'];
+    var labels = mobile ? ['Calc', 'Data', 'Home', 'Map', 'Pay', 'Acct', 'Wallet'] : ['Calculator', 'Data', 'Dashboard', 'Map', 'Payouts', 'Accounting', 'Wallet'];
     nav.innerHTML =
         '<a class="ion-nav-brand" href="./index.html">' +
             '<span class="icon"><svg width="24" height="24" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="8" fill="#f7931a"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(120 50 50)"/></svg></span>' +
@@ -69,9 +69,10 @@ function initNav(activePage) {
             '<a href="./calculator.html" class="' + (activePage === 'calculator' ? 'active' : '') + '">' + labels[0] + '</a>' +
             '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">' + labels[1] + '</a>' +
             '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">' + labels[2] + '</a>' +
-            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[3] + '</a>' +
-            '<a href="./accounting.html" class="' + (activePage === 'accounting' ? 'active' : '') + '">' + labels[4] + '</a>' +
-            '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[5] + '</a>' +
+            '<a href="./map.html" class="' + (activePage === 'map' ? 'active' : '') + '">' + labels[3] + '</a>' +
+            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[4] + '</a>' +
+            '<a href="./accounting.html" class="' + (activePage === 'accounting' ? 'active' : '') + '">' + labels[5] + '</a>' +
+            '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[6] + '</a>' +
         '</div>' +
         '<div class="ion-nav-actions">' +
             '<select class="ion-currency-select" id="currencySelect">' +
@@ -197,7 +198,7 @@ function initNav(activePage) {
 
 // --- Swipe / Slide Page Navigation ---
 (function() {
-    var pages = ['calculator.html', 'charts.html', 'index.html', 'payouts.html', 'accounting.html', 'wallet.html'];
+    var pages = ['calculator.html', 'charts.html', 'index.html', 'map.html', 'payouts.html', 'accounting.html', 'wallet.html'];
     var current = pages.indexOf(location.pathname.split('/').pop());
     if (current === -1) current = 0;
 
@@ -208,6 +209,7 @@ function initNav(activePage) {
     function shouldIgnore(el) {
         while (el && el !== document.body) {
             if (ignore.indexOf(el.tagName) !== -1) return true;
+            if (el.id === 'fleetMap') return true;
             if (el.classList && el.classList.contains('earnings-chart-container')) return true;
             if (el.classList && el.classList.contains('combo-chart-container')) return true;
             if (el.classList && el.classList.contains('metric-card')) return true;

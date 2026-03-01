@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Mining Group — Fleet Map</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./shared.css?v=82">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script>
+    if (!localStorage.getItem('sw_clean_v82') && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(r) {
+            var p = r.map(function(x) { return x.unregister(); });
+            p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v82', '1'); location.reload(); });
+        });
+    }
+    </script>
+</head>
+<body>
+<canvas id="techLinesCanvas"></canvas>
+
+<nav id="ion-nav"></nav>
+
+<main>
+
+    <!-- ===== MAP SUMMARY METRICS ===== -->
+    <div class="widget-section" data-widget="map-summary">
+    <div class="section-label">Fleet Map</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">Locations</div>
+            <div class="value btc-orange" id="mapLocations">0</div>
+            <div class="sub">unique sites</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Miners Mapped</div>
+            <div class="value positive" id="mapMiners">0</div>
+            <div class="sub">with location set</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total Hashrate</div>
+            <div class="value" id="mapHashrate">--</div>
+            <div class="sub">TH/s mapped</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Top Location</div>
+            <div class="value neutral" id="mapTopLocation">--</div>
+            <div class="sub" id="mapTopLocationSub">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Online Rate</div>
+            <div class="value positive" id="mapOnlineRate">--</div>
+            <div class="sub">mapped miners</div>
+        </div>
+    </section>
+    </div>
+
+    <!-- ===== FLEET MAP ===== -->
+    <div class="widget-section" data-widget="fleet-map">
+    <div class="card map-card">
+        <div id="fleetMap"></div>
+    </div>
+    </div>
+
+    <!-- ===== LOCATION BREAKDOWN ===== -->
+    <div class="widget-section" data-widget="location-breakdown">
+    <div class="card">
+        <h3>Location Breakdown</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:left">Location</th>
+                        <th>Miners</th>
+                        <th>Hashrate</th>
+                        <th>Power</th>
+                        <th>Efficiency</th>
+                        <th>Online</th>
+                    </tr>
+                </thead>
+                <tbody id="locationTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No miners with locations assigned</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+</main>
+
+<footer>
+    Ion Mining Group &mdash; Fleet Map<br>
+    <span style="font-size:11px; color:#555;">Powered by Leaflet &amp; CartoDB &mdash; Miner locations from fleet data.</span>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="./firebase-config.js?v=82"></script>
+<script src="./sync.js?v=82"></script>
+<script src="./auth-ui.js?v=82"></script>
+<script src="./profile-panel.js?v=82"></script>
+<script src="./shared.js?v=82"></script>
+<script src="./fleet-data.js?v=82"></script>
+<script src="./geo-data.js?v=82"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="./map.js?v=82"></script>
+<script src="./widget-settings.js?v=82"></script>
+<script src="./alerts.js?v=82"></script>
+</body>
+</html>

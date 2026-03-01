@@ -42,6 +42,8 @@ var FleetData = (function() {
             cost: parseFloat(miner.cost) || 0,
             quantity: parseInt(miner.quantity) || 1,
             status: miner.status || 'online',
+            country: miner.country || '',
+            state: miner.state || '',
             purchaseDate: miner.purchaseDate || new Date().toISOString().split('T')[0],
             dateAdded: new Date().toISOString()
         };
@@ -61,6 +63,8 @@ var FleetData = (function() {
                 if (updates.quantity !== undefined) fleet.miners[i].quantity = parseInt(updates.quantity);
                 if (updates.status !== undefined) fleet.miners[i].status = updates.status;
                 if (updates.purchaseDate !== undefined) fleet.miners[i].purchaseDate = updates.purchaseDate;
+                if (updates.country !== undefined) fleet.miners[i].country = updates.country;
+                if (updates.state !== undefined) fleet.miners[i].state = updates.state;
                 break;
             }
         }
