@@ -157,16 +157,19 @@
         }
     }
 
-    // Inject gear button + settings popover
+    // Inject gear button + settings popover (fixed top-right of main)
     function injectSettingsUI() {
-        var actions = document.querySelector('.dashboard-actions');
-        if (!actions) return;
+        var main = document.querySelector('main');
+        if (!main) return;
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'widget-gear-wrapper';
 
         var gear = document.createElement('button');
         gear.className = 'btn btn-secondary widget-gear-btn';
         gear.innerHTML = '&#x2699;';
         gear.title = 'Widget Settings';
-        actions.appendChild(gear);
+        wrapper.appendChild(gear);
 
         var popover = document.createElement('div');
         popover.className = 'widget-popover';
@@ -185,7 +188,8 @@
         }
         html += '<button class="btn btn-secondary widget-reset-btn" id="widgetReset">Reset Layout</button>';
         popover.innerHTML = html;
-        actions.appendChild(popover);
+        wrapper.appendChild(popover);
+        main.insertBefore(wrapper, main.firstChild);
 
         gear.addEventListener('click', function(e) {
             e.stopPropagation();

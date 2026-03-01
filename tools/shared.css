@@ -1646,18 +1646,21 @@ main { display: flex; flex-direction: column; }
 }
 .widget-drag-handle:hover { opacity: 1; }
 .widget-drag-handle:active { cursor: grabbing; }
-.widget-gear-btn { font-size: 18px; padding: 6px 10px; line-height: 1; position: relative; }
+.widget-gear-wrapper {
+    position: sticky; top: 60px; z-index: 50; display: flex; justify-content: flex-end;
+    pointer-events: none; height: 0; margin-bottom: 0;
+}
+.widget-gear-btn { font-size: 18px; padding: 6px 10px; line-height: 1; position: relative; pointer-events: auto; }
 .widget-popover {
     position: absolute; right: 0; top: 100%; margin-top: 8px; z-index: 100;
     background: var(--bg-card, #101214); border: 1px solid var(--border, rgba(255,255,255,0.06));
     border-radius: 10px; padding: 16px; min-width: 220px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4); pointer-events: auto;
 }
 .widget-popover-title { font-size: 12px; color: var(--accent, #f7931a); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
 .widget-popover-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; font-size: 13px; color: var(--text, #eee); }
 .widget-popover-row input[type="checkbox"] { accent-color: var(--accent, #f7931a); }
 .widget-reset-btn { width: 100%; margin-top: 12px; font-size: 12px; }
-.dashboard-actions { position: relative; }
 [data-theme="light"] .widget-popover { background: #fff; border-color: rgba(0,0,0,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
 [data-theme="light"] .widget-popover-row { color: var(--text); }
 
