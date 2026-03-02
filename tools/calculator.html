@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Calculator</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=121">
+    <link rel="stylesheet" href="./shared.css?v=125">
     <script>
     // Force-clear old service workers and caches (runs before any external scripts)
-    if (!localStorage.getItem('sw_clean_v121') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v125') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v121', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v125', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=121"></script>
+    <script src="./chart.min.js?v=125"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -30,6 +30,76 @@
 <div id="liveStatus" class="live-status"></div>
 
 <main>
+
+    <!-- ===== SUMMARY METRICS ===== -->
+    <div class="widget-section" data-widget="snapshot">
+    <div class="section-label">Snapshot (Day 1 Values)</div>
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Daily Revenue</div>
+            <div class="value btc-orange" id="metDailyRev">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Elec. Cost</div>
+            <div class="value negative" id="metDailyElec">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Daily Profit</div>
+            <div class="value" id="metDailyProfit">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Cost / 1 BTC</div>
+            <div class="value" id="metCostPerBTC">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Efficiency</div>
+            <div class="value neutral" id="metEfficiency">--</div>
+            <div class="sub">J/TH</div>
+        </div>
+    </section>
+    </div><!-- /widget snapshot -->
+
+    <div class="widget-section" data-widget="projection">
+    <div class="section-label">Projection Totals (<span id="periodLabel">24 months</span>)</div>
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Total BTC Mined</div>
+            <div class="value btc-orange" id="metTotalMined">--</div>
+            <div class="sub" id="metFinalBtcPrice">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total BTC Value</div>
+            <div class="value btc-orange" id="metHeldValue">--</div>
+            <div class="sub" id="metFinalPrice">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total P/L</div>
+            <div class="value" id="metTotalPL">--</div>
+            <div class="sub" id="metROI">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Break-Even</div>
+            <div class="value" id="metBreakEven">--</div>
+            <div class="sub" id="metBreakEvenUnit">period</div>
+        </div>
+        <div class="metric-card" id="metMachinesCard" style="display:none">
+            <div class="label">Total Machines</div>
+            <div class="value neutral" id="metTotalMachines">--</div>
+            <div class="sub" id="metMachinesSub">--</div>
+        </div>
+    </section>
+    </div><!-- /widget projection -->
+
+    <!-- ===== CHARTS ===== -->
+    <div class="widget-section" data-widget="charts">
+    <div class="section-label">Charts</div>
+    <div class="card">
+        <h3>BTC Accumulated &amp; Value of Assets Over Time</h3>
+        <div class="combo-chart-container">
+            <canvas id="comboChart"></canvas>
+        </div>
+    </div>
+    </div><!-- /widget charts -->
 
     <!-- ===== INPUT PANEL ===== -->
     <div class="widget-section" data-widget="inputs">
@@ -248,76 +318,6 @@
     </section>
     </div><!-- /widget inputs -->
 
-    <!-- ===== SUMMARY METRICS ===== -->
-    <div class="widget-section" data-widget="snapshot">
-    <div class="section-label">Snapshot (Day 1 Values)</div>
-    <section class="metrics-grid">
-        <div class="metric-card">
-            <div class="label">Daily Revenue</div>
-            <div class="value btc-orange" id="metDailyRev">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Daily Elec. Cost</div>
-            <div class="value negative" id="metDailyElec">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Daily Profit</div>
-            <div class="value" id="metDailyProfit">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Cost / 1 BTC</div>
-            <div class="value" id="metCostPerBTC">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Efficiency</div>
-            <div class="value neutral" id="metEfficiency">--</div>
-            <div class="sub">J/TH</div>
-        </div>
-    </section>
-    </div><!-- /widget snapshot -->
-
-    <div class="widget-section" data-widget="projection">
-    <div class="section-label">Projection Totals (<span id="periodLabel">24 months</span>)</div>
-    <section class="metrics-grid">
-        <div class="metric-card">
-            <div class="label">Total BTC Mined</div>
-            <div class="value btc-orange" id="metTotalMined">--</div>
-            <div class="sub" id="metFinalBtcPrice">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Total BTC Value</div>
-            <div class="value btc-orange" id="metHeldValue">--</div>
-            <div class="sub" id="metFinalPrice">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Total P/L</div>
-            <div class="value" id="metTotalPL">--</div>
-            <div class="sub" id="metROI">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Break-Even</div>
-            <div class="value" id="metBreakEven">--</div>
-            <div class="sub" id="metBreakEvenUnit">period</div>
-        </div>
-        <div class="metric-card" id="metMachinesCard" style="display:none">
-            <div class="label">Total Machines</div>
-            <div class="value neutral" id="metTotalMachines">--</div>
-            <div class="sub" id="metMachinesSub">--</div>
-        </div>
-    </section>
-    </div><!-- /widget projection -->
-
-    <!-- ===== CHARTS ===== -->
-    <div class="widget-section" data-widget="charts">
-    <div class="section-label">Charts</div>
-    <div class="card">
-        <h3>BTC Accumulated &amp; Value of Assets Over Time</h3>
-        <div class="combo-chart-container">
-            <canvas id="comboChart"></canvas>
-        </div>
-    </div>
-    </div><!-- /widget charts -->
-
     <div class="widget-section" data-widget="heatmap">
     <div class="section-label">Profitability Heatmap</div>
     <div class="card">
@@ -394,16 +394,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=121"></script>
-<script src="./sync.js?v=121"></script>
-<script src="./auth-ui.js?v=121"></script>
-<script src="./profile-panel.js?v=121"></script>
-<script src="./shared.js?v=121"></script>
-<script src="./fleet-data.js?v=121"></script>
-<script src="./miner-db.js?v=121"></script>
-<script src="./calculator.js?v=121"></script>
-<script src="./widget-settings.js?v=121"></script>
-<script src="./alerts.js?v=121"></script>
-<script src="./onboarding.js?v=121"></script>
+<script src="./firebase-config.js?v=125"></script>
+<script src="./sync.js?v=125"></script>
+<script src="./auth-ui.js?v=125"></script>
+<script src="./profile-panel.js?v=125"></script>
+<script src="./shared.js?v=125"></script>
+<script src="./fleet-data.js?v=125"></script>
+<script src="./miner-db.js?v=125"></script>
+<script src="./calculator.js?v=125"></script>
+<script src="./widget-settings.js?v=125"></script>
+<script src="./alerts.js?v=125"></script>
+<script src="./onboarding.js?v=125"></script>
 </body>
 </html>
