@@ -1777,6 +1777,14 @@ main { display: flex; flex-direction: column; }
 [data-theme="light"] .status-overdue { background: rgba(220,38,38,0.12); color: #dc2626; }
 [data-theme="light"] .status-disconnected { background: rgba(100,100,100,0.1); color: #666; }
 
+/* ===== STRIKE INTEGRATION ===== */
+.strike-card { border-left: 3px solid #8b5cf6; }
+.strike-icon { color: #8b5cf6; font-size: 16px; margin-right: 4px; }
+.strike-source-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: rgba(139,92,246,0.15); color: #a78bfa; }
+.onchain-source-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; background: rgba(247,147,26,0.15); color: #f7931a; }
+[data-theme="light"] .strike-source-badge { background: rgba(139,92,246,0.1); color: #7c3aed; }
+[data-theme="light"] .onchain-source-badge { background: rgba(247,147,26,0.1); color: #d97706; }
+
 /* ===== MOBILE COMPACT LAYOUT ===== */
 @media (max-width: 600px), (max-height: 500px) and (orientation: landscape) {
     /* Main layout */

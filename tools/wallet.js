@@ -2,6 +2,9 @@
 
 var liveBtcPrice = null;
 var refreshInterval = null;
+var strikeConnected = false;
+var strikeBalances = null;
+var strikeTransactions = [];
 
 initNav('wallet');
 
@@ -9,6 +12,7 @@ initNav('wallet');
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
     window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderWallet(); };
+    loadStrikeSettings();
     await loadAndRefreshWallet();
     startAutoRefresh();
 })();
@@ -79,6 +83,207 @@ var WalletData = (function() {
     };
 })();
 
+// ===== STRIKE API MODULE =====
+var StrikeAPI = (function() {
+    var BASE_URL = 'https://api.strike.me';
+
+    function getApiKey() {
+        var settings = FleetData.getSettings();
+        return (settings.strike && settings.strike.apiKey) || '';
+    }
+
+    async function apiFetch(endpoint) {
+        var key = getApiKey();
+        if (!key) return { error: 'No API key' };
+        try {
+            var res = await fetch(BASE_URL + endpoint, {
+                headers: {
+                    'Authorization': 'Bearer ' + key,
+                    'Accept': 'application/json'
+                }
+            });
+            if (res.status === 401) return { error: 'Invalid API key' };
+            if (res.status === 403) return { error: 'Access denied' };
+            if (!res.ok) return { error: 'HTTP ' + res.status };
+            return await res.json();
+        } catch(e) {
+            if (e.message && e.message.indexOf('Failed to fetch') !== -1) {
+                return { error: 'CORS blocked — a proxy worker may be needed' };
+            }
+            return { error: e.message || 'Network error' };
+        }
+    }
+
+    async function getBalances() {
+        return await apiFetch('/v1/balances');
+    }
+
+    async function getDeposits() {
+        return await apiFetch('/v1/deposits');
+    }
+
+    async function getPayouts() {
+        return await apiFetch('/v1/payouts');
+    }
+
+    async function getReceives() {
+        return await apiFetch('/v1/receive-requests/receives');
+    }
+
+    async function getInvoices() {
+        return await apiFetch('/v1/invoices');
+    }
+
+    async function testConnection() {
+        return await getBalances();
+    }
+
+    return {
+        getBalances: getBalances,
+        getDeposits: getDeposits,
+        getPayouts: getPayouts,
+        getReceives: getReceives,
+        getInvoices: getInvoices,
+        testConnection: testConnection
+    };
+})();
+
+// ===== STRIKE SETTINGS =====
+function loadStrikeSettings() {
+    var settings = FleetData.getSettings();
+    if (settings.strike && settings.strike.apiKey && settings.strike.enabled) {
+        document.getElementById('strikeApiKey').value = settings.strike.apiKey;
+        strikeConnected = true;
+        updateStrikeStatus('Connected');
+    }
+}
+
+function updateStrikeStatus(label) {
+    var badge = document.getElementById('strikeStatusBadge');
+    if (label) {
+        badge.textContent = 'Strike: ' + label;
+        badge.className = 'status-badge status-connected';
+    } else {
+        badge.textContent = 'Strike: Not Connected';
+        badge.className = 'status-badge status-disconnected';
+    }
+}
+
+// ===== STRIKE DATA FETCH =====
+async function fetchStrikeData() {
+    if (!strikeConnected) return;
+
+    // Fetch balances
+    var balResult = await StrikeAPI.getBalances();
+    if (balResult && !balResult.error) {
+        strikeBalances = balResult;
+        // Save last sync time
+        var settings = FleetData.getSettings();
+        settings.strike.lastSync = new Date().toISOString();
+        FleetData.saveSettings(settings);
+    } else {
+        console.warn('[Wallet] Strike balance fetch error:', balResult.error);
+    }
+
+    // Fetch transactions (deposits + payouts + receives)
+    var strikeTxs = [];
+    try {
+        var [deposits, payouts, receives] = await Promise.all([
+            StrikeAPI.getDeposits(),
+            StrikeAPI.getPayouts(),
+            StrikeAPI.getReceives()
+        ]);
+
+        // Process deposits (incoming)
+        if (deposits && !deposits.error && Array.isArray(deposits.items || deposits)) {
+            var depItems = deposits.items || deposits;
+            for (var d = 0; d < depItems.length; d++) {
+                var dep = depItems[d];
+                strikeTxs.push({
+                    source: 'Strike',
+                    sourceType: 'Deposit',
+                    timestamp: new Date(dep.created || dep.completedAt || dep.createdAt).getTime() / 1000,
+                    amount: parseStrikeAmount(dep.amount || dep),
+                    status: dep.state || dep.status || 'completed',
+                    id: dep.depositId || dep.id || ''
+                });
+            }
+        }
+
+        // Process payouts (outgoing)
+        if (payouts && !payouts.error && Array.isArray(payouts.items || payouts)) {
+            var payItems = payouts.items || payouts;
+            for (var p = 0; p < payItems.length; p++) {
+                var pay = payItems[p];
+                strikeTxs.push({
+                    source: 'Strike',
+                    sourceType: 'Payout',
+                    timestamp: new Date(pay.created || pay.completedAt || pay.createdAt).getTime() / 1000,
+                    amount: -parseStrikeAmount(pay.amount || pay),
+                    status: pay.state || pay.status || 'completed',
+                    id: pay.payoutId || pay.id || ''
+                });
+            }
+        }
+
+        // Process receives (incoming Lightning/on-chain)
+        if (receives && !receives.error && Array.isArray(receives.items || receives)) {
+            var recItems = receives.items || receives;
+            for (var r = 0; r < recItems.length; r++) {
+                var rec = recItems[r];
+                strikeTxs.push({
+                    source: 'Strike',
+                    sourceType: 'Receive',
+                    timestamp: new Date(rec.created || rec.completedAt || rec.createdAt).getTime() / 1000,
+                    amount: parseStrikeAmount(rec.amount || rec),
+                    status: rec.state || rec.status || 'completed',
+                    id: rec.receiveId || rec.id || ''
+                });
+            }
+        }
+    } catch(e) {
+        console.warn('[Wallet] Strike transaction fetch error:', e);
+    }
+
+    strikeTransactions = strikeTxs;
+}
+
+function parseStrikeAmount(amountObj) {
+    if (!amountObj) return 0;
+    // Strike returns {amount: "0.001", currency: "BTC"} or similar
+    if (typeof amountObj === 'object') {
+        var val = parseFloat(amountObj.amount) || 0;
+        var cur = (amountObj.currency || '').toUpperCase();
+        if (cur === 'BTC') return val;
+        // If USD, convert to BTC
+        if (cur === 'USD' && liveBtcPrice > 0) return val / liveBtcPrice;
+        return val;
+    }
+    return parseFloat(amountObj) || 0;
+}
+
+function getStrikeBtcBalance() {
+    if (!strikeBalances) return 0;
+    var balArr = Array.isArray(strikeBalances) ? strikeBalances : (strikeBalances.items || [strikeBalances]);
+    for (var i = 0; i < balArr.length; i++) {
+        if (balArr[i].currency === 'BTC') {
+            return parseFloat(balArr[i].amount || balArr[i].available || 0);
+        }
+    }
+    return 0;
+}
+
+function getStrikeUsdBalance() {
+    if (!strikeBalances) return 0;
+    var balArr = Array.isArray(strikeBalances) ? strikeBalances : (strikeBalances.items || [strikeBalances]);
+    for (var i = 0; i < balArr.length; i++) {
+        if (balArr[i].currency === 'USD') {
+            return parseFloat(balArr[i].amount || balArr[i].available || 0);
+        }
+    }
+    return 0;
+}
+
 // ===== MEMPOOL.SPACE API =====
 async function fetchAddressData(address) {
     try {
@@ -114,21 +319,29 @@ async function fetchAddressTxs(address) {
 async function loadAndRefreshWallet() {
     var data = WalletData.getData();
 
-    if (data.addresses.length === 0) {
+    // Fetch Strike data if connected
+    if (strikeConnected) {
+        await fetchStrikeData();
+    }
+
+    if (data.addresses.length === 0 && !strikeConnected) {
         renderWallet();
         renderEmptyTxTable();
         return;
     }
 
-    var promises = [];
-    for (var i = 0; i < data.addresses.length; i++) {
-        promises.push(fetchAddressData(data.addresses[i].address));
-    }
-    var results = await Promise.all(promises);
+    // Fetch on-chain address data
+    if (data.addresses.length > 0) {
+        var promises = [];
+        for (var i = 0; i < data.addresses.length; i++) {
+            promises.push(fetchAddressData(data.addresses[i].address));
+        }
+        var results = await Promise.all(promises);
 
-    for (var j = 0; j < data.addresses.length; j++) {
-        if (!results[j].error) {
-            WalletData.updateAddressData(data.addresses[j].id, results[j].balance, results[j].txCount);
+        for (var j = 0; j < data.addresses.length; j++) {
+            if (!results[j].error) {
+                WalletData.updateAddressData(data.addresses[j].id, results[j].balance, results[j].txCount);
+            }
         }
     }
 
@@ -147,10 +360,16 @@ function renderWallet() {
         totalTxCount += data.addresses[i].lastTxCount;
     }
 
+    // Add Strike BTC balance
+    if (strikeConnected && strikeBalances) {
+        totalBTC += getStrikeBtcBalance();
+        totalTxCount += strikeTransactions.length;
+    }
+
     document.getElementById('walletTotalBTC').textContent = fmtBTC(totalBTC, 8);
-    document.getElementById('walletTotalUSD').textContent = fmtUSD(totalBTC * liveBtcPrice);
+    document.getElementById('walletTotalUSD').textContent = fmtUSD(totalBTC * liveBtcPrice + (strikeConnected ? getStrikeUsdBalance() : 0));
     document.getElementById('walletPriceLabel').textContent = 'at ' + fmtUSD(liveBtcPrice);
-    document.getElementById('walletAddressCount').textContent = data.addresses.length;
+    document.getElementById('walletAddressCount').textContent = data.addresses.length + (strikeConnected ? ' + Strike' : '');
     document.getElementById('walletTotalTxCount').textContent = totalTxCount;
 
     var now = new Date();
@@ -164,19 +383,47 @@ function renderWallet() {
 
 function renderAddressCards(data) {
     var container = document.getElementById('addressCardsGrid');
+    var html = '';
 
-    if (data.addresses.length === 0) {
-        container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No addresses added yet</p><div class="hint">Click "+ Add Address" to start monitoring</div></div>';
+    // Strike balance card (shown first if connected)
+    if (strikeConnected && strikeBalances) {
+        var strikeBtc = getStrikeBtcBalance();
+        var strikeUsd = getStrikeUsdBalance();
+        var settings = FleetData.getSettings();
+        var lastSync = settings.strike && settings.strike.lastSync;
+        var syncLabel = lastSync ? new Date(lastSync).toLocaleTimeString() : 'just now';
+
+        html += '<div class="miner-card strike-card">' +
+            '<div class="miner-card-header">' +
+                '<div class="miner-card-model"><span class="strike-icon">&#9889;</span> Strike Account</div>' +
+                '<span class="status-badge status-connected" style="font-size:10px; padding:2px 8px;">Connected</span>' +
+            '</div>' +
+            '<div class="miner-card-stats">' +
+                '<div class="miner-card-stat"><div class="stat-label">BTC Balance</div><div class="stat-value" style="color:#f7931a;">' + fmtBTC(strikeBtc, 8) + ' BTC</div></div>' +
+                '<div class="miner-card-stat"><div class="stat-label">USD Balance</div><div class="stat-value">' + fmtUSD(strikeUsd) + '</div></div>' +
+                '<div class="miner-card-stat"><div class="stat-label">BTC in USD</div><div class="stat-value">' + fmtUSD(strikeBtc * liveBtcPrice) + '</div></div>' +
+                '<div class="miner-card-stat"><div class="stat-label">Last Synced</div><div class="stat-value" style="font-size:11px;">' + syncLabel + '</div></div>' +
+            '</div>' +
+            '<div class="miner-card-actions">' +
+                '<button onclick="fetchStrikeData().then(function(){renderWallet();})">Sync</button>' +
+                '<button class="delete" onclick="disconnectStrike()">Disconnect</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // On-chain address cards
+    if (data.addresses.length === 0 && !html) {
+        container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No addresses added yet</p><div class="hint">Click "+ Add Address" or connect Strike to start monitoring</div></div>';
         return;
     }
 
-    var html = '';
     for (var i = 0; i < data.addresses.length; i++) {
         var a = data.addresses[i];
         var shortAddr = a.address.substring(0, 8) + '...' + a.address.substring(a.address.length - 6);
         html += '<div class="miner-card">' +
             '<div class="miner-card-header">' +
                 '<div class="miner-card-model">' + escapeHtml(a.label) + '</div>' +
+                '<span class="status-badge" style="font-size:10px; padding:2px 8px; background:rgba(247,147,26,0.15); color:#f7931a;">On-chain</span>' +
             '</div>' +
             '<div class="miner-card-stats">' +
                 '<div class="miner-card-stat"><div class="stat-label">Address</div><div class="stat-value" style="font-family:monospace; font-size:11px;">' + shortAddr + '</div></div>' +
@@ -192,7 +439,7 @@ function renderAddressCards(data) {
     }
     container.innerHTML = html;
 
-    var btns = container.querySelectorAll('.delete');
+    var btns = container.querySelectorAll('.delete[data-id]');
     for (var j = 0; j < btns.length; j++) {
         (function(btn) {
             btn.addEventListener('click', function() {
@@ -215,7 +462,7 @@ async function renderTransactionHistory() {
     var data = WalletData.getData();
     var tbody = document.getElementById('txHistoryBody');
 
-    if (data.addresses.length === 0) {
+    if (data.addresses.length === 0 && strikeTransactions.length === 0) {
         renderEmptyTxTable();
         return;
     }
@@ -223,6 +470,8 @@ async function renderTransactionHistory() {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">Loading transactions...</td></tr>';
 
     var allTxs = [];
+
+    // On-chain transactions
     for (var i = 0; i < data.addresses.length; i++) {
         var addr = data.addresses[i];
         var txs = await fetchAddressTxs(addr.address);
@@ -247,35 +496,78 @@ async function renderTransactionHistory() {
             var change = (voutSum - vinSum) / 100000000;
 
             allTxs.push({
-                label: addr.label,
+                source: 'On-chain',
+                sourceLabel: addr.label,
                 txid: tx.txid,
                 timestamp: (tx.status && tx.status.block_time) || Math.floor(Date.now() / 1000),
                 confirmed: tx.status && tx.status.confirmed,
-                change: change
+                change: change,
+                type: 'on-chain'
             });
         }
+    }
+
+    // Strike transactions
+    for (var s = 0; s < strikeTransactions.length; s++) {
+        var st = strikeTransactions[s];
+        allTxs.push({
+            source: 'Strike',
+            sourceLabel: 'Strike',
+            txid: st.id,
+            timestamp: st.timestamp || Math.floor(Date.now() / 1000),
+            confirmed: st.status === 'COMPLETED' || st.status === 'completed',
+            change: st.amount,
+            type: 'strike',
+            strikeType: st.sourceType,
+            strikeStatus: st.status
+        });
     }
 
     allTxs.sort(function(a, b) { return b.timestamp - a.timestamp; });
 
     var html = '';
-    var limit = Math.min(25, allTxs.length);
+    var limit = Math.min(30, allTxs.length);
     for (var k = 0; k < limit; k++) {
         var t = allTxs[k];
         var date = new Date(t.timestamp * 1000);
         var dateStr = (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear() + ' ' +
             String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
-        var txShort = t.txid.substring(0, 12) + '...';
         var changeColor = t.change >= 0 ? '#4ade80' : '#ef4444';
         var changePrefix = t.change >= 0 ? '+' : '';
-        var statusText = t.confirmed ? 'Confirmed' : 'Unconfirmed';
-        var statusColor = t.confirmed ? '#4ade80' : '#f7931a';
+
+        // Source badge
+        var sourceBadge;
+        if (t.type === 'strike') {
+            sourceBadge = '<span class="strike-source-badge">' + escapeHtml(t.sourceLabel) + '</span>';
+        } else {
+            sourceBadge = '<span class="onchain-source-badge">' + escapeHtml(t.sourceLabel) + '</span>';
+        }
+
+        // Type/TX column
+        var typeCol;
+        if (t.type === 'strike') {
+            typeCol = '<span style="font-size:11px; color:#888;">' + (t.strikeType || 'Transfer') + '</span>';
+        } else {
+            var txShort = t.txid.substring(0, 10) + '...';
+            typeCol = '<a href="https://mempool.space/tx/' + t.txid + '" target="_blank" rel="noopener" style="color:#f7931a; text-decoration:none; font-family:monospace; font-size:11px;" title="' + t.txid + '">' + txShort + '</a>';
+        }
+
+        // Status
+        var statusText, statusColor;
+        if (t.type === 'strike') {
+            var st2 = (t.strikeStatus || '').toUpperCase();
+            statusText = st2 === 'COMPLETED' ? 'Completed' : st2 === 'PENDING' ? 'Pending' : t.strikeStatus || 'Unknown';
+            statusColor = st2 === 'COMPLETED' ? '#4ade80' : '#f7931a';
+        } else {
+            statusText = t.confirmed ? 'Confirmed' : 'Unconfirmed';
+            statusColor = t.confirmed ? '#4ade80' : '#f7931a';
+        }
 
         html += '<tr>' +
             '<td>' + dateStr + '</td>' +
-            '<td>' + escapeHtml(t.label) + '</td>' +
+            '<td>' + sourceBadge + '</td>' +
             '<td style="color:' + changeColor + '; font-weight:500;">' + changePrefix + fmtBTC(Math.abs(t.change), 8) + '</td>' +
-            '<td><a href="https://mempool.space/tx/' + t.txid + '" target="_blank" rel="noopener" style="color:#f7931a; text-decoration:none; font-family:monospace; font-size:11px;" title="' + t.txid + '">' + txShort + '</a></td>' +
+            '<td>' + typeCol + '</td>' +
             '<td style="color:' + statusColor + ';">' + statusText + '</td>' +
         '</tr>';
     }
@@ -310,7 +602,7 @@ window.addEventListener('beforeunload', function() {
     if (refreshInterval) clearInterval(refreshInterval);
 });
 
-// ===== PANEL HANDLERS =====
+// ===== ADDRESS PANEL HANDLERS =====
 var addAddressPanel = document.getElementById('addAddressPanel');
 
 document.getElementById('btnAddAddress').addEventListener('click', function() {
@@ -349,3 +641,82 @@ document.getElementById('saveAddress').addEventListener('click', async function(
 document.getElementById('btnRefreshBalances').addEventListener('click', function() {
     loadAndRefreshWallet();
 });
+
+// ===== STRIKE PANEL HANDLERS =====
+document.getElementById('btnConnectStrike').addEventListener('click', function() {
+    var settings = FleetData.getSettings();
+    if (settings.strike && settings.strike.apiKey) {
+        document.getElementById('strikeApiKey').value = settings.strike.apiKey;
+    }
+    document.getElementById('strikeTestResult').innerHTML = '';
+    document.getElementById('strikeConnectPanel').classList.toggle('open');
+});
+
+document.getElementById('cancelStrike').addEventListener('click', function() {
+    document.getElementById('strikeConnectPanel').classList.remove('open');
+});
+
+document.getElementById('testStrike').addEventListener('click', async function() {
+    var key = document.getElementById('strikeApiKey').value.trim();
+    var result = document.getElementById('strikeTestResult');
+    if (!key) { result.innerHTML = '<span style="color:#f55;">Enter an API key</span>'; return; }
+
+    result.innerHTML = '<span style="color:#888;">Testing connection...</span>';
+
+    // Temporarily set key to test
+    var settings = FleetData.getSettings();
+    var oldKey = settings.strike.apiKey;
+    settings.strike.apiKey = key;
+    FleetData.saveSettings(settings);
+
+    var data = await StrikeAPI.testConnection();
+
+    // Restore old key if test only
+    settings.strike.apiKey = oldKey;
+    FleetData.saveSettings(settings);
+
+    if (data && !data.error) {
+        var balArr = Array.isArray(data) ? data : (data.items || [data]);
+        var info = [];
+        for (var i = 0; i < balArr.length; i++) {
+            info.push(balArr[i].currency + ': ' + balArr[i].amount);
+        }
+        result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
+    } else {
+        result.innerHTML = '<span style="color:#f55;">Failed: ' + (data.error || 'Unknown error') + '</span>';
+    }
+});
+
+document.getElementById('saveStrike').addEventListener('click', async function() {
+    var key = document.getElementById('strikeApiKey').value.trim();
+    var settings = FleetData.getSettings();
+
+    if (!key) {
+        // Disconnect
+        disconnectStrike();
+        document.getElementById('strikeConnectPanel').classList.remove('open');
+        return;
+    }
+
+    // Save and connect
+    settings.strike = { apiKey: key, enabled: true, lastSync: null };
+    FleetData.saveSettings(settings);
+    strikeConnected = true;
+    updateStrikeStatus('Connected');
+    document.getElementById('strikeConnectPanel').classList.remove('open');
+    await loadAndRefreshWallet();
+});
+
+function disconnectStrike() {
+    var settings = FleetData.getSettings();
+    settings.strike = { apiKey: '', enabled: false, lastSync: null };
+    FleetData.saveSettings(settings);
+    strikeConnected = false;
+    strikeBalances = null;
+    strikeTransactions = [];
+    updateStrikeStatus(null);
+    renderWallet();
+    renderTransactionHistory();
+}
+// Make available globally for inline onclick
+window.disconnectStrike = disconnectStrike;

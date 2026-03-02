@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=131">
+    <link rel="stylesheet" href="./shared.css?v=132">
     <script>
-    if (!localStorage.getItem('sw_clean_v131') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v132') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v131', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v132', '1'); location.reload(); });
         });
     }
     </script>
@@ -31,6 +31,36 @@
     <!-- Watch-Only Banner -->
     <div class="card" style="background:rgba(74,222,128,0.08); border-color:rgba(74,222,128,0.25); margin-bottom:16px; padding:12px 16px;">
         <p style="font-size:13px; color:#4ade80; margin:0;">Watch-only wallet &mdash; monitors on-chain balances. No private keys stored.</p>
+    </div>
+
+    <!-- ===== STRIKE CONNECTION STATUS ===== -->
+    <div class="dashboard-actions" style="justify-content: space-between; align-items: center;">
+        <div>
+            <span id="strikeStatusBadge" class="status-badge status-disconnected">Strike: Not Connected</span>
+        </div>
+        <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
+    </div>
+
+    <!-- ===== STRIKE CONNECT PANEL ===== -->
+    <div class="slide-panel" id="strikeConnectPanel">
+        <div class="panel-inner">
+            <h4>Connect Strike Account</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 12px;">Enter your Strike API key. Create one at <a href="https://dashboard.strike.me/developer" target="_blank" rel="noopener" style="color:#f7931a;">dashboard.strike.me/developer</a></p>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Strike API Key</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="strikeApiKey" placeholder="Enter your Strike API key">
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelStrike">Cancel</button>
+                <button class="btn btn-secondary" id="testStrike">Test Connection</button>
+                <button class="btn btn-primary" id="saveStrike">Save</button>
+            </div>
+            <div id="strikeTestResult" style="margin-top:10px; font-size:12px;"></div>
+        </div>
     </div>
 
     <!-- ===== BALANCE SUMMARY ===== -->
@@ -113,9 +143,9 @@
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Address</th>
+                        <th>Source</th>
                         <th>Amount</th>
-                        <th>TX Hash</th>
+                        <th>Type / TX</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -137,15 +167,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=131"></script>
-<script src="./sync.js?v=131"></script>
-<script src="./auth-ui.js?v=131"></script>
-<script src="./profile-panel.js?v=131"></script>
-<script src="./shared.js?v=131"></script>
-<script src="./fleet-data.js?v=131"></script>
-<script src="./wallet.js?v=131"></script>
-<script src="./widget-settings.js?v=131"></script>
-<script src="./alerts.js?v=131"></script>
-<script src="./onboarding.js?v=131"></script>
+<script src="./firebase-config.js?v=132"></script>
+<script src="./sync.js?v=132"></script>
+<script src="./auth-ui.js?v=132"></script>
+<script src="./profile-panel.js?v=132"></script>
+<script src="./shared.js?v=132"></script>
+<script src="./fleet-data.js?v=132"></script>
+<script src="./wallet.js?v=132"></script>
+<script src="./widget-settings.js?v=132"></script>
+<script src="./alerts.js?v=132"></script>
+<script src="./onboarding.js?v=132"></script>
 </body>
 </html>

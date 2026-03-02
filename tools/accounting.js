@@ -4,6 +4,8 @@
 var acctBtcPrice = null;
 var qboData = { accounts: [], expenses: [], invoices: [] };
 var qboConnected = false;
+var acctStrikeConnected = false;
+var strikeAcctData = { deposits: [], payouts: [], receives: [] };
 var acctPeriod = { start: '', end: '' };
 var pnlChart = null;
 var expenseDoughnutChart = null;
@@ -20,7 +22,9 @@ initNav('accounting');
     };
     setPeriod('month');
     loadQboSettings();
+    loadStrikeAcctSettings();
     await loadAccountingData();
+    await fetchStrikeAccountingData();
     renderAccounting();
 })();
 
@@ -167,6 +171,137 @@ document.getElementById('saveQbo').addEventListener('click', async function() {
     }
 });
 
+// ===== STRIKE CONNECTION =====
+function loadStrikeAcctSettings() {
+    var settings = FleetData.getSettings();
+    if (settings.strike && settings.strike.apiKey && settings.strike.enabled) {
+        document.getElementById('strikeApiKeyAcct').value = settings.strike.apiKey;
+        acctStrikeConnected = true;
+        updateStrikeAcctStatus('Connected');
+    }
+}
+
+function updateStrikeAcctStatus(label) {
+    var badge = document.getElementById('strikeStatusBadgeAcct');
+    if (label) {
+        badge.textContent = 'Strike: ' + label;
+        badge.className = 'status-badge status-connected';
+    } else {
+        badge.textContent = 'Strike: Not Connected';
+        badge.className = 'status-badge status-disconnected';
+    }
+}
+
+async function strikeApiFetch(endpoint) {
+    var settings = FleetData.getSettings();
+    var key = (settings.strike && settings.strike.apiKey) || '';
+    if (!key) return { error: 'No API key' };
+    try {
+        var res = await fetch('https://api.strike.me' + endpoint, {
+            headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' }
+        });
+        if (!res.ok) return { error: 'HTTP ' + res.status };
+        return await res.json();
+    } catch(e) {
+        return { error: e.message || 'Network error' };
+    }
+}
+
+async function fetchStrikeAccountingData() {
+    if (!acctStrikeConnected) return;
+    try {
+        var [deposits, payouts, receives] = await Promise.all([
+            strikeApiFetch('/v1/deposits'),
+            strikeApiFetch('/v1/payouts'),
+            strikeApiFetch('/v1/receive-requests/receives')
+        ]);
+        strikeAcctData.deposits = (deposits && !deposits.error) ? (deposits.items || deposits) : [];
+        strikeAcctData.payouts = (payouts && !payouts.error) ? (payouts.items || payouts) : [];
+        strikeAcctData.receives = (receives && !receives.error) ? (receives.items || receives) : [];
+        if (!Array.isArray(strikeAcctData.deposits)) strikeAcctData.deposits = [];
+        if (!Array.isArray(strikeAcctData.payouts)) strikeAcctData.payouts = [];
+        if (!Array.isArray(strikeAcctData.receives)) strikeAcctData.receives = [];
+    } catch(e) {
+        console.warn('[Accounting] Strike fetch error:', e);
+    }
+}
+
+function parseStrikeAmountAcct(amountObj) {
+    if (!amountObj) return { btc: 0, usd: 0, currency: 'BTC' };
+    if (typeof amountObj === 'object') {
+        var val = parseFloat(amountObj.amount) || 0;
+        var cur = (amountObj.currency || '').toUpperCase();
+        if (cur === 'BTC') return { btc: val, usd: val * (acctBtcPrice || 0), currency: 'BTC' };
+        if (cur === 'USD') return { btc: (acctBtcPrice > 0 ? val / acctBtcPrice : 0), usd: val, currency: 'USD' };
+        return { btc: 0, usd: val, currency: cur };
+    }
+    return { btc: 0, usd: 0, currency: 'BTC' };
+}
+
+function strikeItemDate(item) {
+    var d = item.completed || item.completedAt || item.created || item.createdAt || '';
+    if (!d) return '';
+    return d.substring(0, 10); // YYYY-MM-DD
+}
+
+// Strike panel handlers
+document.getElementById('btnConnectStrikeAcct').addEventListener('click', function() {
+    var settings = FleetData.getSettings();
+    if (settings.strike && settings.strike.apiKey) {
+        document.getElementById('strikeApiKeyAcct').value = settings.strike.apiKey;
+    }
+    document.getElementById('strikeTestResultAcct').innerHTML = '';
+    document.getElementById('strikeConnectPanel').classList.toggle('open');
+});
+
+document.getElementById('cancelStrikeAcct').addEventListener('click', function() {
+    document.getElementById('strikeConnectPanel').classList.remove('open');
+});
+
+document.getElementById('testStrikeAcct').addEventListener('click', async function() {
+    var key = document.getElementById('strikeApiKeyAcct').value.trim();
+    var result = document.getElementById('strikeTestResultAcct');
+    if (!key) { result.innerHTML = '<span style="color:#f55;">Enter an API key</span>'; return; }
+    result.innerHTML = '<span style="color:#888;">Testing...</span>';
+    var settings = FleetData.getSettings();
+    var oldKey = settings.strike.apiKey;
+    settings.strike.apiKey = key;
+    FleetData.saveSettings(settings);
+    var data = await strikeApiFetch('/v1/balances');
+    settings.strike.apiKey = oldKey;
+    FleetData.saveSettings(settings);
+    if (data && !data.error) {
+        var balArr = Array.isArray(data) ? data : (data.items || [data]);
+        var info = [];
+        for (var i = 0; i < balArr.length; i++) info.push(balArr[i].currency + ': ' + balArr[i].amount);
+        result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
+    } else {
+        result.innerHTML = '<span style="color:#f55;">Failed: ' + (data.error || 'Unknown') + '</span>';
+    }
+});
+
+document.getElementById('saveStrikeAcct').addEventListener('click', async function() {
+    var key = document.getElementById('strikeApiKeyAcct').value.trim();
+    var settings = FleetData.getSettings();
+    if (!key) {
+        settings.strike = { apiKey: '', enabled: false, lastSync: null };
+        FleetData.saveSettings(settings);
+        acctStrikeConnected = false;
+        strikeAcctData = { deposits: [], payouts: [], receives: [] };
+        updateStrikeAcctStatus(null);
+        document.getElementById('strikeConnectPanel').classList.remove('open');
+        renderAccounting();
+        return;
+    }
+    settings.strike = { apiKey: key, enabled: true, lastSync: new Date().toISOString() };
+    FleetData.saveSettings(settings);
+    acctStrikeConnected = true;
+    updateStrikeAcctStatus('Connected');
+    document.getElementById('strikeConnectPanel').classList.remove('open');
+    await fetchStrikeAccountingData();
+    renderAccounting();
+});
+
 // ===== DATA LOADING =====
 async function loadAccountingData() {
     if (!qboConnected) return;
@@ -237,6 +372,28 @@ function buildUnifiedPnL() {
         }
     }
 
+    // Strike deposits + receives as revenue
+    if (acctStrikeConnected) {
+        var allStrikeIn = strikeAcctData.deposits.concat(strikeAcctData.receives);
+        for (var si = 0; si < allStrikeIn.length; si++) {
+            var sItem = allStrikeIn[si];
+            var sDate = strikeItemDate(sItem);
+            if (sDate >= acctPeriod.start && sDate <= acctPeriod.end) {
+                var sAmt = parseStrikeAmountAcct(sItem.amount);
+                totalRevenueBtc += sAmt.btc;
+                totalRevenueUsd += sAmt.usd;
+                revenueEntries.push({
+                    date: sDate,
+                    source: 'Strike ' + (sItem.depositId ? 'Deposit' : 'Receive'),
+                    btcAmount: sAmt.btc,
+                    btcPrice: acctBtcPrice || 0,
+                    usdValue: sAmt.usd,
+                    category: 'Strike Deposit'
+                });
+            }
+        }
+    }
+
     revenueEntries.sort(function(a, b) { return b.date < a.date ? -1 : b.date > a.date ? 1 : 0; });
 
     // Expenses: QBO expenses or local electricity bills
@@ -265,6 +422,25 @@ function buildUnifiedPnL() {
                     category: 'Electricity (' + bill.kwhUsed + ' kWh)',
                     amount: bill.costUSD,
                     account: 'Local Data'
+                });
+            }
+        }
+    }
+
+    // Strike payouts as expenses
+    if (acctStrikeConnected) {
+        for (var sp = 0; sp < strikeAcctData.payouts.length; sp++) {
+            var sPay = strikeAcctData.payouts[sp];
+            var spDate = strikeItemDate(sPay);
+            if (spDate >= acctPeriod.start && spDate <= acctPeriod.end) {
+                var spAmt = parseStrikeAmountAcct(sPay.amount);
+                totalExpenses += spAmt.usd;
+                expenseEntries.push({
+                    date: spDate,
+                    vendor: 'Strike Payout',
+                    category: 'Strike Transfer',
+                    amount: spAmt.usd,
+                    account: 'Strike'
                 });
             }
         }
@@ -302,7 +478,12 @@ function buildUnifiedPnL() {
         revenueEntries: revenueEntries,
         expenseEntries: expenseEntries,
         capexCount: capexCount,
-        expenseSource: (qboConnected && qboData.expenses.length > 0) ? 'from QuickBooks' : 'from local data'
+        expenseSource: (function() {
+            var sources = [];
+            if (qboConnected && qboData.expenses.length > 0) sources.push('QuickBooks');
+            if (acctStrikeConnected && strikeAcctData.payouts.length > 0) sources.push('Strike');
+            return sources.length > 0 ? 'from ' + sources.join(' + ') : 'from local data';
+        })()
     };
 }
 
@@ -862,8 +1043,7 @@ function downloadCSVFile(rows, filename) {
 
 // ===== AUTO-REFRESH =====
 setInterval(async function() {
-    if (qboConnected) {
-        await loadAccountingData();
-        renderAccounting();
-    }
+    if (qboConnected) await loadAccountingData();
+    if (acctStrikeConnected) await fetchStrikeAccountingData();
+    if (qboConnected || acctStrikeConnected) renderAccounting();
 }, 300000); // 5 minutes
