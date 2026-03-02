@@ -231,14 +231,16 @@ initNav('map');
         }
 
         var currentPct = countryData[currentA2] ? ((countryData[currentA2].totalHashrate / globalTotalHashrate) * 100).toFixed(1) : '0.0';
+        var pieMobile = window.innerWidth <= 600;
+        var pieSize = pieMobile ? 65 : 90;
 
-        return '<div style="padding-top:10px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
-            '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Fleet Share</div>' +
-            '<div style="display:flex;align-items:flex-start;gap:10px;">' +
-                '<svg viewBox="0 0 100 100" width="90" height="90" style="flex-shrink:0;">' + paths + '</svg>' +
-                '<div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;padding-top:2px;">' + legendHtml + '</div>' +
+        return '<div style="padding-top:' + (pieMobile ? '6' : '10') + 'px;margin-top:' + (pieMobile ? '4' : '8') + 'px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div style="font-size:' + (pieMobile ? '9' : '10') + 'px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:' + (pieMobile ? '4' : '6') + 'px;">Fleet Share</div>' +
+            '<div style="display:flex;align-items:flex-start;gap:' + (pieMobile ? '6' : '10') + 'px;">' +
+                '<svg viewBox="0 0 100 100" width="' + pieSize + '" height="' + pieSize + '" style="flex-shrink:0;">' + paths + '</svg>' +
+                '<div style="display:flex;flex-direction:column;gap:' + (pieMobile ? '2' : '3') + 'px;min-width:0;flex:1;padding-top:2px;">' + legendHtml + '</div>' +
             '</div>' +
-            '<div style="text-align:center;font-size:11px;color:#f7931a;margin-top:6px;font-weight:600;">' + currentPct + '% of fleet hashrate</div>' +
+            '<div style="text-align:center;font-size:' + (pieMobile ? '10' : '11') + 'px;color:#f7931a;margin-top:' + (pieMobile ? '4' : '6') + 'px;font-weight:600;">' + currentPct + '% of fleet hashrate</div>' +
         '</div>';
     }
 
@@ -333,10 +335,11 @@ initNav('map');
                             sticky: true
                         });
 
+                        var isMobile = window.innerWidth <= 600;
                         layer.bindPopup(buildPopup(a2, data), {
                             className: 'map-popup-leaflet',
-                            maxWidth: 280,
-                            minWidth: 200
+                            maxWidth: isMobile ? 220 : 280,
+                            minWidth: isMobile ? 160 : 200
                         });
                     }
                 }).addTo(map);
