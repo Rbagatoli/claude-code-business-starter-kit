@@ -42,6 +42,7 @@ var FleetData = (function() {
             cost: parseFloat(miner.cost) || 0,
             quantity: parseInt(miner.quantity) || 1,
             status: miner.status || 'online',
+            elecCost: (miner.elecCost !== undefined && miner.elecCost !== '') ? parseFloat(miner.elecCost) : null,
             country: miner.country || '',
             state: miner.state || '',
             purchaseDate: miner.purchaseDate || new Date().toISOString().split('T')[0],
@@ -62,6 +63,7 @@ var FleetData = (function() {
                 if (updates.cost !== undefined) fleet.miners[i].cost = parseFloat(updates.cost);
                 if (updates.quantity !== undefined) fleet.miners[i].quantity = parseInt(updates.quantity);
                 if (updates.status !== undefined) fleet.miners[i].status = updates.status;
+                if (updates.elecCost !== undefined) fleet.miners[i].elecCost = (updates.elecCost !== '' && updates.elecCost !== null) ? parseFloat(updates.elecCost) : null;
                 if (updates.purchaseDate !== undefined) fleet.miners[i].purchaseDate = updates.purchaseDate;
                 if (updates.country !== undefined) fleet.miners[i].country = updates.country;
                 if (updates.state !== undefined) fleet.miners[i].state = updates.state;
@@ -114,6 +116,19 @@ var FleetData = (function() {
 
         var efficiency = totalHashrate > 0 ? (totalPower * 1000) / totalHashrate : 0;
 
+        // Weighted average electricity cost (weighted by power x quantity)
+        var weightedElecSum = 0;
+        var totalPowerWeight = 0;
+        for (var j = 0; j < fleet.miners.length; j++) {
+            var mj = fleet.miners[j];
+            if (mj.status === 'online') {
+                var ec = (mj.elecCost !== null && mj.elecCost !== undefined) ? mj.elecCost : fleet.defaults.elecCost;
+                weightedElecSum += ec * mj.power * mj.quantity;
+                totalPowerWeight += mj.power * mj.quantity;
+            }
+        }
+        var avgElecCost = totalPowerWeight > 0 ? weightedElecSum / totalPowerWeight : fleet.defaults.elecCost;
+
         return {
             totalHashrate: totalHashrate,
             totalPower: totalPower,
@@ -121,6 +136,7 @@ var FleetData = (function() {
             offlineCount: offlineCount,
             totalMachines: totalMachines,
             efficiency: efficiency,
+            avgElecCost: avgElecCost,
             defaults: fleet.defaults
         };
     }

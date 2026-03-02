@@ -117,6 +117,20 @@ function renderDashboard() {
     document.getElementById('fleetTotalCost').textContent = 'Total: ' + fmtUSD(totalCost * getCurrencyMultiplier());
     var avgHashrate = totalMachines > 0 ? totalHashrate / totalMachines : 0;
     var avgPower = totalMachines > 0 ? totalPower / totalMachines : 0;
+    // Weighted avg electricity cost
+    var weightedElecSum = 0, totalPowerWeight = 0;
+    for (var we = 0; we < miners.length; we++) {
+        var mw = miners[we];
+        if (mw.status === 'online') {
+            var ec = (mw.elecCost !== null && mw.elecCost !== undefined) ? mw.elecCost : (fleet.defaults ? fleet.defaults.elecCost : 0.07);
+            weightedElecSum += ec * mw.power * mw.quantity;
+            totalPowerWeight += mw.power * mw.quantity;
+        }
+    }
+    var avgElecCost = totalPowerWeight > 0 ? weightedElecSum / totalPowerWeight : (fleet.defaults ? fleet.defaults.elecCost : 0.07);
+    var avgElecEl = document.getElementById('fleetAvgElecCost');
+    if (avgElecEl) avgElecEl.textContent = '$' + avgElecCost.toFixed(3);
+
     document.getElementById('fleetAvgHashrate').textContent = avgHashrate.toFixed(1);
     document.getElementById('fleetAvgPower').textContent = avgPower.toFixed(2);
 
@@ -182,8 +196,8 @@ function renderProfitability(fleetCapex, totalPowerKW, dailyBTC) {
 
     // Daily Profit = (daily BTC × price) - daily electricity cost
     // Daily elec cost = totalPowerKW × 24h × elec rate
-    var fleet = FleetData.getFleet();
-    var elecRate = (fleet.defaults && fleet.defaults.elecCost) || 0.07;
+    var fleetSummary = FleetData.getFleetSummary();
+    var elecRate = fleetSummary.avgElecCost || 0.07;
     var dailyElecCost = totalPowerKW * 24 * elecRate;
     var dailyProfit = (dailyBTC * price) - dailyElecCost;
 
@@ -573,6 +587,7 @@ document.getElementById('btnAddMiner').addEventListener('click', function() {
     document.getElementById('fmCost').value = '';
     document.getElementById('fmQuantity').value = '1';
     document.getElementById('fmStatus').value = 'online';
+    document.getElementById('fmElecCost').value = '';
     document.getElementById('fmPurchaseDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('fmCountry').value = '';
     document.getElementById('fmCountry').dispatchEvent(new Event('change'));
@@ -597,14 +612,15 @@ document.getElementById('saveMiner').addEventListener('click', function() {
     var stateEl = document.getElementById('fmState');
     var stateText = document.getElementById('fmStateText');
     var state = (stateEl.style.display !== 'none') ? stateEl.value : stateText.value.trim();
+    var elecCostVal = document.getElementById('fmElecCost').value;
 
     if (!model || !hashrate || !power) return;
 
     if (editingMinerId) {
-        FleetData.updateMiner(editingMinerId, { model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate, country: country, state: state });
+        FleetData.updateMiner(editingMinerId, { model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, elecCost: elecCostVal, purchaseDate: purchaseDate, country: country, state: state });
         editingMinerId = null;
     } else {
-        FleetData.addMiner({ model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, purchaseDate: purchaseDate, country: country, state: state });
+        FleetData.addMiner({ model: model, hashrate: hashrate, power: power, cost: cost, quantity: quantity, status: status, elecCost: elecCostVal, purchaseDate: purchaseDate, country: country, state: state });
     }
 
     addMinerPanel.classList.remove('open');
@@ -628,6 +644,7 @@ function startEditMiner(id) {
     document.getElementById('fmHashrate').value = miner.hashrate;
     document.getElementById('fmPower').value = miner.power;
     document.getElementById('fmCost').value = miner.cost || '';
+    document.getElementById('fmElecCost').value = (miner.elecCost !== null && miner.elecCost !== undefined) ? miner.elecCost : '';
     document.getElementById('fmQuantity').value = miner.quantity;
     document.getElementById('fmStatus').value = miner.status;
     document.getElementById('fmPurchaseDate').value = miner.purchaseDate || '';

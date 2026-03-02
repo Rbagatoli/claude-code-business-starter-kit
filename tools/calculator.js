@@ -93,7 +93,7 @@ function applyFleetData() {
     el.power.value = avgPower.toFixed(2);
     el.capex.value = Math.round(avgCost);
     el.machineCount.value = summary.totalMachines;
-    el.elecCost.value = summary.defaults.elecCost;
+    el.elecCost.value = summary.avgElecCost;
     el.poolFee.value = summary.defaults.poolFee;
     el.uptime.value = summary.defaults.uptime;
 

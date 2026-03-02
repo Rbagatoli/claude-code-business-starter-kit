@@ -64,7 +64,9 @@ initNav('map');
                 totalPower: 0,
                 onlineCount: 0,
                 offlineCount: 0,
-                models: {}
+                models: {},
+                weightedElecSum: 0,
+                totalPowerWeight: 0
             };
         }
         var loc = locations[key];
@@ -77,6 +79,11 @@ initNav('map');
         loc.totalPower += pw;
         if (m.status === 'online') loc.onlineCount += qty;
         else loc.offlineCount += qty;
+
+        // Electricity cost aggregation
+        var elecVal = (m.elecCost !== null && m.elecCost !== undefined) ? m.elecCost : (fleet.defaults ? fleet.defaults.elecCost : 0.07);
+        loc.weightedElecSum += elecVal * pw;
+        loc.totalPowerWeight += pw;
 
         var modelName = m.model || 'Unknown';
         if (!loc.models[modelName]) loc.models[modelName] = 0;
@@ -94,13 +101,15 @@ initNav('map');
         var loc = locations[locKeys[ci]];
         var cc = loc.country;
         if (!countryData[cc]) {
-            countryData[cc] = { totalHashrate: 0, totalPower: 0, onlineCount: 0, offlineCount: 0, models: {} };
+            countryData[cc] = { totalHashrate: 0, totalPower: 0, onlineCount: 0, offlineCount: 0, models: {}, weightedElecSum: 0, totalPowerWeight: 0 };
         }
         var cd = countryData[cc];
         cd.totalHashrate += loc.totalHashrate;
         cd.totalPower += loc.totalPower;
         cd.onlineCount += loc.onlineCount;
         cd.offlineCount += loc.offlineCount;
+        cd.weightedElecSum += loc.weightedElecSum;
+        cd.totalPowerWeight += loc.totalPowerWeight;
         var mk = Object.keys(loc.models);
         for (var mi = 0; mi < mk.length; mi++) {
             if (!cd.models[mk[mi]]) cd.models[mk[mi]] = 0;
@@ -249,6 +258,7 @@ initNav('map');
         var countryName = GEO_DATA.getCountryName(a2) || a2;
         var totalMiners = data.onlineCount + data.offlineCount;
         var efficiency = data.totalHashrate > 0 ? ((data.totalPower * 1000) / data.totalHashrate).toFixed(1) : '--';
+        var avgElecCost = data.totalPowerWeight > 0 ? (data.weightedElecSum / data.totalPowerWeight).toFixed(3) : '--';
 
         var modelHtml = '';
         var modelKeys = Object.keys(data.models);
@@ -265,6 +275,7 @@ initNav('map');
                 '<div class="map-popup-stat"><span class="map-popup-label">Hashrate</span><span class="map-popup-value">' + data.totalHashrate.toLocaleString() + ' TH/s</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + data.totalPower.toLocaleString() + ' kW</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Efficiency</span><span class="map-popup-value">' + efficiency + ' J/TH</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Avg. Elec. Cost</span><span class="map-popup-value" style="color:#f7931a;">$' + avgElecCost + '/kWh</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Online</span><span class="map-popup-value" style="color:#4ade80;">' + data.onlineCount + '</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + data.offlineCount + '</span></div>' +
             '</div>' +

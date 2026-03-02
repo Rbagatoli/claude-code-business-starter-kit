@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Dashboard</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=97">
+    <link rel="stylesheet" href="./shared.css?v=98">
     <script>
-    if (!localStorage.getItem('sw_clean_v97') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v98') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v97', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v98', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=97"></script>
+    <script src="./chart.min.js?v=98"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -68,6 +68,11 @@
             <div class="label">Avg Cost / Miner</div>
             <div class="value neutral" id="fleetAvgCost">--</div>
             <div class="sub" id="fleetTotalCost"></div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg. Elec. Cost</div>
+            <div class="value" id="fleetAvgElecCost">--</div>
+            <div class="sub">$/kWh</div>
         </div>
         <div class="metric-card">
             <div class="label">Avg Hashrate / Miner</div>
@@ -125,6 +130,14 @@
                     <div class="input-wrapper">
                         <span class="prefix">$</span>
                         <input type="number" id="fmCost" placeholder="15000" min="0" step="100">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Electricity Cost</label>
+                    <div class="input-wrapper">
+                        <span class="prefix">$</span>
+                        <input type="number" id="fmElecCost" placeholder="0.07" min="0" max="1" step="0.001">
+                        <span class="suffix">/kWh</span>
                     </div>
                 </div>
                 <div class="input-group">
@@ -343,17 +356,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=97"></script>
-<script src="./sync.js?v=97"></script>
-<script src="./auth-ui.js?v=97"></script>
-<script src="./profile-panel.js?v=97"></script>
-<script src="./shared.js?v=97"></script>
-<script src="./fleet-data.js?v=97"></script>
-<script src="./geo-data.js?v=97"></script>
-<script src="./miner-db.js?v=97"></script>
-<script src="./dashboard.js?v=97"></script>
-<script src="./onboarding.js?v=97"></script>
-<script src="./widget-settings.js?v=97"></script>
-<script src="./alerts.js?v=97"></script>
+<script src="./firebase-config.js?v=98"></script>
+<script src="./sync.js?v=98"></script>
+<script src="./auth-ui.js?v=98"></script>
+<script src="./profile-panel.js?v=98"></script>
+<script src="./shared.js?v=98"></script>
+<script src="./fleet-data.js?v=98"></script>
+<script src="./geo-data.js?v=98"></script>
+<script src="./miner-db.js?v=98"></script>
+<script src="./dashboard.js?v=98"></script>
+<script src="./onboarding.js?v=98"></script>
+<script src="./widget-settings.js?v=98"></script>
+<script src="./alerts.js?v=98"></script>
 </body>
 </html>
