@@ -262,6 +262,7 @@ document.getElementById('testStrikeAcct').addEventListener('click', async functi
     if (!url) { result.innerHTML = '<span style="color:#f55;">Enter a proxy URL</span>'; return; }
     result.innerHTML = '<span style="color:#888;">Testing...</span>';
     var settings = FleetData.getSettings();
+    if (!settings.strike) settings.strike = {};
     var oldUrl = settings.strike.proxyUrl;
     settings.strike.proxyUrl = url;
     FleetData.saveSettings(settings);

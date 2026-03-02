@@ -178,6 +178,7 @@ async function fetchStrikeData() {
         strikeBalances = balResult;
         // Save last sync time
         var settings = FleetData.getSettings();
+        if (!settings.strike) settings.strike = {};
         settings.strike.lastSync = new Date().toISOString();
         FleetData.saveSettings(settings);
     } else {
@@ -666,6 +667,7 @@ document.getElementById('testStrike').addEventListener('click', async function()
 
     // Temporarily set URL to test
     var settings = FleetData.getSettings();
+    if (!settings.strike) settings.strike = {};
     var oldUrl = settings.strike.proxyUrl;
     settings.strike.proxyUrl = url;
     FleetData.saveSettings(settings);
