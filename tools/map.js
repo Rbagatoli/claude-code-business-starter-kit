@@ -736,6 +736,13 @@ var _globeRef = null, _showGlobePopupRef = null;
                     idleTimer = setTimeout(function() { globeInstance.controls().autoRotate = true; }, 8000);
                 });
 
+                // Click anywhere in globe card (including background) dismisses popup
+                globeContainer.addEventListener('click', function(e) {
+                    if (!document.getElementById('globePopup').contains(e.target)) {
+                        hideGlobePopup();
+                    }
+                });
+
                 // Center on top mining location
                 if (locKeys.length > 0) {
                     var topLoc = locations[locKeys[0]];
