@@ -518,15 +518,22 @@ function buildStatePopup(loc) {
 
     var popupAnimFrame = null;
 
-    function showGlobePopup(html, lat, lng) {
+    function showGlobePopup(html, lat, lng, evt) {
         var popup = document.getElementById('globePopup');
         document.getElementById('globePopupContent').innerHTML = html;
         popup.dataset.lat = lat;
         popup.dataset.lng = lng;
         popup.style.display = 'block';
+
+        // Position at click coordinates immediately (reliable)
+        if (evt) {
+            popup.style.left = evt.clientX + 'px';
+            popup.style.top = evt.clientY + 'px';
+        }
         popup.style.opacity = '1';
         popup.style.pointerEvents = 'auto';
-        updatePopupPosition();
+
+        // Start tracking to follow rotation
         if (!popupAnimFrame) startPopupTracking();
     }
 
@@ -537,29 +544,31 @@ function buildStatePopup(loc) {
         var lat = parseFloat(popup.dataset.lat);
         var lng = parseFloat(popup.dataset.lng);
 
-        var screenCoords = globeInstance.getScreenCoords(lat, lng, 0.01);
-        if (!screenCoords) { popup.style.opacity = '0'; popup.style.pointerEvents = 'none'; return; }
+        // Try to get screen coordinates for the lat/lng
+        var screenCoords;
+        try { screenCoords = globeInstance.getScreenCoords(lat, lng, 0.01); } catch(e) {}
+        if (!screenCoords || isNaN(screenCoords.x) || isNaN(screenCoords.y)) return;
 
-        // Back-side detection: raycast back and compare
-        var raycast = globeInstance.toGlobeCoords(screenCoords.x, screenCoords.y);
-        var isVisible = raycast &&
-            Math.abs(raycast.lat - lat) < 10 &&
-            Math.abs(raycast.lng - lng) < 10;
+        // Convert to viewport coordinates using the globe's inner canvas container
+        var innerDiv = document.querySelector('#fleetGlobe > div');
+        var rect = innerDiv ? innerDiv.getBoundingClientRect() : document.getElementById('fleetGlobe').getBoundingClientRect();
+        var vpX = rect.left + screenCoords.x;
+        var vpY = rect.top + screenCoords.y;
 
-        if (!isVisible) {
+        // Back-side detection: if projected point is outside the globe's visible circle, hide
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var globeRadius = Math.min(rect.width, rect.height) * 0.42;
+        var dist = Math.sqrt((vpX - cx) * (vpX - cx) + (vpY - cy) * (vpY - cy));
+
+        if (dist > globeRadius) {
             popup.style.opacity = '0';
             popup.style.pointerEvents = 'none';
             return;
         }
 
-        // Convert to page coordinates
-        var container = document.getElementById('fleetGlobe');
-        var containerRect = container.getBoundingClientRect();
-        var pageX = containerRect.left + screenCoords.x;
-        var pageY = containerRect.top + screenCoords.y;
-
-        popup.style.left = pageX + 'px';
-        popup.style.top = pageY + 'px';
+        popup.style.left = vpX + 'px';
+        popup.style.top = vpY + 'px';
         popup.style.opacity = '1';
         popup.style.pointerEvents = 'auto';
     }
@@ -632,14 +641,14 @@ function buildStatePopup(loc) {
                         var total = data.onlineCount + data.offlineCount;
                         return '<div class="globe-tooltip">' + name + ' (' + total + ' miners)</div>';
                     })
-                    .onPolygonClick(function(feat) {
+                    .onPolygonClick(function(feat, evt) {
                         var a2 = NUM_TO_A2[String(feat.id)];
                         var data = a2 ? countryData[a2] : null;
                         if (!data) return;
                         var centroid = GEO_DATA.getCentroid(a2);
                         var pLat = centroid ? centroid.lat : 0;
                         var pLng = centroid ? centroid.lng : 0;
-                        showGlobePopup(buildPopup(a2, data), pLat, pLng);
+                        showGlobePopup(buildPopup(a2, data), pLat, pLng, evt);
                     })
                     .onPolygonHover(function(hoverFeat) {
                         globeInstance.polygonAltitude(function(feat) {
@@ -685,8 +694,8 @@ function buildStatePopup(loc) {
                     .pointLabel(function(d) {
                         return '<div class="globe-tooltip">' + d.label + ' (' + d.miners + ' miners)</div>';
                     })
-                    .onPointClick(function(point) {
-                        showGlobePopup(buildStatePopup(point.locData), point.lat, point.lng);
+                    .onPointClick(function(point, evt) {
+                        showGlobePopup(buildStatePopup(point.locData), point.lat, point.lng, evt);
                     });
 
                 globeInstance(globeContainer);
