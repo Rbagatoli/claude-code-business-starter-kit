@@ -232,7 +232,7 @@ body > * { position: relative; z-index: 1; }
 .ion-currency-select option { background: #1a1a1a; color: #e8e8e8; }
 
 /* Mobile nav — two-row layout to prevent crowding */
-@media (max-width: 600px) {
+@media (max-width: 600px), (max-height: 500px) and (orientation: landscape) {
     body { overflow-x: hidden; }
     .ion-nav {
         grid-template-columns: auto 1fr;
@@ -240,6 +240,7 @@ body > * { position: relative; z-index: 1; }
         padding: 8px 10px;
         gap: 6px 0;
         max-width: 100vw;
+        overflow-x: auto;
     }
     .ion-nav-brand { grid-column: 1; grid-row: 1; }
     .ion-nav-brand .name { display: none; }
@@ -253,7 +254,10 @@ body > * { position: relative; z-index: 1; }
     }
     .ion-nav-tabs a { padding: 6px 10px; font-size: 11px; }
     .ion-currency-select { font-size: 11px; padding: 3px 4px; }
-    .ion-nav-sparkline { display: none; }
+    .ion-nav-sparkline { padding: 1px 6px; gap: 4px; }
+    .ion-nav-sparkline canvas { width: 50px; height: 18px; }
+    .ion-nav-sparkline-price { font-size: 10px; min-width: 40px; }
+    .ion-nav-ws-link { display: none; }
 }
 
 /* ===== MAIN LAYOUT ===== */

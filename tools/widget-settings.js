@@ -8,6 +8,8 @@
     var path = window.location.pathname.split('/').pop() || 'index.html';
     var page = path.replace('.html', '') || 'index';
     var WIDGET_KEY = 'ionMiningWidgets_' + page;
+    var WIDGET_VERSION_KEY = WIDGET_KEY + '_v';
+    var WIDGET_VERSION = 2; // Bump to reset saved order when HTML order changes
 
     // Migrate old dashboard key (one-time backward compat)
     if (page === 'index') {
@@ -37,6 +39,12 @@
     var unlockSVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
 
     function loadConfig() {
+        // Reset saved order when widget version changes (HTML order was updated)
+        var savedVersion = parseInt(localStorage.getItem(WIDGET_VERSION_KEY)) || 0;
+        if (savedVersion < WIDGET_VERSION) {
+            localStorage.removeItem(WIDGET_KEY);
+            localStorage.setItem(WIDGET_VERSION_KEY, WIDGET_VERSION);
+        }
         try {
             var raw = localStorage.getItem(WIDGET_KEY);
             if (raw) {

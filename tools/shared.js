@@ -91,7 +91,7 @@ function initNav(activePage) {
             '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[6] + '</a>' +
         '</div>' +
         '<div class="ion-nav-actions">' +
-            (!mobile ? '<a href="./charts.html" class="ion-nav-sparkline" id="navSparkline"><canvas id="navSparklineCanvas" width="70" height="24"></canvas><span class="ion-nav-sparkline-price" id="navSparklinePrice">--</span></a>' : '') +
+            '<a href="./charts.html" class="ion-nav-sparkline" id="navSparkline"><canvas id="navSparklineCanvas" width="70" height="24"></canvas><span class="ion-nav-sparkline-price" id="navSparklinePrice">--</span></a>' +
             (!mobile ? '<a href="./workstation.html" class="ion-nav-ws-link" title="Workstation (multi-pane view)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="3" x2="8" y2="17"/><line x1="16" y1="3" x2="16" y2="17"/><line x1="2" y1="21" x2="22" y2="21"/></svg></a>' : '') +
             '<select class="ion-currency-select" id="currencySelect">' +
                 (function() {
@@ -344,7 +344,7 @@ function seedNavSparkline() {
 
 function startNavSparkline() {
     if (window.ION_EMBED) return;
-    if (window.innerWidth < 600) return;
+    // Mobile sparkline is now enabled — no width check needed
 
     // Seed with 24h history for immediate chart
     seedNavSparkline();
@@ -356,7 +356,7 @@ function startNavSparkline() {
 // --- Swipe / Slide Page Navigation ---
 (function() {
     if (window.ION_EMBED) return;
-    var pages = ['calculator.html', 'charts.html', 'index.html', 'map.html', 'payouts.html', 'accounting.html', 'wallet.html'];
+    var pages = ['charts.html', 'calculator.html', 'payouts.html', 'index.html', 'map.html', 'accounting.html', 'wallet.html'];
     var current = pages.indexOf(location.pathname.split('/').pop());
     if (current === -1) current = 0;
 
