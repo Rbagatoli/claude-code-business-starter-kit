@@ -61,7 +61,6 @@
 
 /* ===== EMBED MODE (Workstation iframes) ===== */
 html[data-embed] #ion-nav { display: none !important; }
-html[data-embed] header { display: none !important; }
 html[data-embed] footer { display: none !important; }
 html[data-embed] main { max-width: none; padding-top: 12px; padding-bottom: 12px; }
 
@@ -489,6 +488,10 @@ footer {
 .miner-card-stat .stat-value {
     color: #e8e8e8;
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 .status-dot {
     display: inline-block;

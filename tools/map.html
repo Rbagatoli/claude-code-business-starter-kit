@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Fleet Map</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=95">
+    <link rel="stylesheet" href="./shared.css?v=96">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <script>
-    if (!localStorage.getItem('sw_clean_v95') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v96') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v95', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v96', '1'); location.reload(); });
         });
     }
     </script>
@@ -22,11 +22,12 @@
 
 <nav id="ion-nav"></nav>
 
+<header style="text-align:center; padding:14px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
+    <h1 style="font-size:22px; font-weight:600; color:#f7931a; margin-bottom:2px;">Fleet Map</h1>
+    <p style="color:#888; font-size:12px;">Geographic distribution of mining operations</p>
+</header>
+
 <main>
-    <header style="text-align:center; padding:24px 16px 12px; border-bottom:1px solid rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
-        <h1 style="font-size:28px; font-weight:600; color:#f7931a; margin-bottom:4px;">Fleet Map</h1>
-        <p style="color:#888; font-size:14px;">Geographic distribution of mining operations</p>
-    </header>
 
     <!-- ===== MAP SUMMARY METRICS ===== -->
     <div class="widget-section" data-widget="map-summary">
@@ -101,17 +102,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=95"></script>
-<script src="./sync.js?v=95"></script>
-<script src="./auth-ui.js?v=95"></script>
-<script src="./profile-panel.js?v=95"></script>
-<script src="./shared.js?v=95"></script>
-<script src="./fleet-data.js?v=95"></script>
-<script src="./geo-data.js?v=95"></script>
+<script src="./firebase-config.js?v=96"></script>
+<script src="./sync.js?v=96"></script>
+<script src="./auth-ui.js?v=96"></script>
+<script src="./profile-panel.js?v=96"></script>
+<script src="./shared.js?v=96"></script>
+<script src="./fleet-data.js?v=96"></script>
+<script src="./geo-data.js?v=96"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
-<script src="./map.js?v=95"></script>
-<script src="./widget-settings.js?v=95"></script>
-<script src="./alerts.js?v=95"></script>
+<script src="./map.js?v=96"></script>
+<script src="./widget-settings.js?v=96"></script>
+<script src="./alerts.js?v=96"></script>
 </body>
 </html>
