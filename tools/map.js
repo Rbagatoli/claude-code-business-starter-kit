@@ -793,7 +793,10 @@ var _globeRef = null, _showGlobePopupRef = null;
             }, 1100);
         } else {
             if (!leafletMap) return;
-            leafletMap.panTo([centroid.lat, centroid.lng]);
+            var targetPoint = leafletMap.latLngToContainerPoint([centroid.lat, centroid.lng]);
+            targetPoint.y -= 120;
+            var offsetLatLng = leafletMap.containerPointToLatLng(targetPoint);
+            leafletMap.panTo(offsetLatLng);
             leafletMap.once('moveend', function() {
                 var targetLayer = null;
                 if (state && leafletStateMarkers[locKey]) {
