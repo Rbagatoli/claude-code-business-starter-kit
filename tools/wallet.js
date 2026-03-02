@@ -1058,9 +1058,9 @@ document.getElementById('cancel2FA').addEventListener('click', function() {
 
 document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     var secret = generateBase32Secret(20);
-    var issuer = 'Ion%20Mining';
+    var issuer = 'Ion Mining';
     var account = 'dashboard';
-    var otpauthUri = 'otpauth://totp/' + issuer + ':' + account + '?secret=' + secret + '&issuer=' + issuer + '&digits=6&period=30';
+    var otpauthUri = 'otpauth://totp/' + encodeURIComponent(issuer) + ':' + encodeURIComponent(account) + '?secret=' + secret + '&issuer=' + encodeURIComponent(issuer) + '&digits=6&period=30';
 
     // Show result panel FIRST (canvas can't render in display:none)
     document.getElementById('twofa-secret-display').textContent = secret;
