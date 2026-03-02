@@ -109,11 +109,12 @@ initNav('map');
     }
 
     var maxCountryHash = 0;
+    var globalTotalHashrate = 0;
     var countryKeys = Object.keys(countryData);
     for (var ck = 0; ck < countryKeys.length; ck++) {
-        if (countryData[countryKeys[ck]].totalHashrate > maxCountryHash) {
-            maxCountryHash = countryData[countryKeys[ck]].totalHashrate;
-        }
+        var ckHash = countryData[countryKeys[ck]].totalHashrate;
+        if (ckHash > maxCountryHash) maxCountryHash = ckHash;
+        globalTotalHashrate += ckHash;
     }
 
     // ---- Init Leaflet map ----
@@ -136,6 +137,110 @@ initNav('map');
         .addTo(map);
 
     L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // ---- Build mini pie chart SVG for popup ----
+    function buildPieChart(currentA2) {
+        if (globalTotalHashrate <= 0) return '';
+
+        // Collect countries sorted by hashrate desc
+        var entries = [];
+        for (var k = 0; k < countryKeys.length; k++) {
+            entries.push({ code: countryKeys[k], hash: countryData[countryKeys[k]].totalHashrate });
+        }
+        entries.sort(function(a, b) { return b.hash - a.hash; });
+
+        // Top 5 + "Other"
+        var slices = [];
+        var otherHash = 0;
+        for (var e = 0; e < entries.length; e++) {
+            if (e < 5) {
+                slices.push({ label: entries[e].code, value: entries[e].hash, isCurrent: entries[e].code === currentA2 });
+            } else {
+                otherHash += entries[e].hash;
+            }
+        }
+        if (otherHash > 0) {
+            slices.push({ label: 'Other', value: otherHash, isCurrent: false });
+        }
+
+        // If current country got grouped into "Other", pull it out
+        var currentInSlices = false;
+        for (var cs = 0; cs < slices.length; cs++) {
+            if (slices[cs].isCurrent) { currentInSlices = true; break; }
+        }
+        if (!currentInSlices && countryData[currentA2]) {
+            // Remove current's hash from Other and add as its own slice
+            var curHash = countryData[currentA2].totalHashrate;
+            for (var os = 0; os < slices.length; os++) {
+                if (slices[os].label === 'Other') {
+                    slices[os].value -= curHash;
+                    if (slices[os].value <= 0) slices.splice(os, 1);
+                    break;
+                }
+            }
+            // Remove the 5th non-current entry, move it to Other
+            var bumped = slices.length > 5 ? slices.splice(4, 1)[0] : null;
+            if (bumped) {
+                for (var bs = 0; bs < slices.length; bs++) {
+                    if (slices[bs].label === 'Other') { slices[bs].value += bumped.value; break; }
+                }
+            }
+            slices.push({ label: currentA2, value: curHash, isCurrent: true });
+        }
+
+        // Muted color palette for non-current slices
+        var mutedColors = ['#555', '#4a4a4a', '#3f3f3f', '#353535', '#2a2a2a', '#333'];
+        var cx = 50, cy = 50, r = 38;
+        var startAngle = -Math.PI / 2; // start at 12 o'clock
+        var paths = '';
+        var legendHtml = '';
+
+        for (var s = 0; s < slices.length; s++) {
+            var slice = slices[s];
+            var pct = slice.value / globalTotalHashrate;
+            var angle = pct * 2 * Math.PI;
+            var endAngle = startAngle + angle;
+            var fill = slice.isCurrent ? '#f7931a' : mutedColors[s % mutedColors.length];
+
+            if (pct >= 0.9999) {
+                // Full circle
+                paths += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + fill + '" stroke="#111" stroke-width="0.5"/>';
+            } else if (pct > 0.001) {
+                var x1 = cx + r * Math.cos(startAngle);
+                var y1 = cy + r * Math.sin(startAngle);
+                var x2 = cx + r * Math.cos(endAngle);
+                var y2 = cy + r * Math.sin(endAngle);
+                var largeArc = angle > Math.PI ? 1 : 0;
+
+                paths += '<path d="M' + cx + ',' + cy + ' L' + x1.toFixed(2) + ',' + y1.toFixed(2) +
+                    ' A' + r + ',' + r + ' 0 ' + largeArc + ',1 ' + x2.toFixed(2) + ',' + y2.toFixed(2) +
+                    ' Z" fill="' + fill + '" stroke="#111" stroke-width="0.5"/>';
+            }
+
+            startAngle = endAngle;
+
+            // Legend entry
+            var displayLabel = slice.label === 'Other' ? 'Other' : (GEO_DATA.getCountryName(slice.label) || slice.label);
+            if (displayLabel.length > 12) displayLabel = slice.label; // use code if name too long
+            var pctText = (pct * 100).toFixed(1) + '%';
+            var labelColor = slice.isCurrent ? '#f7931a' : '#999';
+            legendHtml += '<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:' + labelColor + ';">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:' + fill + ';flex-shrink:0;"></span>' +
+                '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + displayLabel + '</span>' +
+                '<span style="font-weight:600;">' + pctText + '</span></div>';
+        }
+
+        var currentPct = countryData[currentA2] ? ((countryData[currentA2].totalHashrate / globalTotalHashrate) * 100).toFixed(1) : '0.0';
+
+        return '<div style="padding-top:10px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Fleet Share</div>' +
+            '<div style="display:flex;align-items:flex-start;gap:10px;">' +
+                '<svg viewBox="0 0 100 100" width="90" height="90" style="flex-shrink:0;">' + paths + '</svg>' +
+                '<div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;padding-top:2px;">' + legendHtml + '</div>' +
+            '</div>' +
+            '<div style="text-align:center;font-size:11px;color:#f7931a;margin-top:6px;font-weight:600;">' + currentPct + '% of fleet hashrate</div>' +
+        '</div>';
+    }
 
     // ---- Build popup HTML for a country ----
     function buildPopup(a2, data) {
@@ -162,6 +267,7 @@ initNav('map');
                 '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + data.offlineCount + '</span></div>' +
             '</div>' +
             (modelHtml ? '<div class="map-popup-models"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">Models</div>' + modelHtml + '</div>' : '') +
+            buildPieChart(a2) +
         '</div>';
     }
 
