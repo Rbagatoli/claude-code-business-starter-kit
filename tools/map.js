@@ -232,7 +232,7 @@ initNav('map');
 
         var currentPct = countryData[currentA2] ? ((countryData[currentA2].totalHashrate / globalTotalHashrate) * 100).toFixed(1) : '0.0';
         var pieMobile = window.innerWidth <= 600;
-        var pieSize = pieMobile ? 65 : 90;
+        var pieSize = pieMobile ? 50 : 70;
 
         return '<div style="padding-top:' + (pieMobile ? '6' : '10') + 'px;margin-top:' + (pieMobile ? '4' : '8') + 'px;border-top:1px solid rgba(255,255,255,0.08);">' +
             '<div style="font-size:' + (pieMobile ? '9' : '10') + 'px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:' + (pieMobile ? '4' : '6') + 'px;">Fleet Share</div>' +
