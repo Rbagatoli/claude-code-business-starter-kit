@@ -338,8 +338,8 @@ initNav('map');
                         var isMobile = window.innerWidth <= 600;
                         layer.bindPopup(buildPopup(a2, data), {
                             className: 'map-popup-leaflet',
-                            maxWidth: isMobile ? 180 : 260,
-                            minWidth: isMobile ? 140 : 180
+                            maxWidth: isMobile ? 280 : 260,
+                            minWidth: isMobile ? 220 : 180
                         });
                     }
                 }).addTo(map);
@@ -393,8 +393,8 @@ initNav('map');
 
                     stateMarker.bindPopup(statePopup, {
                         className: 'map-popup-leaflet',
-                        maxWidth: isMobile ? 180 : 260,
-                        minWidth: isMobile ? 140 : 180
+                        maxWidth: isMobile ? 280 : 260,
+                        minWidth: isMobile ? 220 : 180
                     });
 
                     stateMarker.bindTooltip(stateName + ' (' + stateMiners + ' miners)', {
