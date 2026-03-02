@@ -27,6 +27,36 @@
             title: 'Connect Your Pool',
             body: 'Link your F2Pool account to pull live hashrate, worker status, and earnings data directly into the dashboard.',
             target: 'btnConnectAPI'
+        },
+        {
+            title: 'Calculator',
+            body: 'Project your mining profitability over time with adjustable difficulty, price, and halving parameters. Compare miners side-by-side.',
+            target: null
+        },
+        {
+            title: 'Payouts',
+            body: 'Track your mining earnings and payout history. See what you\'ve earned and when it arrived.',
+            target: null
+        },
+        {
+            title: 'Network Data',
+            body: 'Live Bitcoin price, network difficulty, and hashrate charts. Stay on top of the metrics that affect your mining profitability.',
+            target: null
+        },
+        {
+            title: 'Wallet',
+            body: 'Watch-only wallet monitoring. Track your BTC balances and transactions without exposing private keys.',
+            target: null
+        },
+        {
+            title: 'Map',
+            body: 'Visualize your fleet\'s geographic distribution on an interactive map and 3D globe. Click any location for details.',
+            target: null
+        },
+        {
+            title: 'Accounting',
+            body: 'Financial summaries and tax reporting tools. Keep your mining operation\'s books in order.',
+            target: null
         }
     ];
 
