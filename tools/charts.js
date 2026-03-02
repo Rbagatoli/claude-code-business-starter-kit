@@ -27,6 +27,12 @@ var latestHash = null;
 var latestHashPrice = null;
 var currentPriceDays = 90;
 var currentHashPriceDays = 90;
+var currentDiffTimeframe = '1y';
+var currentHashTimeframe = '1y';
+var currentPoolTimeframe = '1w';
+var currentFeeTimeframe = '24h';
+var CHART_REFRESH_MS = 60000;
+var _chartRefreshInterval = null;
 
 window.onCurrencyChange = function() {
     if (allPriceData) renderPriceChart(currentPriceDays);
@@ -405,27 +411,31 @@ document.getElementById('miningRange').addEventListener('click', function(e) {
     var btn = e.target.closest('button');
     if (!btn) return;
     setActiveButton(this, btn);
-    renderDifficultyChart(btn.dataset.tf);
+    currentDiffTimeframe = btn.dataset.tf;
+    renderDifficultyChart(currentDiffTimeframe);
 });
 
 document.getElementById('hashRange').addEventListener('click', function(e) {
     var btn = e.target.closest('button');
     if (!btn) return;
     setActiveButton(this, btn);
-    renderHashrateChart(btn.dataset.tf);
+    currentHashTimeframe = btn.dataset.tf;
+    renderHashrateChart(currentHashTimeframe);
 });
 
 document.getElementById('poolRange').addEventListener('click', function(e) {
     var btn = e.target.closest('button');
     if (!btn) return;
     setActiveButton(this, btn);
-    loadPoolDominance(btn.getAttribute('data-tf'));
+    currentPoolTimeframe = btn.getAttribute('data-tf');
+    loadPoolDominance(currentPoolTimeframe);
 });
 
-// ===== Initial data load — fetch once, render from cache =====
+// ===== Data load — fetch and render all charts =====
 
-(async function() {
+async function refreshAllCharts() {
     statusEl.textContent = 'Loading chart data...';
+    statusEl.style.color = '';
 
     var priceOk = false;
     var miningOk = false;
@@ -437,7 +447,7 @@ document.getElementById('poolRange').addEventListener('click', function(e) {
             var priceJson = await priceRes.json();
             allPriceData = (priceJson.Data && priceJson.Data.Data) || [];
             if (allPriceData.length > 0) {
-                renderPriceChart(90);
+                renderPriceChart(currentPriceDays);
                 priceOk = true;
             }
         } else {
@@ -454,8 +464,8 @@ document.getElementById('poolRange').addEventListener('click', function(e) {
         var miningRes = await fetch('https://mempool.space/api/v1/mining/hashrate/all');
         if (miningRes.ok) {
             allMiningData = await miningRes.json();
-            renderDifficultyChart('1y');
-            renderHashrateChart('1y');
+            renderDifficultyChart(currentDiffTimeframe);
+            renderHashrateChart(currentHashTimeframe);
             miningOk = true;
         } else {
             statusEl.textContent = 'Mining API error ' + miningRes.status;
@@ -469,14 +479,25 @@ document.getElementById('poolRange').addEventListener('click', function(e) {
     if (priceOk && miningOk) {
         statusEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
         statusEl.style.color = '#4ade80';
-        renderHashPriceChart(90);
+        renderHashPriceChart(currentHashPriceDays);
     }
 
     // Load network stats (non-blocking)
     loadNetworkStats();
     loadDifficultyAdjustment();
-    loadPoolDominance('1w');
-})();
+
+    // Clear pool cache so it re-fetches fresh data
+    poolDataCache = {};
+    loadPoolDominance(currentPoolTimeframe);
+
+    // Refresh fee rate history
+    loadFeeRateHistory(currentFeeTimeframe);
+}
+
+// Initial load + start auto-refresh
+refreshAllCharts();
+if (_chartRefreshInterval) clearInterval(_chartRefreshInterval);
+_chartRefreshInterval = setInterval(refreshAllCharts, CHART_REFRESH_MS);
 
 // ===== NETWORK STATS =====
 
@@ -1198,5 +1219,6 @@ document.getElementById('feeRange').addEventListener('click', function(e) {
     var buttons = this.querySelectorAll('button');
     for (var i = 0; i < buttons.length; i++) buttons[i].classList.remove('active');
     btn.classList.add('active');
-    loadFeeRateHistory(btn.getAttribute('data-tf'));
+    currentFeeTimeframe = btn.getAttribute('data-tf');
+    loadFeeRateHistory(currentFeeTimeframe);
 });
