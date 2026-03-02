@@ -74,18 +74,26 @@
         white-space: nowrap;
     }
     .ws-pane-select-group select {
-        background: rgba(255,255,255,0.06);
+        background: #1a1a1a;
         border: 1px solid rgba(255,255,255,0.12);
-        color: var(--text);
+        color: #e8e8e8;
         font-size: 12px;
         padding: 4px 8px;
         border-radius: 5px;
         cursor: pointer;
     }
+    .ws-pane-select-group select option {
+        background: #1a1a1a;
+        color: #e8e8e8;
+    }
     [data-theme="light"] .ws-pane-select-group select {
-        background: rgba(0,0,0,0.04);
+        background: #fff;
         border-color: rgba(0,0,0,0.12);
-        color: var(--text);
+        color: #1a1a1a;
+    }
+    [data-theme="light"] .ws-pane-select-group select option {
+        background: #fff;
+        color: #1a1a1a;
     }
     .ws-actions {
         display: flex;
@@ -94,18 +102,26 @@
         flex-shrink: 0;
     }
     .ws-actions select {
-        background: rgba(255,255,255,0.06);
+        background: #1a1a1a;
         border: 1px solid rgba(255,255,255,0.12);
-        color: var(--text);
+        color: #e8e8e8;
         font-size: 12px;
         padding: 4px 8px;
         border-radius: 5px;
         cursor: pointer;
     }
+    .ws-actions select option {
+        background: #1a1a1a;
+        color: #e8e8e8;
+    }
     [data-theme="light"] .ws-actions select {
-        background: rgba(0,0,0,0.04);
+        background: #fff;
         border-color: rgba(0,0,0,0.12);
-        color: var(--text);
+        color: #1a1a1a;
+    }
+    [data-theme="light"] .ws-actions select option {
+        background: #fff;
+        color: #1a1a1a;
     }
     .ws-actions button {
         background: none;
