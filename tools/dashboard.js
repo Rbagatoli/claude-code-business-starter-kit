@@ -365,7 +365,6 @@ function buildMinerCard(m, eff, mDailyUSD, isLive, isGroupSummary, isExpanded) {
     var badges = '';
     if (isLive) badges += '<div class="miner-card-qty live-badge">LIVE</div>';
     if (isGroupSummary) badges += '<div class="miner-card-qty qty-badge">x' + m.quantity + '</div>';
-    badges += roiBadge;
     if (m.country) {
         var locLabel = m.state ? (m.state + ', ' + m.country) : m.country;
         badges += '<span class="miner-location-badge">' + locLabel + '</span>';
