@@ -174,8 +174,8 @@ document.getElementById('saveQbo').addEventListener('click', async function() {
 // ===== STRIKE CONNECTION =====
 function loadStrikeAcctSettings() {
     var settings = FleetData.getSettings();
-    if (settings.strike && settings.strike.apiKey && settings.strike.enabled) {
-        document.getElementById('strikeApiKeyAcct').value = settings.strike.apiKey;
+    if (settings.strike && settings.strike.proxyUrl && settings.strike.enabled) {
+        document.getElementById('strikeProxyUrlAcct').value = settings.strike.proxyUrl;
         acctStrikeConnected = true;
         updateStrikeAcctStatus('Connected');
     }
@@ -192,14 +192,12 @@ function updateStrikeAcctStatus(label) {
     }
 }
 
-async function strikeApiFetch(endpoint) {
+async function strikeApiFetch(route) {
     var settings = FleetData.getSettings();
-    var key = (settings.strike && settings.strike.apiKey) || '';
-    if (!key) return { error: 'No API key' };
+    var proxy = (settings.strike && settings.strike.proxyUrl) || '';
+    if (!proxy) return { error: 'No proxy URL configured' };
     try {
-        var res = await fetch('https://api.strike.me' + endpoint, {
-            headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' }
-        });
+        var res = await fetch(proxy.replace(/\/$/, '') + route);
         if (!res.ok) return { error: 'HTTP ' + res.status };
         return await res.json();
     } catch(e) {
@@ -211,9 +209,9 @@ async function fetchStrikeAccountingData() {
     if (!acctStrikeConnected) return;
     try {
         var [deposits, payouts, receives] = await Promise.all([
-            strikeApiFetch('/v1/deposits'),
-            strikeApiFetch('/v1/payouts'),
-            strikeApiFetch('/v1/receive-requests/receives')
+            strikeApiFetch('/deposits'),
+            strikeApiFetch('/payouts'),
+            strikeApiFetch('/receives')
         ]);
         strikeAcctData.deposits = (deposits && !deposits.error) ? (deposits.items || deposits) : [];
         strikeAcctData.payouts = (payouts && !payouts.error) ? (payouts.items || payouts) : [];
@@ -247,8 +245,8 @@ function strikeItemDate(item) {
 // Strike panel handlers
 document.getElementById('btnConnectStrikeAcct').addEventListener('click', function() {
     var settings = FleetData.getSettings();
-    if (settings.strike && settings.strike.apiKey) {
-        document.getElementById('strikeApiKeyAcct').value = settings.strike.apiKey;
+    if (settings.strike && settings.strike.proxyUrl) {
+        document.getElementById('strikeProxyUrlAcct').value = settings.strike.proxyUrl;
     }
     document.getElementById('strikeTestResultAcct').innerHTML = '';
     document.getElementById('strikeConnectPanel').classList.toggle('open');
@@ -259,32 +257,33 @@ document.getElementById('cancelStrikeAcct').addEventListener('click', function()
 });
 
 document.getElementById('testStrikeAcct').addEventListener('click', async function() {
-    var key = document.getElementById('strikeApiKeyAcct').value.trim();
+    var url = document.getElementById('strikeProxyUrlAcct').value.trim();
     var result = document.getElementById('strikeTestResultAcct');
-    if (!key) { result.innerHTML = '<span style="color:#f55;">Enter an API key</span>'; return; }
+    if (!url) { result.innerHTML = '<span style="color:#f55;">Enter a proxy URL</span>'; return; }
     result.innerHTML = '<span style="color:#888;">Testing...</span>';
     var settings = FleetData.getSettings();
-    var oldKey = settings.strike.apiKey;
-    settings.strike.apiKey = key;
+    var oldUrl = settings.strike.proxyUrl;
+    settings.strike.proxyUrl = url;
     FleetData.saveSettings(settings);
-    var data = await strikeApiFetch('/v1/balances');
-    settings.strike.apiKey = oldKey;
+    var data = await strikeApiFetch('/ping');
+    settings.strike.proxyUrl = oldUrl;
     FleetData.saveSettings(settings);
-    if (data && !data.error) {
-        var balArr = Array.isArray(data) ? data : (data.items || [data]);
+    if (data && !data.error && data.ok) {
+        var balances = data.balances || data;
+        var balArr = Array.isArray(balances) ? balances : (balances.items || [balances]);
         var info = [];
         for (var i = 0; i < balArr.length; i++) info.push(balArr[i].currency + ': ' + balArr[i].amount);
         result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
     } else {
-        result.innerHTML = '<span style="color:#f55;">Failed: ' + (data.error || 'Unknown') + '</span>';
+        result.innerHTML = '<span style="color:#f55;">Failed: ' + ((data && data.error) || 'Unknown') + '</span>';
     }
 });
 
 document.getElementById('saveStrikeAcct').addEventListener('click', async function() {
-    var key = document.getElementById('strikeApiKeyAcct').value.trim();
+    var url = document.getElementById('strikeProxyUrlAcct').value.trim();
     var settings = FleetData.getSettings();
-    if (!key) {
-        settings.strike = { apiKey: '', enabled: false, lastSync: null };
+    if (!url) {
+        settings.strike = { proxyUrl: '', enabled: false, lastSync: null };
         FleetData.saveSettings(settings);
         acctStrikeConnected = false;
         strikeAcctData = { deposits: [], payouts: [], receives: [] };
@@ -293,7 +292,7 @@ document.getElementById('saveStrikeAcct').addEventListener('click', async functi
         renderAccounting();
         return;
     }
-    settings.strike = { apiKey: key, enabled: true, lastSync: new Date().toISOString() };
+    settings.strike = { proxyUrl: url, enabled: true, lastSync: new Date().toISOString() };
     FleetData.saveSettings(settings);
     acctStrikeConnected = true;
     updateStrikeAcctStatus('Connected');

@@ -174,7 +174,7 @@ var FleetData = (function() {
             _v: 2,
             pools: [],
             useFleetData: false,
-            strike: { apiKey: '', enabled: false, lastSync: null }
+            strike: { proxyUrl: '', enabled: false, lastSync: null }
         };
     }
 

@@ -83,59 +83,58 @@ var WalletData = (function() {
     };
 })();
 
-// ===== STRIKE API MODULE =====
+// ===== STRIKE API MODULE (via Cloudflare Worker proxy) =====
 var StrikeAPI = (function() {
-    var BASE_URL = 'https://api.strike.me';
-
-    function getApiKey() {
+    function getProxyUrl() {
         var settings = FleetData.getSettings();
-        return (settings.strike && settings.strike.apiKey) || '';
+        return (settings.strike && settings.strike.proxyUrl) || '';
     }
 
-    async function apiFetch(endpoint) {
-        var key = getApiKey();
-        if (!key) return { error: 'No API key' };
+    async function apiFetch(route) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
         try {
-            var res = await fetch(BASE_URL + endpoint, {
-                headers: {
-                    'Authorization': 'Bearer ' + key,
-                    'Accept': 'application/json'
-                }
-            });
-            if (res.status === 401) return { error: 'Invalid API key' };
+            var res = await fetch(proxy.replace(/\/$/, '') + route);
             if (res.status === 403) return { error: 'Access denied' };
             if (!res.ok) return { error: 'HTTP ' + res.status };
             return await res.json();
         } catch(e) {
-            if (e.message && e.message.indexOf('Failed to fetch') !== -1) {
-                return { error: 'CORS blocked — a proxy worker may be needed' };
-            }
             return { error: e.message || 'Network error' };
         }
     }
 
     async function getBalances() {
-        return await apiFetch('/v1/balances');
+        return await apiFetch('/balances');
     }
 
     async function getDeposits() {
-        return await apiFetch('/v1/deposits');
+        return await apiFetch('/deposits');
     }
 
     async function getPayouts() {
-        return await apiFetch('/v1/payouts');
+        return await apiFetch('/payouts');
     }
 
     async function getReceives() {
-        return await apiFetch('/v1/receive-requests/receives');
+        return await apiFetch('/receives');
     }
 
     async function getInvoices() {
-        return await apiFetch('/v1/invoices');
+        return await apiFetch('/invoices');
     }
 
     async function testConnection() {
-        return await getBalances();
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var res = await fetch(proxy.replace(/\/$/, '') + '/ping');
+            if (!res.ok) return { error: 'HTTP ' + res.status };
+            var data = await res.json();
+            if (data.ok) return data.balances || data;
+            return { error: data.error || 'Unknown error' };
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
     }
 
     return {
@@ -151,8 +150,8 @@ var StrikeAPI = (function() {
 // ===== STRIKE SETTINGS =====
 function loadStrikeSettings() {
     var settings = FleetData.getSettings();
-    if (settings.strike && settings.strike.apiKey && settings.strike.enabled) {
-        document.getElementById('strikeApiKey').value = settings.strike.apiKey;
+    if (settings.strike && settings.strike.proxyUrl && settings.strike.enabled) {
+        document.getElementById('strikeProxyUrl').value = settings.strike.proxyUrl;
         strikeConnected = true;
         updateStrikeStatus('Connected');
     }
@@ -647,8 +646,8 @@ document.getElementById('btnRefreshBalances').addEventListener('click', function
 // ===== STRIKE PANEL HANDLERS =====
 document.getElementById('btnConnectStrike').addEventListener('click', function() {
     var settings = FleetData.getSettings();
-    if (settings.strike && settings.strike.apiKey) {
-        document.getElementById('strikeApiKey').value = settings.strike.apiKey;
+    if (settings.strike && settings.strike.proxyUrl) {
+        document.getElementById('strikeProxyUrl').value = settings.strike.proxyUrl;
     }
     document.getElementById('strikeTestResult').innerHTML = '';
     document.getElementById('strikeConnectPanel').classList.toggle('open');
@@ -659,22 +658,22 @@ document.getElementById('cancelStrike').addEventListener('click', function() {
 });
 
 document.getElementById('testStrike').addEventListener('click', async function() {
-    var key = document.getElementById('strikeApiKey').value.trim();
+    var url = document.getElementById('strikeProxyUrl').value.trim();
     var result = document.getElementById('strikeTestResult');
-    if (!key) { result.innerHTML = '<span style="color:#f55;">Enter an API key</span>'; return; }
+    if (!url) { result.innerHTML = '<span style="color:#f55;">Enter a proxy URL</span>'; return; }
 
     result.innerHTML = '<span style="color:#888;">Testing connection...</span>';
 
-    // Temporarily set key to test
+    // Temporarily set URL to test
     var settings = FleetData.getSettings();
-    var oldKey = settings.strike.apiKey;
-    settings.strike.apiKey = key;
+    var oldUrl = settings.strike.proxyUrl;
+    settings.strike.proxyUrl = url;
     FleetData.saveSettings(settings);
 
     var data = await StrikeAPI.testConnection();
 
-    // Restore old key if test only
-    settings.strike.apiKey = oldKey;
+    // Restore old URL if test only
+    settings.strike.proxyUrl = oldUrl;
     FleetData.saveSettings(settings);
 
     if (data && !data.error) {
@@ -690,10 +689,10 @@ document.getElementById('testStrike').addEventListener('click', async function()
 });
 
 document.getElementById('saveStrike').addEventListener('click', async function() {
-    var key = document.getElementById('strikeApiKey').value.trim();
+    var url = document.getElementById('strikeProxyUrl').value.trim();
     var settings = FleetData.getSettings();
 
-    if (!key) {
+    if (!url) {
         // Disconnect
         disconnectStrike();
         document.getElementById('strikeConnectPanel').classList.remove('open');
@@ -701,7 +700,7 @@ document.getElementById('saveStrike').addEventListener('click', async function()
     }
 
     // Save and connect
-    settings.strike = { apiKey: key, enabled: true, lastSync: null };
+    settings.strike = { proxyUrl: url, enabled: true, lastSync: null };
     FleetData.saveSettings(settings);
     strikeConnected = true;
     updateStrikeStatus('Connected');
@@ -711,7 +710,7 @@ document.getElementById('saveStrike').addEventListener('click', async function()
 
 function disconnectStrike() {
     var settings = FleetData.getSettings();
-    settings.strike = { apiKey: '', enabled: false, lastSync: null };
+    settings.strike = { proxyUrl: '', enabled: false, lastSync: null };
     FleetData.saveSettings(settings);
     strikeConnected = false;
     strikeBalances = null;
