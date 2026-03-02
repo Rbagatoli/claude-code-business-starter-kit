@@ -842,6 +842,7 @@ function renderComparison() {
 initNav('calculator');
 initChart();
 loadSettings();
+el.minerAdditions.value = 0;
 initMinerComparison();
 window.onCurrencyChange = function() { recalculate(); };
 
