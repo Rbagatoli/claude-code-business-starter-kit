@@ -1797,8 +1797,8 @@ main { display: flex; flex-direction: column; }
     color: #f7931a !important;
 }
 
-/* Circle marker glow */
-.leaflet-interactive { filter: drop-shadow(0 0 6px rgba(247, 147, 26, 0.4)); }
+/* Choropleth country polygons */
+.leaflet-interactive { transition: fill-opacity 0.2s ease, stroke-opacity 0.2s ease; }
 
 /* Popup glassmorphism */
 .map-popup-leaflet .leaflet-popup-content-wrapper {

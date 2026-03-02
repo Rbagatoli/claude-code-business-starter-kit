@@ -1,11 +1,52 @@
-// ===== ION MINING GROUP — Fleet Map =====
+// ===== ION MINING GROUP — Fleet Map (Choropleth) =====
 initNav('map');
 
 (function() {
+    // ISO 3166-1 numeric → alpha-2 mapping (world-atlas uses numeric IDs)
+    var NUM_TO_A2 = {
+        '004':'AF','008':'AL','010':'AQ','012':'DZ','016':'AS','020':'AD','024':'AO',
+        '028':'AG','031':'AZ','032':'AR','036':'AU','040':'AT','044':'BS','048':'BH',
+        '050':'BD','051':'AM','052':'BB','056':'BE','060':'BM','064':'BT','068':'BO',
+        '070':'BA','072':'BW','076':'BR','084':'BZ','086':'IO','090':'SB','092':'VG',
+        '096':'BN','100':'BG','104':'MM','108':'BI','112':'BY','116':'KH','120':'CM',
+        '124':'CA','132':'CV','136':'KY','140':'CF','144':'LK','148':'TD','152':'CL',
+        '156':'CN','158':'TW','162':'CX','166':'CC','170':'CO','174':'KM','175':'YT',
+        '178':'CG','180':'CD','184':'CK','188':'CR','191':'HR','192':'CU','196':'CY',
+        '203':'CZ','204':'BJ','208':'DK','212':'DM','214':'DO','218':'EC','222':'SV',
+        '226':'GQ','231':'ET','232':'ER','233':'EE','234':'FO','238':'FK','242':'FJ',
+        '246':'FI','250':'FR','254':'GF','258':'PF','260':'TF','262':'DJ','266':'GA',
+        '268':'GE','270':'GM','275':'PS','276':'DE','288':'GH','292':'GI','296':'KI',
+        '300':'GR','304':'GL','308':'GD','312':'GP','316':'GU','320':'GT','324':'GN',
+        '328':'GY','332':'HT','336':'VA','340':'HN','344':'HK','348':'HU','352':'IS',
+        '356':'IN','360':'ID','364':'IR','368':'IQ','372':'IE','376':'IL','380':'IT',
+        '384':'CI','388':'JM','392':'JP','398':'KZ','400':'JO','404':'KE','408':'KP',
+        '410':'KR','414':'KW','417':'KG','418':'LA','422':'LB','426':'LS','428':'LV',
+        '430':'LR','434':'LY','438':'LI','440':'LT','442':'LU','446':'MO','450':'MG',
+        '454':'MW','458':'MY','462':'MV','466':'ML','470':'MT','474':'MQ','478':'MR',
+        '480':'MU','484':'MX','492':'MC','496':'MN','498':'MD','499':'ME','500':'MS',
+        '504':'MA','508':'MZ','512':'OM','516':'NA','520':'NR','524':'NP','528':'NL',
+        '531':'CW','533':'AW','534':'SX','540':'NC','548':'VU','554':'NZ','558':'NI',
+        '562':'NE','566':'NG','570':'NU','574':'NF','578':'NO','580':'MP','583':'FM',
+        '584':'MH','585':'PW','586':'PK','591':'PA','598':'PG','600':'PY','604':'PE',
+        '608':'PH','612':'PN','616':'PL','620':'PT','624':'GW','626':'TL','630':'PR',
+        '634':'QA','638':'RE','642':'RO','643':'RU','646':'RW','652':'BL','654':'SH',
+        '659':'KN','660':'AI','662':'LC','663':'MF','666':'PM','670':'VC','674':'SM',
+        '678':'ST','682':'SA','686':'SN','688':'RS','690':'SC','694':'SL','702':'SG',
+        '703':'SK','704':'VN','705':'SI','706':'SO','710':'ZA','716':'ZW','720':'YE',
+        '724':'ES','728':'SS','729':'SD','732':'EH','740':'SR','744':'SJ','748':'SZ',
+        '752':'SE','756':'CH','760':'SY','762':'TJ','764':'TH','768':'TG','772':'TK',
+        '776':'TO','780':'TT','784':'AE','788':'TN','792':'TR','795':'TM','796':'TC',
+        '798':'TV','800':'UG','804':'UA','807':'MK','818':'EG','826':'GB','831':'GG',
+        '832':'JE','833':'IM','834':'TZ','840':'US','850':'VI','854':'BF','858':'UY',
+        '860':'UZ','862':'VE','876':'WF','882':'WS','887':'YE','894':'ZM',
+        // Kosovo (not in ISO but in world-atlas)
+        '-99':'XK'
+    };
+
     var fleet = FleetData.getFleet();
     var miners = fleet.miners || [];
 
-    // Group miners by location (country + state)
+    // ---- Aggregate miners by location (country+state) for table/metrics ----
     var locations = {};
     var unmappedCount = 0;
 
@@ -43,13 +84,39 @@ initNav('map');
     }
 
     var locKeys = Object.keys(locations);
-
-    // Sort by hashrate descending
     locKeys.sort(function(a, b) {
         return locations[b].totalHashrate - locations[a].totalHashrate;
     });
 
-    // Init Leaflet map
+    // ---- Aggregate by country only (for choropleth shading) ----
+    var countryData = {};
+    for (var ci = 0; ci < locKeys.length; ci++) {
+        var loc = locations[locKeys[ci]];
+        var cc = loc.country;
+        if (!countryData[cc]) {
+            countryData[cc] = { totalHashrate: 0, totalPower: 0, onlineCount: 0, offlineCount: 0, models: {} };
+        }
+        var cd = countryData[cc];
+        cd.totalHashrate += loc.totalHashrate;
+        cd.totalPower += loc.totalPower;
+        cd.onlineCount += loc.onlineCount;
+        cd.offlineCount += loc.offlineCount;
+        var mk = Object.keys(loc.models);
+        for (var mi = 0; mi < mk.length; mi++) {
+            if (!cd.models[mk[mi]]) cd.models[mk[mi]] = 0;
+            cd.models[mk[mi]] += loc.models[mk[mi]];
+        }
+    }
+
+    var maxCountryHash = 0;
+    var countryKeys = Object.keys(countryData);
+    for (var ck = 0; ck < countryKeys.length; ck++) {
+        if (countryData[countryKeys[ck]].totalHashrate > maxCountryHash) {
+            maxCountryHash = countryData[countryKeys[ck]].totalHashrate;
+        }
+    }
+
+    // ---- Init Leaflet map ----
     var map = L.map('fleetMap', {
         center: [20, 0],
         zoom: 2,
@@ -59,99 +126,184 @@ initNav('map');
         attributionControl: false
     });
 
-    // CartoDB Dark Matter tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         subdomains: 'abcd',
         maxZoom: 19
     }).addTo(map);
 
-    // Custom attribution
     L.control.attribution({ position: 'bottomright', prefix: false })
         .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OSM</a> &copy; <a href="https://carto.com/" target="_blank">CARTO</a>')
         .addTo(map);
 
-    // Zoom control on the right
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // Find max hashrate for scaling
-    var maxHashrate = 0;
-    for (var k = 0; k < locKeys.length; k++) {
-        if (locations[locKeys[k]].totalHashrate > maxHashrate) {
-            maxHashrate = locations[locKeys[k]].totalHashrate;
-        }
-    }
+    // ---- Build popup HTML for a country ----
+    function buildPopup(a2, data) {
+        var countryName = GEO_DATA.getCountryName(a2) || a2;
+        var totalMiners = data.onlineCount + data.offlineCount;
+        var efficiency = data.totalHashrate > 0 ? (data.totalPower / data.totalHashrate).toFixed(1) : '--';
 
-    // Place markers
-    var markers = [];
-    for (var j = 0; j < locKeys.length; j++) {
-        var loc = locations[locKeys[j]];
-        var centroid = GEO_DATA.getCentroid(loc.country, loc.state);
-        if (!centroid) continue;
-
-        // Scale radius by hashrate (min 8, max 40)
-        var ratio = maxHashrate > 0 ? loc.totalHashrate / maxHashrate : 0.5;
-        var radius = 8 + ratio * 32;
-
-        var totalMiners = loc.onlineCount + loc.offlineCount;
-        var efficiency = loc.totalHashrate > 0 ? (loc.totalPower / loc.totalHashrate).toFixed(1) : '--';
-        var countryName = GEO_DATA.getCountryName(loc.country) || loc.country;
-        var locationName = loc.state ? (loc.state + ', ' + countryName) : countryName;
-
-        // Model breakdown HTML
         var modelHtml = '';
-        var modelKeys = Object.keys(loc.models);
-        modelKeys.sort(function(a, b) { return loc.models[b] - loc.models[a]; });
+        var modelKeys = Object.keys(data.models);
+        modelKeys.sort(function(a, b) { return data.models[b] - data.models[a]; });
         for (var mk = 0; mk < modelKeys.length; mk++) {
             modelHtml += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;padding:2px 0;">' +
-                '<span>' + modelKeys[mk] + '</span><span style="color:#e8e8e8;">' + loc.models[modelKeys[mk]] + '</span></div>';
+                '<span>' + modelKeys[mk] + '</span><span style="color:#e8e8e8;">' + data.models[modelKeys[mk]] + '</span></div>';
         }
 
-        var popupContent =
-            '<div class="map-popup-container">' +
-                '<div class="map-popup-title">' + locationName + '</div>' +
-                '<div class="map-popup-stats">' +
-                    '<div class="map-popup-stat"><span class="map-popup-label">Miners</span><span class="map-popup-value">' + totalMiners + '</span></div>' +
-                    '<div class="map-popup-stat"><span class="map-popup-label">Hashrate</span><span class="map-popup-value">' + loc.totalHashrate.toLocaleString() + ' TH/s</span></div>' +
-                    '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + loc.totalPower.toLocaleString() + ' W</span></div>' +
-                    '<div class="map-popup-stat"><span class="map-popup-label">Efficiency</span><span class="map-popup-value">' + efficiency + ' J/TH</span></div>' +
-                    '<div class="map-popup-stat"><span class="map-popup-label">Online</span><span class="map-popup-value" style="color:#4ade80;">' + loc.onlineCount + '</span></div>' +
-                    '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + loc.offlineCount + '</span></div>' +
-                '</div>' +
-                (modelHtml ? '<div class="map-popup-models"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">Models</div>' + modelHtml + '</div>' : '') +
-            '</div>';
-
-        var circle = L.circleMarker([centroid.lat, centroid.lng], {
-            radius: radius,
-            fillColor: '#f7931a',
-            fillOpacity: 0.35,
-            color: '#f7931a',
-            weight: 2,
-            opacity: 0.8
-        });
-
-        circle.bindPopup(popupContent, {
-            className: 'map-popup-leaflet',
-            maxWidth: 280,
-            minWidth: 200
-        });
-
-        circle.bindTooltip(locationName + ' (' + totalMiners + ' miners)', {
-            className: 'map-tooltip-leaflet',
-            direction: 'top',
-            offset: [0, -radius]
-        });
-
-        circle.addTo(map);
-        markers.push(circle);
+        return '<div class="map-popup-container">' +
+            '<div class="map-popup-title">' + countryName + '</div>' +
+            '<div class="map-popup-stats">' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Miners</span><span class="map-popup-value">' + totalMiners + '</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Hashrate</span><span class="map-popup-value">' + data.totalHashrate.toLocaleString() + ' TH/s</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + data.totalPower.toLocaleString() + ' W</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Efficiency</span><span class="map-popup-value">' + efficiency + ' J/TH</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Online</span><span class="map-popup-value" style="color:#4ade80;">' + data.onlineCount + '</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + data.offlineCount + '</span></div>' +
+            '</div>' +
+            (modelHtml ? '<div class="map-popup-models"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">Models</div>' + modelHtml + '</div>' : '') +
+        '</div>';
     }
 
-    // Auto-fit bounds
-    if (markers.length > 0) {
-        var group = L.featureGroup(markers);
-        map.fitBounds(group.getBounds().pad(0.3));
+    // ---- Fetch TopoJSON and render choropleth ----
+    if (countryKeys.length > 0) {
+        fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
+            .then(function(r) { return r.json(); })
+            .then(function(world) {
+                var countriesGeo = topojson.feature(world, world.objects.countries);
+
+                var geoLayer = L.geoJSON(countriesGeo, {
+                    style: function(feature) {
+                        var a2 = NUM_TO_A2[String(feature.id)];
+                        var data = a2 ? countryData[a2] : null;
+
+                        if (data && maxCountryHash > 0) {
+                            var ratio = data.totalHashrate / maxCountryHash;
+                            var opacity = 0.15 + ratio * 0.60;
+                            return {
+                                fillColor: '#f7931a',
+                                fillOpacity: opacity,
+                                weight: 1.5,
+                                color: 'rgba(247,147,26,0.5)',
+                                opacity: 0.7
+                            };
+                        }
+                        return {
+                            fillColor: '#f7931a',
+                            fillOpacity: 0.02,
+                            weight: 0.5,
+                            color: '#333',
+                            opacity: 0.3
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        var a2 = NUM_TO_A2[String(feature.id)];
+                        var data = a2 ? countryData[a2] : null;
+                        if (!data) return;
+
+                        // Store base opacity for hover restore
+                        var ratio = maxCountryHash > 0 ? data.totalHashrate / maxCountryHash : 0;
+                        var baseOpacity = 0.15 + ratio * 0.60;
+
+                        layer.on('mouseover', function() {
+                            layer.setStyle({
+                                fillOpacity: Math.min(baseOpacity + 0.15, 0.9),
+                                weight: 2,
+                                color: 'rgba(247,147,26,0.8)'
+                            });
+                            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                                layer.bringToFront();
+                            }
+                        });
+
+                        layer.on('mouseout', function() {
+                            geoLayer.resetStyle(layer);
+                        });
+
+                        var countryName = GEO_DATA.getCountryName(a2) || a2;
+                        var totalMiners = data.onlineCount + data.offlineCount;
+                        layer.bindTooltip(countryName + ' (' + totalMiners + ' miners)', {
+                            className: 'map-tooltip-leaflet',
+                            direction: 'top',
+                            sticky: true
+                        });
+
+                        layer.bindPopup(buildPopup(a2, data), {
+                            className: 'map-popup-leaflet',
+                            maxWidth: 280,
+                            minWidth: 200
+                        });
+                    }
+                }).addTo(map);
+
+                // State-level circle markers within highlighted countries
+                for (var si = 0; si < locKeys.length; si++) {
+                    var loc = locations[locKeys[si]];
+                    if (!loc.state) continue; // skip country-only entries
+
+                    var centroid = GEO_DATA.getCentroid(loc.country, loc.state);
+                    if (!centroid) continue;
+
+                    var stateMiners = loc.onlineCount + loc.offlineCount;
+                    var stateRatio = maxCountryHash > 0 ? loc.totalHashrate / maxCountryHash : 0.3;
+                    var stateRadius = 4 + stateRatio * 16;
+
+                    var stateMarker = L.circleMarker([centroid.lat, centroid.lng], {
+                        radius: Math.max(stateRadius, 4),
+                        fillColor: '#fff',
+                        fillOpacity: 0.25,
+                        color: '#f7931a',
+                        weight: 1,
+                        opacity: 0.6
+                    });
+
+                    var countryName = GEO_DATA.getCountryName(loc.country) || loc.country;
+                    var stateName = loc.state + ', ' + countryName;
+                    var stateEff = loc.totalHashrate > 0 ? (loc.totalPower / loc.totalHashrate).toFixed(1) : '--';
+
+                    var stateModelHtml = '';
+                    var smKeys = Object.keys(loc.models);
+                    smKeys.sort(function(a, b) { return loc.models[b] - loc.models[a]; });
+                    for (var smk = 0; smk < smKeys.length; smk++) {
+                        stateModelHtml += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;padding:2px 0;">' +
+                            '<span>' + smKeys[smk] + '</span><span style="color:#e8e8e8;">' + loc.models[smKeys[smk]] + '</span></div>';
+                    }
+
+                    var statePopup =
+                        '<div class="map-popup-container">' +
+                            '<div class="map-popup-title">' + stateName + '</div>' +
+                            '<div class="map-popup-stats">' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Miners</span><span class="map-popup-value">' + stateMiners + '</span></div>' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Hashrate</span><span class="map-popup-value">' + loc.totalHashrate.toLocaleString() + ' TH/s</span></div>' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + loc.totalPower.toLocaleString() + ' W</span></div>' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Efficiency</span><span class="map-popup-value">' + stateEff + ' J/TH</span></div>' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Online</span><span class="map-popup-value" style="color:#4ade80;">' + loc.onlineCount + '</span></div>' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + loc.offlineCount + '</span></div>' +
+                            '</div>' +
+                            (stateModelHtml ? '<div class="map-popup-models"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">Models</div>' + stateModelHtml + '</div>' : '') +
+                        '</div>';
+
+                    stateMarker.bindPopup(statePopup, {
+                        className: 'map-popup-leaflet',
+                        maxWidth: 280,
+                        minWidth: 200
+                    });
+
+                    stateMarker.bindTooltip(stateName + ' (' + stateMiners + ' miners)', {
+                        className: 'map-tooltip-leaflet',
+                        direction: 'top',
+                        offset: [0, -stateRadius]
+                    });
+
+                    stateMarker.addTo(map);
+                }
+            })
+            .catch(function(err) {
+                console.error('Failed to load country boundaries:', err);
+            });
     }
 
-    // Update summary metrics
+    // ---- Update summary metrics ----
     var totalMapped = 0;
     var totalHashrate = 0;
     var totalOnline = 0;
@@ -180,7 +332,7 @@ initNav('map');
     var onlineRate = totalMapped > 0 ? ((totalOnline / totalMapped) * 100).toFixed(0) + '%' : '--';
     document.getElementById('mapOnlineRate').textContent = onlineRate;
 
-    // Render location breakdown table
+    // ---- Render location breakdown table ----
     var tbody = document.getElementById('locationTableBody');
     if (locKeys.length > 0) {
         var html = '';
@@ -204,7 +356,7 @@ initNav('map');
         tbody.innerHTML = html;
     }
 
-    // Handle empty state
+    // ---- Handle empty state ----
     if (locKeys.length === 0) {
         document.getElementById('fleetMap').innerHTML =
             '<div style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center;color:#555;flex-direction:column;gap:8px;">' +
