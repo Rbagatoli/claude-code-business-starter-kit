@@ -507,7 +507,7 @@ function buildStatePopup(loc) {
             globeCard.style.display = '';
             btnMap.classList.remove('active');
             btnGlobe.classList.add('active');
-            if (!globeInitialized) initGlobe();
+            if (!globeInitialized) requestAnimationFrame(function() { initGlobe(); });
         }
     }
 
@@ -528,8 +528,11 @@ function buildStatePopup(loc) {
     function initGlobe() {
         globeInitialized = true;
         var globeContainer = document.getElementById('fleetGlobe');
+        var rect = globeContainer.getBoundingClientRect();
 
         globeInstance = Globe()
+            .width(rect.width)
+            .height(rect.height)
             .backgroundColor('rgba(0,0,0,0)')
             .showGlobe(true)
             .showAtmosphere(true)

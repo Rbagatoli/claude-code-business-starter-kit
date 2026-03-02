@@ -1805,7 +1805,8 @@ main { display: flex; flex-direction: column; }
 /* ===== FLEET MAP ===== */
 .map-card { padding: 0 !important; overflow: hidden; border-radius: 12px; }
 #fleetMap { width: 100%; height: 500px; background: #0a0a0a; }
-#fleetGlobe { width: 100%; height: 500px; background: #0a0a0a; }
+#fleetGlobe { width: 100%; height: 500px; background: #0a0a0a; overflow: hidden; border-radius: 12px; position: relative; }
+#fleetGlobe > div { position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; }
 @media (max-width: 600px) { #fleetMap, #fleetGlobe { height: 350px; } }
 @media (max-height: 500px) and (orientation: landscape) { #fleetMap, #fleetGlobe { height: 260px; } }
 
