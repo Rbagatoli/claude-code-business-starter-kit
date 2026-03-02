@@ -477,9 +477,12 @@ async function refreshAllCharts() {
     }
 
     if (priceOk && miningOk) {
-        statusEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+        statusEl.textContent = 'Live \u00b7 Updated ' + new Date().toLocaleTimeString();
         statusEl.style.color = '#4ade80';
         renderHashPriceChart(currentHashPriceDays);
+    } else if (priceOk || miningOk) {
+        statusEl.textContent = 'Partial update ' + new Date().toLocaleTimeString();
+        statusEl.style.color = '#f7931a';
     }
 
     // Load network stats (non-blocking)
@@ -497,7 +500,9 @@ async function refreshAllCharts() {
 // Initial load + start auto-refresh
 refreshAllCharts();
 if (_chartRefreshInterval) clearInterval(_chartRefreshInterval);
-_chartRefreshInterval = setInterval(refreshAllCharts, CHART_REFRESH_MS);
+_chartRefreshInterval = setInterval(function() {
+    try { refreshAllCharts(); } catch(e) { console.error('Chart refresh error:', e); }
+}, CHART_REFRESH_MS);
 
 // ===== NETWORK STATS =====
 
