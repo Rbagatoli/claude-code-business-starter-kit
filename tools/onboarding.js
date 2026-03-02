@@ -24,7 +24,7 @@
         },
         {
             title: 'Connect Your Pool',
-            body: 'Link your F2Pool account to pull live hashrate, worker status, and earnings data directly into the dashboard.',
+            body: 'Link your Mining Pool account to pull live hashrate, worker status, and earnings data directly into the dashboard.',
             target: 'btnConnectAPI',
             page: 'index.html'
         },
