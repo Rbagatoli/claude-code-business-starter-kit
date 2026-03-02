@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=135">
+    <link rel="stylesheet" href="./shared.css?v=136">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -38,7 +38,36 @@
         <div>
             <span id="strikeStatusBadge" class="status-badge status-disconnected">Strike: Not Connected</span>
         </div>
-        <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
+        <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
+            <button class="btn btn-secondary" id="btnSetup2FA" style="display:none;">Setup 2FA</button>
+        </div>
+    </div>
+
+    <!-- ===== 2FA SETUP PANEL ===== -->
+    <div class="slide-panel" id="setup2FAPanel">
+        <div class="panel-inner">
+            <h4>Setup Google Authenticator</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 12px;">Adds a second factor to send operations. You'll need Google Authenticator (or any TOTP app) on your phone.</p>
+            <div id="twofa-setup-content">
+                <button class="btn btn-primary" id="btnGenerate2FA" style="width:100%;">Generate 2FA Secret</button>
+            </div>
+            <div id="twofa-setup-result" style="display:none;">
+                <div style="text-align:center; margin:12px 0;">
+                    <img id="twofa-qr" alt="Scan with Google Authenticator" style="border-radius:8px; background:#fff; padding:8px;">
+                </div>
+                <div style="font-size:12px; color:#aaa; margin-bottom:8px;">Or enter this key manually in your authenticator app:</div>
+                <div style="background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:8px; font-family:monospace; font-size:14px; letter-spacing:2px; word-break:break-all; text-align:center; color:#f7931a; margin-bottom:12px;" id="twofa-secret-display"></div>
+                <div style="font-size:12px; color:#f55; margin-bottom:12px; padding:10px; background:rgba(255,85,85,0.08); border:1px solid rgba(255,85,85,0.25); border-radius:8px;">
+                    <strong>Next step:</strong> Run this in your terminal to activate 2FA on the worker:<br>
+                    <code style="color:#f7931a; font-size:11px;" id="twofa-wrangler-cmd">npx wrangler secret put TOTP_SECRET</code><br>
+                    Then paste the secret key shown above when prompted.
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancel2FA">Close</button>
+            </div>
+        </div>
     </div>
 
     <!-- ===== STRIKE CONNECT PANEL ===== -->
@@ -107,7 +136,7 @@
         <div class="panel-inner">
             <h4>Send BTC</h4>
             <div style="margin-bottom:12px; padding:10px 14px; background:rgba(247,147,26,0.08); border:1px solid rgba(247,147,26,0.25); border-radius:8px; font-size:12px; color:#f7931a;">
-                PIN required for every send. Max $500/tx. 5 sends/hour.
+                PIN + 2FA required for every send. Max $500/tx. 5 sends/hour.
             </div>
 
             <!-- Step 1: Send Form -->
@@ -175,6 +204,13 @@
                     <div class="input-wrapper">
                         <input type="password" id="sendPinConfirm" placeholder="Re-enter PIN" autocomplete="off">
                     </div>
+                </div>
+                <div class="input-group" id="totpGroup" style="display:none;">
+                    <label>Authenticator Code</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="sendTotpCode" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing:4px; font-size:18px; text-align:center;">
+                    </div>
+                    <div style="font-size:11px; color:#888; margin-top:4px;">Enter the code from Google Authenticator</div>
                 </div>
                 <div class="panel-actions">
                     <button class="btn btn-secondary" id="cancelQuote">Back</button>
@@ -256,15 +292,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=135"></script>
-<script src="./sync.js?v=135"></script>
-<script src="./auth-ui.js?v=135"></script>
-<script src="./profile-panel.js?v=135"></script>
-<script src="./shared.js?v=135"></script>
-<script src="./fleet-data.js?v=135"></script>
-<script src="./wallet.js?v=135"></script>
-<script src="./widget-settings.js?v=135"></script>
-<script src="./alerts.js?v=135"></script>
-<script src="./onboarding.js?v=135"></script>
+<script src="./firebase-config.js?v=136"></script>
+<script src="./sync.js?v=136"></script>
+<script src="./auth-ui.js?v=136"></script>
+<script src="./profile-panel.js?v=136"></script>
+<script src="./shared.js?v=136"></script>
+<script src="./fleet-data.js?v=136"></script>
+<script src="./wallet.js?v=136"></script>
+<script src="./widget-settings.js?v=136"></script>
+<script src="./alerts.js?v=136"></script>
+<script src="./onboarding.js?v=136"></script>
 </body>
 </html>

@@ -154,17 +154,19 @@ var StrikeAPI = (function() {
         }
     }
 
-    async function apiPatchWithPin(route, body, pin) {
+    async function apiPatchWithPin(route, body, pin, totpCode) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
+            var hdrs = { 'Content-Type': 'application/json', 'X-Dashboard-Pin': pin };
+            if (totpCode) hdrs['X-Dashboard-TOTP'] = totpCode;
             var res = await fetch(proxy.replace(/\/$/, '') + route, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'X-Dashboard-Pin': pin },
+                headers: hdrs,
                 body: JSON.stringify(body || {})
             });
             var data = await res.json();
-            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
+            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
             return data;
         } catch(e) {
             return { error: e.message || 'Network error' };
@@ -198,8 +200,8 @@ var StrikeAPI = (function() {
         return await apiPostWithPin('/send/onchain-tiers', body, pin);
     }
 
-    async function executeSend(quoteId, pin) {
-        return await apiPatchWithPin('/send/execute/' + quoteId, {}, pin);
+    async function executeSend(quoteId, pin, totpCode) {
+        return await apiPatchWithPin('/send/execute/' + quoteId, {}, pin, totpCode);
     }
 
     async function getSendStatus(paymentId, pin) {
@@ -230,6 +232,7 @@ function loadStrikeSettings() {
         updateStrikeStatus('Connected');
     }
     updateSendButton();
+    update2FAButton();
 }
 
 function updateStrikeStatus(label) {
@@ -783,6 +786,7 @@ document.getElementById('saveStrike').addEventListener('click', async function()
     strikeConnected = true;
     updateStrikeStatus('Connected');
     updateSendButton();
+    update2FAButton();
     document.getElementById('strikeConnectPanel').classList.remove('open');
     await loadAndRefreshWallet();
 });
@@ -796,6 +800,7 @@ function disconnectStrike() {
     strikeTransactions = [];
     updateStrikeStatus(null);
     updateSendButton();
+    update2FAButton();
     renderWallet();
     renderTransactionHistory();
 }
@@ -805,11 +810,18 @@ window.disconnectStrike = disconnectStrike;
 // ===== SEND BTC PANEL =====
 var activeSendQuote = null;
 var quoteExpiryInterval = null;
+var totpEnabled = false; // Detected when worker returns totpRequired flag
 
 // Show send button only when Strike is connected
 function updateSendButton() {
     var btn = document.getElementById('btnSendBtc');
     if (btn) btn.style.display = strikeConnected ? '' : 'none';
+}
+
+// Show/hide TOTP input based on whether 2FA is enabled
+function updateTotpVisibility() {
+    var grp = document.getElementById('totpGroup');
+    if (grp) grp.style.display = totpEnabled ? '' : 'none';
 }
 
 document.getElementById('btnSendBtc').addEventListener('click', function() {
@@ -818,10 +830,12 @@ document.getElementById('btnSendBtc').addEventListener('click', function() {
     document.getElementById('sendResult').innerHTML = '';
     document.getElementById('sendPin').value = '';
     document.getElementById('sendPinConfirm').value = '';
+    document.getElementById('sendTotpCode').value = '';
     document.getElementById('sendDest').value = '';
     document.getElementById('sendAmount').value = '';
     activeSendQuote = null;
     updateSendTypeUI();
+    updateTotpVisibility();
     document.getElementById('sendBtcPanel').classList.toggle('open');
 });
 
@@ -971,8 +985,12 @@ function clearQuoteExpiry() {
 // Confirm & Send
 document.getElementById('btnConfirmSend').addEventListener('click', async function() {
     var pin = document.getElementById('sendPinConfirm').value;
+    var totpCode = (document.getElementById('sendTotpCode').value || '').replace(/\s/g, '');
     var result = document.getElementById('sendResult');
     if (!pin) { result.innerHTML = '<span style="color:#f55;">Enter your PIN to confirm</span>'; return; }
+    if (totpEnabled && (!totpCode || totpCode.length !== 6)) {
+        result.innerHTML = '<span style="color:#f55;">Enter the 6-digit code from Google Authenticator</span>'; return;
+    }
     if (!activeSendQuote || !activeSendQuote.paymentQuoteId) { result.innerHTML = '<span style="color:#f55;">No active quote</span>'; return; }
 
     // Check if quote expired
@@ -984,10 +1002,11 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
     result.innerHTML = '<span style="color:#f7931a;">Sending...</span>';
     document.getElementById('btnConfirmSend').disabled = true;
 
-    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, pin);
+    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, pin, totpCode || undefined);
 
     document.getElementById('btnConfirmSend').disabled = false;
     document.getElementById('sendPinConfirm').value = '';
+    document.getElementById('sendTotpCode').value = '';
     clearQuoteExpiry();
 
     if (sendResult && !sendResult.error) {
@@ -1000,6 +1019,53 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
             loadAndRefreshWallet();
         }, 2000);
     } else {
+        // If worker says TOTP is required, auto-show the TOTP field
+        if (sendResult.totpRequired) {
+            totpEnabled = true;
+            updateTotpVisibility();
+        }
         result.innerHTML = '<span style="color:#f55;">' + (sendResult.error || 'Send failed') + '</span>';
     }
+});
+
+// ===== 2FA SETUP =====
+var BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function generateBase32Secret(len) {
+    var arr = new Uint8Array(len || 20);
+    crypto.getRandomValues(arr);
+    var out = '';
+    for (var i = 0; i < arr.length; i++) {
+        out += BASE32_CHARS[arr[i] % 32];
+    }
+    return out;
+}
+
+function update2FAButton() {
+    var btn = document.getElementById('btnSetup2FA');
+    if (btn) btn.style.display = strikeConnected ? '' : 'none';
+}
+
+document.getElementById('btnSetup2FA').addEventListener('click', function() {
+    document.getElementById('twofa-setup-content').style.display = '';
+    document.getElementById('twofa-setup-result').style.display = 'none';
+    document.getElementById('setup2FAPanel').classList.toggle('open');
+});
+
+document.getElementById('cancel2FA').addEventListener('click', function() {
+    document.getElementById('setup2FAPanel').classList.remove('open');
+});
+
+document.getElementById('btnGenerate2FA').addEventListener('click', function() {
+    var secret = generateBase32Secret(20);
+    var issuer = 'Ion%20Mining';
+    var account = 'dashboard';
+    var otpauthUri = 'otpauth://totp/' + issuer + ':' + account + '?secret=' + secret + '&issuer=' + issuer + '&digits=6&period=30';
+
+    // Show QR via Google Charts API
+    var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=' + encodeURIComponent(otpauthUri);
+    document.getElementById('twofa-qr').src = qrUrl;
+    document.getElementById('twofa-secret-display').textContent = secret;
+    document.getElementById('twofa-setup-content').style.display = 'none';
+    document.getElementById('twofa-setup-result').style.display = '';
 });

@@ -1,7 +1,7 @@
 // Ion Mining Group — Strike API Proxy (Cloudflare Worker)
 // API key stored as Worker secret, never exposed to browser.
 // Three-tier endpoint security: Open, PIN-gated, Blocked.
-// Send features: PIN + amount cap + rate limit.
+// Send features: PIN + TOTP 2FA + amount cap + rate limit.
 
 var STRIKE_BASE = 'https://api.strike.me';
 var ALLOWED_ORIGINS = [
@@ -15,6 +15,11 @@ var sendLog = [];
 var MAX_SENDS_PER_HOUR = 5;
 var DEFAULT_MAX_SEND_USD = 500;
 
+// TOTP brute-force protection (in-memory)
+var totpFailLog = [];
+var MAX_TOTP_FAILS = 5;
+var TOTP_LOCKOUT_MS = 900000; // 15 minutes
+
 function isAllowedOrigin(origin) {
     for (var i = 0; i < ALLOWED_ORIGINS.length; i++) {
         if (origin === ALLOWED_ORIGINS[i] || origin.startsWith(ALLOWED_ORIGINS[i] + ':')) return true;
@@ -26,7 +31,7 @@ function corsHeaders(origin) {
     return {
         'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Pin',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Pin, X-Dashboard-TOTP',
         'Content-Type': 'application/json'
     };
 }
@@ -93,6 +98,93 @@ function checkPin(request, env, origin) {
         });
     }
     return null; // PIN OK
+}
+
+// ===== TOTP 2FA (Google Authenticator) =====
+var BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function base32Decode(str) {
+    str = str.replace(/[= ]/g, '').toUpperCase();
+    var bits = '';
+    for (var i = 0; i < str.length; i++) {
+        var val = BASE32_CHARS.indexOf(str[i]);
+        if (val === -1) continue;
+        bits += ('00000' + val.toString(2)).slice(-5);
+    }
+    var bytes = new Uint8Array(Math.floor(bits.length / 8));
+    for (var j = 0; j < bytes.length; j++) {
+        bytes[j] = parseInt(bits.slice(j * 8, j * 8 + 8), 2);
+    }
+    return bytes.buffer;
+}
+
+async function generateTOTP(keyBuf, counter) {
+    // Convert counter to 8-byte big-endian buffer
+    var counterBuf = new ArrayBuffer(8);
+    var view = new DataView(counterBuf);
+    view.setUint32(4, counter, false);
+
+    // HMAC-SHA1 using Web Crypto API
+    var cryptoKey = await crypto.subtle.importKey(
+        'raw', keyBuf, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+    );
+    var sig = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, counterBuf));
+
+    // Dynamic truncation (RFC 4226)
+    var offset = sig[sig.length - 1] & 0x0f;
+    var code = ((sig[offset] & 0x7f) << 24 | sig[offset + 1] << 16 | sig[offset + 2] << 8 | sig[offset + 3]) % 1000000;
+    var codeStr = String(code);
+    while (codeStr.length < 6) codeStr = '0' + codeStr;
+    return codeStr;
+}
+
+async function verifyTOTP(token, secret) {
+    var keyBuf = base32Decode(secret);
+    var timeStep = Math.floor(Date.now() / 30000);
+    // Check current window and ±1 for clock drift
+    for (var i = -1; i <= 1; i++) {
+        var code = await generateTOTP(keyBuf, timeStep + i);
+        if (code === token) return true;
+    }
+    return false;
+}
+
+async function checkTOTP(request, env, origin) {
+    // If TOTP_SECRET not configured, 2FA is disabled — skip
+    var secret = env.TOTP_SECRET || '';
+    if (!secret) return null;
+
+    // Check brute-force lockout
+    var now = Date.now();
+    var cutoff = now - TOTP_LOCKOUT_MS;
+    totpFailLog = totpFailLog.filter(function(t) { return t > cutoff; });
+    if (totpFailLog.length >= MAX_TOTP_FAILS) {
+        return new Response(JSON.stringify({
+            error: '2FA locked',
+            message: 'Too many failed 2FA attempts. Try again in 15 minutes.'
+        }), { status: 429, headers: corsHeaders(origin) });
+    }
+
+    var token = (request.headers.get('X-Dashboard-TOTP') || '').replace(/\s/g, '');
+    if (!token || token.length !== 6) {
+        return new Response(JSON.stringify({
+            error: '2FA code required',
+            message: 'Enter the 6-digit code from Google Authenticator.',
+            totpRequired: true
+        }), { status: 403, headers: corsHeaders(origin) });
+    }
+
+    var valid = await verifyTOTP(token, secret);
+    if (!valid) {
+        totpFailLog.push(now);
+        return new Response(JSON.stringify({
+            error: 'Invalid 2FA code',
+            message: 'The authenticator code is incorrect or expired. Try the current code.',
+            totpRequired: true
+        }), { status: 403, headers: corsHeaders(origin) });
+    }
+
+    return null; // TOTP OK
 }
 
 function checkAmountCap(body, env, origin) {
@@ -215,8 +307,11 @@ export default {
 
                 var body = await request.json().catch(function() { return {}; });
 
-                // --- Exchange execute ---
+                // --- Exchange execute — requires TOTP 2FA ---
                 if (isExchangeExec) {
+                    var totpErr1 = await checkTOTP(request, env, origin);
+                    if (totpErr1) return totpErr1;
+
                     var exchQuoteId = isExchangeExec[1];
                     var exchData = await strikePost('/v1/currency-exchange-quotes/' + exchQuoteId + '/execute', body, apiKey);
                     return new Response(JSON.stringify(exchData), {
@@ -224,8 +319,11 @@ export default {
                     });
                 }
 
-                // --- Send execute (PATCH) — extra safety: rate limit ---
+                // --- Send execute (PATCH) — requires TOTP 2FA + rate limit ---
                 if (isSendExec) {
+                    var totpErr2 = await checkTOTP(request, env, origin);
+                    if (totpErr2) return totpErr2;
+
                     var rateErr = checkRateLimit(origin);
                     if (rateErr) return rateErr;
 
