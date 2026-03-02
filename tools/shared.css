@@ -190,8 +190,10 @@ body > * { position: relative; z-index: 1; }
     border-radius: 6px;
     background: rgba(255,255,255,0.03);
     border: 1px solid var(--border);
-    cursor: default;
+    cursor: pointer;
     transition: background 0.2s;
+    text-decoration: none;
+    color: inherit;
 }
 .ion-nav-sparkline:hover { background: rgba(255,255,255,0.06); }
 .ion-nav-sparkline canvas { display: block; width: 70px; height: 24px; }

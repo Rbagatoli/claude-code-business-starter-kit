@@ -196,6 +196,12 @@
         font-size: 14px;
     }
     .ws-narrow-msg a { color: var(--accent); }
+    .ion-nav-sparkline { display: flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); cursor: pointer; transition: background 0.2s; text-decoration: none; color: inherit; }
+    .ion-nav-sparkline:hover { background: rgba(255,255,255,0.06); }
+    .ion-nav-sparkline canvas { display: block; width: 70px; height: 24px; }
+    .ion-nav-sparkline-price { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; white-space: nowrap; min-width: 52px; text-align: right; }
+    [data-theme="light"] .ion-nav-sparkline { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+    [data-theme="light"] .ion-nav-sparkline:hover { background: rgba(0,0,0,0.06); }
     </style>
 </head>
 <body>
@@ -206,6 +212,7 @@
         </a>
         <div class="ws-pane-selectors" id="paneSelectors"></div>
         <div class="ws-actions">
+            <a href="./charts.html" class="ion-nav-sparkline" id="navSparkline"><canvas id="navSparklineCanvas" width="70" height="24"></canvas><span class="ion-nav-sparkline-price" id="navSparklinePrice">--</span></a>
             <select id="wsCurrency"></select>
             <button id="wsTheme" title="Toggle theme"></button>
             <a href="./index.html" class="ws-exit-btn" title="Exit Workstation">Exit</a>
@@ -426,5 +433,7 @@
     render();
 })();
 </script>
+<script src="./shared.js?v=130"></script>
+<script>startNavSparkline();</script>
 </body>
 </html>
