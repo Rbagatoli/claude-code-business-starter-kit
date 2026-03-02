@@ -35,6 +35,12 @@
             page: 'calculator.html'
         },
         {
+            title: 'Map',
+            body: 'Visualize your fleet\'s geographic distribution on an interactive map and 3D globe. Click any location for details.',
+            target: null,
+            page: 'map.html'
+        },
+        {
             title: 'Payouts',
             body: 'Track your mining earnings and payout history. See what you\'ve earned and when it arrived.',
             target: null,
@@ -51,12 +57,6 @@
             body: 'Watch-only wallet monitoring. Track your BTC balances and transactions without exposing private keys.',
             target: null,
             page: 'wallet.html'
-        },
-        {
-            title: 'Map',
-            body: 'Visualize your fleet\'s geographic distribution on an interactive map and 3D globe. Click any location for details.',
-            target: null,
-            page: 'map.html'
         },
         {
             title: 'Accounting',
