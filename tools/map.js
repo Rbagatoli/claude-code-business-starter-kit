@@ -281,6 +281,7 @@ function buildStatePopup(loc) {
 }
 
 // ===== LEAFLET FLAT MAP =====
+var leafletMap, leafletGeoLayer, leafletStateMarkers = {};
 (function() {
     var map = L.map('fleetMap', {
         center: [20, 0],
@@ -290,6 +291,7 @@ function buildStatePopup(loc) {
         zoomControl: false,
         attributionControl: false
     });
+    leafletMap = map;
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         subdomains: 'abcd',
@@ -370,6 +372,7 @@ function buildStatePopup(loc) {
                     });
                 }
             }).addTo(map);
+            leafletGeoLayer = geoLayer;
 
             // State-level circle markers
             for (var si = 0; si < locKeys.length; si++) {
@@ -408,6 +411,7 @@ function buildStatePopup(loc) {
                 });
 
                 stateMarker.addTo(map);
+                leafletStateMarkers[loc.country + '|' + loc.state] = stateMarker;
             }
         })
         .catch(function(err) {
@@ -469,7 +473,7 @@ function buildStatePopup(loc) {
             var eff = loc.totalHashrate > 0 ? ((loc.totalPower * 1000) / loc.totalHashrate).toFixed(1) + ' J/TH' : '--';
             var onlinePct = minerCount > 0 ? ((loc.onlineCount / minerCount) * 100).toFixed(0) + '%' : '--';
 
-            html += '<tr>' +
+            html += '<tr data-country="' + loc.country + '" data-state="' + (loc.state || '') + '">' +
                 '<td style="text-align:left">' + locName + '</td>' +
                 '<td style="text-align:right">' + minerCount + '</td>' +
                 '<td style="text-align:right">' + loc.totalHashrate.toLocaleString() + ' TH/s</td>' +
@@ -483,6 +487,7 @@ function buildStatePopup(loc) {
 })();
 
 // ===== GLOBE VIEW + TOGGLE =====
+var _globeRef = null, _showGlobePopupRef = null;
 (function() {
     var globeInstance = null;
     var globeInitialized = false;
@@ -518,6 +523,7 @@ function buildStatePopup(loc) {
 
     var popupAnimFrame = null;
 
+    _showGlobePopupRef = showGlobePopup;
     function showGlobePopup(html, lat, lng, evt) {
         var popup = document.getElementById('globePopup');
         document.getElementById('globePopupContent').innerHTML = html;
@@ -588,6 +594,9 @@ function buildStatePopup(loc) {
         popup.style.display = 'none';
         if (popupAnimFrame) { cancelAnimationFrame(popupAnimFrame); popupAnimFrame = null; }
     });
+
+    function getGlobeInstance() { return globeInstance; }
+    _globeRef = getGlobeInstance;
 
     function initGlobe() {
         globeInitialized = true;
@@ -747,4 +756,59 @@ function buildStatePopup(loc) {
             globeContainer.appendChild(overlay);
         }
     }
+})();
+
+// ===== LOCATION TABLE CLICK → CENTER + POPUP =====
+(function() {
+    var tbody = document.getElementById('locationTableBody');
+    tbody.addEventListener('click', function(e) {
+        var row = e.target.closest('tr');
+        if (!row || !row.dataset.country) return;
+
+        var country = row.dataset.country;
+        var state = row.dataset.state || '';
+        var centroid = GEO_DATA.getCentroid(country, state || undefined);
+        if (!centroid) return;
+
+        var currentView = localStorage.getItem('ion_map_view') || 'map';
+        var locKey = country + '|' + state;
+        var locData = locations[locKey];
+
+        if (currentView === 'globe') {
+            var globe = _globeRef ? _globeRef() : null;
+            if (!globe) return;
+
+            globe.pointOfView({ lat: centroid.lat, lng: centroid.lng, altitude: 2.0 }, 1000);
+
+            setTimeout(function() {
+                var popupHtml;
+                if (state && locData) {
+                    popupHtml = buildStatePopup(locData);
+                } else if (countryData[country]) {
+                    popupHtml = buildPopup(country, countryData[country]);
+                }
+                if (popupHtml && _showGlobePopupRef) {
+                    _showGlobePopupRef(popupHtml, centroid.lat, centroid.lng);
+                }
+            }, 1100);
+        } else {
+            if (!leafletMap) return;
+            var zoom = state ? 6 : 5;
+            leafletMap.flyTo([centroid.lat, centroid.lng], zoom, { duration: 1 });
+
+            setTimeout(function() {
+                if (state && leafletStateMarkers[locKey]) {
+                    leafletStateMarkers[locKey].openPopup();
+                } else if (leafletGeoLayer) {
+                    leafletGeoLayer.eachLayer(function(layer) {
+                        if (!layer.feature) return;
+                        var a2 = NUM_TO_A2[String(layer.feature.id)];
+                        if (a2 === country) {
+                            layer.openPopup();
+                        }
+                    });
+                }
+            }, 1100);
+        }
+    });
 })();
