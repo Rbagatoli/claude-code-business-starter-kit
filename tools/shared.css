@@ -167,6 +167,21 @@ body > * { position: relative; z-index: 1; }
     color: #f7931a;
 }
 
+/* Workstation link */
+.ion-nav-ws-link {
+    color: #888;
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s, color 0.2s;
+    text-decoration: none;
+}
+.ion-nav-ws-link:hover {
+    background: rgba(255,255,255,0.06);
+    color: #f7931a;
+}
+
 /* Nav actions (currency + bell) */
 .ion-nav-actions {
     display: flex;

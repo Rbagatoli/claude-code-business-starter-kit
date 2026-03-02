@@ -82,6 +82,7 @@ function initNav(activePage) {
             '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[6] + '</a>' +
         '</div>' +
         '<div class="ion-nav-actions">' +
+            (window.innerWidth >= 1400 ? '<a href="./workstation.html" class="ion-nav-ws-link" title="Workstation (multi-pane view)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="3" x2="8" y2="17"/><line x1="16" y1="3" x2="16" y2="17"/><line x1="2" y1="21" x2="22" y2="21"/></svg></a>' : '') +
             '<select class="ion-currency-select" id="currencySelect">' +
                 (function() {
                     var opts = '';
