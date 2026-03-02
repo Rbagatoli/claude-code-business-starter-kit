@@ -705,6 +705,11 @@ var _globeRef = null, _showGlobePopupRef = null;
                     })
                     .onPointClick(function(point, evt) {
                         showGlobePopup(buildStatePopup(point.locData), point.lat, point.lng, evt);
+                    })
+                    .onGlobeClick(function() {
+                        var popup = document.getElementById('globePopup');
+                        popup.style.display = 'none';
+                        if (popupAnimFrame) { cancelAnimationFrame(popupAnimFrame); popupAnimFrame = null; }
                     });
 
                 globeInstance(globeContainer);
