@@ -589,11 +589,13 @@ var _globeRef = null, _showGlobePopupRef = null;
         popupAnimFrame = requestAnimationFrame(track);
     }
 
-    document.getElementById('globePopupClose').addEventListener('click', function() {
+    function hideGlobePopup() {
         var popup = document.getElementById('globePopup');
         popup.style.display = 'none';
         if (popupAnimFrame) { cancelAnimationFrame(popupAnimFrame); popupAnimFrame = null; }
-    });
+    }
+
+    document.getElementById('globePopupClose').addEventListener('click', hideGlobePopup);
 
     function getGlobeInstance() { return globeInstance; }
     _globeRef = getGlobeInstance;
@@ -653,7 +655,7 @@ var _globeRef = null, _showGlobePopupRef = null;
                     .onPolygonClick(function(feat, evt) {
                         var a2 = NUM_TO_A2[String(feat.id)];
                         var data = a2 ? countryData[a2] : null;
-                        if (!data) return;
+                        if (!data) { hideGlobePopup(); return; }
                         var centroid = GEO_DATA.getCentroid(a2);
                         var pLat = centroid ? centroid.lat : 0;
                         var pLng = centroid ? centroid.lng : 0;
@@ -707,9 +709,7 @@ var _globeRef = null, _showGlobePopupRef = null;
                         showGlobePopup(buildStatePopup(point.locData), point.lat, point.lng, evt);
                     })
                     .onGlobeClick(function() {
-                        var popup = document.getElementById('globePopup');
-                        popup.style.display = 'none';
-                        if (popupAnimFrame) { cancelAnimationFrame(popupAnimFrame); popupAnimFrame = null; }
+                        hideGlobePopup();
                     });
 
                 globeInstance(globeContainer);
