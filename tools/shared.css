@@ -1797,8 +1797,20 @@ main { display: flex; flex-direction: column; }
     color: #f7931a !important;
 }
 
-/* Choropleth country polygons */
-.leaflet-interactive { transition: fill-opacity 0.2s ease, stroke-opacity 0.2s ease; }
+/* Choropleth country polygons — kill all focus/click highlights */
+.leaflet-interactive,
+.leaflet-interactive:focus,
+.leaflet-interactive:active { outline: none !important; box-shadow: none !important; -webkit-tap-highlight-color: transparent; }
+.leaflet-container {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.leaflet-container:focus,
+.leaflet-container *:focus { outline: none !important; }
+svg path:focus, svg path:active { outline: none !important; }
+.leaflet-pane, .leaflet-pane svg,
+.leaflet-overlay-pane svg path { outline: none !important; -webkit-tap-highlight-color: transparent; }
 
 /* Popup glassmorphism */
 .map-popup-leaflet .leaflet-popup-content-wrapper {

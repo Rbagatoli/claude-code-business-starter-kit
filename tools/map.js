@@ -141,7 +141,7 @@ initNav('map');
     function buildPopup(a2, data) {
         var countryName = GEO_DATA.getCountryName(a2) || a2;
         var totalMiners = data.onlineCount + data.offlineCount;
-        var efficiency = data.totalHashrate > 0 ? (data.totalPower / data.totalHashrate).toFixed(1) : '--';
+        var efficiency = data.totalHashrate > 0 ? ((data.totalPower * 1000) / data.totalHashrate).toFixed(1) : '--';
 
         var modelHtml = '';
         var modelKeys = Object.keys(data.models);
@@ -156,7 +156,7 @@ initNav('map');
             '<div class="map-popup-stats">' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Miners</span><span class="map-popup-value">' + totalMiners + '</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Hashrate</span><span class="map-popup-value">' + data.totalHashrate.toLocaleString() + ' TH/s</span></div>' +
-                '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + data.totalPower.toLocaleString() + ' W</span></div>' +
+                '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + data.totalPower.toLocaleString() + ' kW</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Efficiency</span><span class="map-popup-value">' + efficiency + ' J/TH</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Online</span><span class="map-popup-value" style="color:#4ade80;">' + data.onlineCount + '</span></div>' +
                 '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + data.offlineCount + '</span></div>' +
@@ -165,9 +165,8 @@ initNav('map');
         '</div>';
     }
 
-    // ---- Fetch TopoJSON and render choropleth ----
-    if (countryKeys.length > 0) {
-        fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
+    // ---- Fetch TopoJSON and render choropleth (always load country outlines) ----
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
             .then(function(r) { return r.json(); })
             .then(function(world) {
                 var countriesGeo = topojson.feature(world, world.objects.countries);
@@ -259,7 +258,7 @@ initNav('map');
 
                     var countryName = GEO_DATA.getCountryName(loc.country) || loc.country;
                     var stateName = loc.state + ', ' + countryName;
-                    var stateEff = loc.totalHashrate > 0 ? (loc.totalPower / loc.totalHashrate).toFixed(1) : '--';
+                    var stateEff = loc.totalHashrate > 0 ? ((loc.totalPower * 1000) / loc.totalHashrate).toFixed(1) : '--';
 
                     var stateModelHtml = '';
                     var smKeys = Object.keys(loc.models);
@@ -275,7 +274,7 @@ initNav('map');
                             '<div class="map-popup-stats">' +
                                 '<div class="map-popup-stat"><span class="map-popup-label">Miners</span><span class="map-popup-value">' + stateMiners + '</span></div>' +
                                 '<div class="map-popup-stat"><span class="map-popup-label">Hashrate</span><span class="map-popup-value">' + loc.totalHashrate.toLocaleString() + ' TH/s</span></div>' +
-                                '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + loc.totalPower.toLocaleString() + ' W</span></div>' +
+                                '<div class="map-popup-stat"><span class="map-popup-label">Power</span><span class="map-popup-value">' + loc.totalPower.toLocaleString() + ' kW</span></div>' +
                                 '<div class="map-popup-stat"><span class="map-popup-label">Efficiency</span><span class="map-popup-value">' + stateEff + ' J/TH</span></div>' +
                                 '<div class="map-popup-stat"><span class="map-popup-label">Online</span><span class="map-popup-value" style="color:#4ade80;">' + loc.onlineCount + '</span></div>' +
                                 '<div class="map-popup-stat"><span class="map-popup-label">Offline</span><span class="map-popup-value" style="color:#ef4444;">' + loc.offlineCount + '</span></div>' +
@@ -298,10 +297,9 @@ initNav('map');
                     stateMarker.addTo(map);
                 }
             })
-            .catch(function(err) {
-                console.error('Failed to load country boundaries:', err);
-            });
-    }
+        .catch(function(err) {
+            console.error('Failed to load country boundaries:', err);
+        });
 
     // ---- Update summary metrics ----
     var totalMapped = 0;
@@ -341,14 +339,14 @@ initNav('map');
             var countryName = GEO_DATA.getCountryName(loc.country) || loc.country;
             var locName = loc.state ? (loc.state + ', ' + countryName) : countryName;
             var minerCount = loc.onlineCount + loc.offlineCount;
-            var eff = loc.totalHashrate > 0 ? (loc.totalPower / loc.totalHashrate).toFixed(1) + ' J/TH' : '--';
+            var eff = loc.totalHashrate > 0 ? ((loc.totalPower * 1000) / loc.totalHashrate).toFixed(1) + ' J/TH' : '--';
             var onlinePct = minerCount > 0 ? ((loc.onlineCount / minerCount) * 100).toFixed(0) + '%' : '--';
 
             html += '<tr>' +
                 '<td style="text-align:left">' + locName + '</td>' +
                 '<td style="text-align:right">' + minerCount + '</td>' +
                 '<td style="text-align:right">' + loc.totalHashrate.toLocaleString() + ' TH/s</td>' +
-                '<td style="text-align:right">' + loc.totalPower.toLocaleString() + ' W</td>' +
+                '<td style="text-align:right">' + loc.totalPower.toLocaleString() + ' kW</td>' +
                 '<td style="text-align:right">' + eff + '</td>' +
                 '<td style="text-align:right"><span style="color:' + (onlinePct === '100%' ? '#4ade80' : '#fbbf24') + '">' + onlinePct + '</span></td>' +
                 '</tr>';
@@ -356,13 +354,16 @@ initNav('map');
         tbody.innerHTML = html;
     }
 
-    // ---- Handle empty state ----
+    // ---- Handle empty state (overlay message, don't destroy map) ----
     if (locKeys.length === 0) {
-        document.getElementById('fleetMap').innerHTML =
-            '<div style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center;color:#555;flex-direction:column;gap:8px;">' +
-                '<div style="font-size:36px;opacity:0.4;">&#127758;</div>' +
-                '<p style="font-size:14px;color:#888;">No miners with locations assigned</p>' +
-                '<p style="font-size:12px;color:#555;">Add a country and state when creating miners on the Dashboard</p>' +
-            '</div>';
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#555;flex-direction:column;gap:8px;z-index:500;pointer-events:none;';
+        overlay.innerHTML =
+            '<div style="font-size:36px;opacity:0.4;">&#127758;</div>' +
+            '<p style="font-size:14px;color:#888;">No miners with locations assigned</p>' +
+            '<p style="font-size:12px;color:#555;">Add a country and state when creating miners on the Dashboard</p>';
+        var mapContainer = document.getElementById('fleetMap');
+        mapContainer.style.position = 'relative';
+        mapContainer.appendChild(overlay);
     }
 })();
