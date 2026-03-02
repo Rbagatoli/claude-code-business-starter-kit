@@ -516,13 +516,68 @@ function buildStatePopup(loc) {
 
     if (currentView === 'globe') setView('globe');
 
-    function showGlobePopup(html) {
+    var popupAnimFrame = null;
+
+    function showGlobePopup(html, lat, lng) {
+        var popup = document.getElementById('globePopup');
         document.getElementById('globePopupContent').innerHTML = html;
-        document.getElementById('globePopup').style.display = 'block';
+        popup.dataset.lat = lat;
+        popup.dataset.lng = lng;
+        popup.style.display = 'block';
+        popup.style.opacity = '1';
+        popup.style.pointerEvents = 'auto';
+        updatePopupPosition();
+        if (!popupAnimFrame) startPopupTracking();
+    }
+
+    function updatePopupPosition() {
+        var popup = document.getElementById('globePopup');
+        if (popup.style.display === 'none' || !popup.dataset.lat || !globeInstance) return;
+
+        var lat = parseFloat(popup.dataset.lat);
+        var lng = parseFloat(popup.dataset.lng);
+
+        var screenCoords = globeInstance.getScreenCoords(lat, lng, 0.01);
+        if (!screenCoords) { popup.style.opacity = '0'; popup.style.pointerEvents = 'none'; return; }
+
+        // Back-side detection: raycast back and compare
+        var raycast = globeInstance.toGlobeCoords(screenCoords.x, screenCoords.y);
+        var isVisible = raycast &&
+            Math.abs(raycast.lat - lat) < 10 &&
+            Math.abs(raycast.lng - lng) < 10;
+
+        if (!isVisible) {
+            popup.style.opacity = '0';
+            popup.style.pointerEvents = 'none';
+            return;
+        }
+
+        // Convert to page coordinates
+        var container = document.getElementById('fleetGlobe');
+        var containerRect = container.getBoundingClientRect();
+        var pageX = containerRect.left + screenCoords.x;
+        var pageY = containerRect.top + screenCoords.y;
+
+        popup.style.left = pageX + 'px';
+        popup.style.top = pageY + 'px';
+        popup.style.opacity = '1';
+        popup.style.pointerEvents = 'auto';
+    }
+
+    function startPopupTracking() {
+        function track() {
+            var popup = document.getElementById('globePopup');
+            if (popup.style.display === 'none') { popupAnimFrame = null; return; }
+            updatePopupPosition();
+            popupAnimFrame = requestAnimationFrame(track);
+        }
+        popupAnimFrame = requestAnimationFrame(track);
     }
 
     document.getElementById('globePopupClose').addEventListener('click', function() {
-        document.getElementById('globePopup').style.display = 'none';
+        var popup = document.getElementById('globePopup');
+        popup.style.display = 'none';
+        if (popupAnimFrame) { cancelAnimationFrame(popupAnimFrame); popupAnimFrame = null; }
     });
 
     function initGlobe() {
@@ -581,7 +636,10 @@ function buildStatePopup(loc) {
                         var a2 = NUM_TO_A2[String(feat.id)];
                         var data = a2 ? countryData[a2] : null;
                         if (!data) return;
-                        showGlobePopup(buildPopup(a2, data));
+                        var centroid = GEO_DATA.getCentroid(a2);
+                        var pLat = centroid ? centroid.lat : 0;
+                        var pLng = centroid ? centroid.lng : 0;
+                        showGlobePopup(buildPopup(a2, data), pLat, pLng);
                     })
                     .onPolygonHover(function(hoverFeat) {
                         globeInstance.polygonAltitude(function(feat) {
@@ -628,7 +686,7 @@ function buildStatePopup(loc) {
                         return '<div class="globe-tooltip">' + d.label + ' (' + d.miners + ' miners)</div>';
                     })
                     .onPointClick(function(point) {
-                        showGlobePopup(buildStatePopup(point.locData));
+                        showGlobePopup(buildStatePopup(point.locData), point.lat, point.lng);
                     });
 
                 globeInstance(globeContainer);

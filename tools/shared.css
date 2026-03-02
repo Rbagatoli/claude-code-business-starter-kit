@@ -1816,9 +1816,10 @@ main { display: flex; flex-direction: column; }
 .map-toggle-btn.active { background: rgba(247, 147, 26, 0.15); color: #f7931a; }
 .map-toggle-btn:hover:not(.active) { color: #ccc; }
 
-/* Globe popup overlay */
-.globe-popup { position: fixed; top: 50%; right: 16px; transform: translateY(-50%); max-width: 280px; min-width: 220px; max-height: 80vh; overflow-y: auto; background: rgba(15,15,15,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(247,147,26,0.25); border-radius: 12px; z-index: 1000; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-.globe-popup-close { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #888; font-size: 18px; cursor: pointer; padding: 2px 6px; }
+/* Globe popup — anchored to country */
+.globe-popup { position: fixed; transform: translate(-50%, -100%) translateY(-14px); max-width: 260px; min-width: 200px; max-height: 50vh; overflow-y: auto; background: rgba(15,15,15,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(247,147,26,0.25); border-radius: 10px; z-index: 1000; box-shadow: 0 8px 32px rgba(0,0,0,0.5); transition: opacity 0.15s; }
+.globe-popup::after { content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid rgba(247,147,26,0.25); }
+.globe-popup-close { position: absolute; top: 4px; right: 6px; background: none; border: none; color: #888; font-size: 16px; cursor: pointer; padding: 2px 6px; z-index: 1; }
 .globe-popup-close:hover { color: #fff; }
 .globe-tooltip { background: rgba(15,15,15,0.9); border: 1px solid rgba(247,147,26,0.3); border-radius: 6px; color: #aaa; font-size: 11px; padding: 4px 10px; }
 
