@@ -59,6 +59,12 @@
 }
 [data-theme="light"] #techLinesCanvas { opacity: 0.3; }
 
+/* ===== EMBED MODE (Workstation iframes) ===== */
+html[data-embed] #ion-nav { display: none !important; }
+html[data-embed] #techLinesCanvas { display: none !important; }
+html[data-embed] footer { display: none !important; }
+html[data-embed] main { max-width: none; padding-top: 12px; padding-bottom: 12px; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {

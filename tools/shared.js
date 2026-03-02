@@ -1,5 +1,11 @@
 // ===== ION MINING GROUP — Shared Module =====
 
+// --- Embed Mode Detection (for Workstation multi-pane) ---
+window.ION_EMBED = (new URLSearchParams(window.location.search)).get('embed') === '1';
+if (window.ION_EMBED) {
+    document.documentElement.setAttribute('data-embed', '');
+}
+
 // --- Aggressive SW auto-update: check for new SW on every page load ---
 (function() {
     if (!('serviceWorker' in navigator)) return;
@@ -57,6 +63,7 @@ function switchCurrency(code) {
 function initNav(activePage) {
     const nav = document.getElementById('ion-nav');
     if (!nav) return;
+    if (window.ION_EMBED) { nav.style.display = 'none'; return; }
     nav.className = 'ion-nav';
     var mobile = window.innerWidth < 600;
     var labels = mobile ? ['Calc', 'Data', 'Home', 'Map', 'Pay', 'Acct', 'Wallet'] : ['Calculator', 'Data', 'Dashboard', 'Map', 'Payouts', 'Accounting', 'Wallet'];
@@ -198,6 +205,7 @@ function initNav(activePage) {
 
 // --- Swipe / Slide Page Navigation ---
 (function() {
+    if (window.ION_EMBED) return;
     var pages = ['calculator.html', 'charts.html', 'index.html', 'map.html', 'payouts.html', 'accounting.html', 'wallet.html'];
     var current = pages.indexOf(location.pathname.split('/').pop());
     if (current === -1) current = 0;
@@ -337,6 +345,7 @@ async function fetchLiveMarketData() {
 (function() {
     var canvas = document.getElementById('techLinesCanvas');
     if (!canvas) return;
+    if (window.ION_EMBED) { canvas.style.display = 'none'; return; }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     var ctx = canvas.getContext('2d');
@@ -613,3 +622,17 @@ async function fetchLiveMarketData() {
     resize();
     animId = requestAnimationFrame(draw);
 })();
+
+// ===== WORKSTATION EMBED: postMessage listener for theme/currency sync =====
+if (window.ION_EMBED) {
+    window.addEventListener('message', function(e) {
+        if (!e.data || !e.data.ionMining) return;
+        if (e.data.type === 'themeChange') {
+            document.documentElement.dataset.theme = e.data.value || 'dark';
+            localStorage.setItem('ionMiningTheme', e.data.value);
+        }
+        if (e.data.type === 'currencyChange' && typeof switchCurrency === 'function') {
+            switchCurrency(e.data.value);
+        }
+    });
+}

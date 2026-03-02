@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Mining Group — Workstation</title>
+    <link rel="manifest" href="./manifest.json">
+    <style>
+    :root {
+        --bg: #060606;
+        --bg-nav: rgba(255, 255, 255, 0.04);
+        --text: #e8e8e8;
+        --text-muted: #888;
+        --border: rgba(255, 255, 255, 0.06);
+        --accent: #f7931a;
+    }
+    [data-theme="light"] {
+        --bg: #f5f5f5;
+        --bg-nav: rgba(255, 255, 255, 0.92);
+        --text: #1a1a1a;
+        --text-muted: #666;
+        --border: rgba(0, 0, 0, 0.08);
+        --accent: #f7931a;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+    .ws-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        background: var(--bg-nav);
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        height: 48px;
+        flex-shrink: 0;
+    }
+    .ws-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        color: var(--text);
+        font-weight: 600;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    .ws-brand svg { flex-shrink: 0; }
+    .ws-pane-selectors {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex: 1;
+        padding: 0 16px;
+    }
+    .ws-pane-select-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .ws-pane-select-group label {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .ws-pane-select-group select {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: var(--text);
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    [data-theme="light"] .ws-pane-select-group select {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.12);
+        color: var(--text);
+    }
+    .ws-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    .ws-actions select {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: var(--text);
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    [data-theme="light"] .ws-actions select {
+        background: rgba(0,0,0,0.04);
+        border-color: rgba(0,0,0,0.12);
+        color: var(--text);
+    }
+    .ws-actions button {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        transition: background 0.2s, color 0.2s;
+    }
+    .ws-actions button:hover {
+        background: rgba(255,255,255,0.06);
+        color: var(--accent);
+    }
+    .ws-exit-btn {
+        font-size: 12px;
+        color: var(--accent);
+        text-decoration: none;
+        padding: 4px 10px;
+        border: 1px solid rgba(247, 147, 26, 0.3);
+        border-radius: 5px;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
+    .ws-exit-btn:hover {
+        background: rgba(247, 147, 26, 0.15);
+    }
+    .ws-panes {
+        display: grid;
+        height: calc(100vh - 48px);
+        gap: 1px;
+        background: var(--border);
+    }
+    .ws-panes.panes-1 { grid-template-columns: 1fr; }
+    .ws-panes.panes-2 { grid-template-columns: 1fr 1fr; }
+    .ws-panes.panes-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .ws-pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+    }
+    .ws-pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 10px;
+        background: rgba(247, 147, 26, 0.05);
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+        height: 24px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .ws-pane iframe {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: var(--bg);
+    }
+    .ws-narrow-msg {
+        display: none;
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+    .ws-narrow-msg a { color: var(--accent); }
+    </style>
+</head>
+<body>
+    <nav class="ws-nav">
+        <a class="ws-brand" href="./index.html">
+            <svg width="24" height="24" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="8" fill="#f7931a"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(120 50 50)"/></svg>
+            <span>Workstation</span>
+        </a>
+        <div class="ws-pane-selectors" id="paneSelectors"></div>
+        <div class="ws-actions">
+            <select id="wsCurrency"></select>
+            <button id="wsTheme" title="Toggle theme"></button>
+            <a href="./index.html" class="ws-exit-btn" title="Exit Workstation">Exit</a>
+        </div>
+    </nav>
+    <div class="ws-panes" id="paneContainer"></div>
+    <div class="ws-narrow-msg" id="narrowMsg">
+        Your screen is too narrow for multi-pane view.<br>
+        <a href="./index.html">Switch to normal view</a>
+    </div>
+
+<script>
+(function() {
+    var PAGES = [
+        { id: 'dashboard',  label: 'Dashboard',  file: 'index.html' },
+        { id: 'calculator', label: 'Calculator',  file: 'calculator.html' },
+        { id: 'charts',     label: 'Charts',      file: 'charts.html' },
+        { id: 'map',        label: 'Map',         file: 'map.html' },
+        { id: 'payouts',    label: 'Payouts',     file: 'payouts.html' },
+        { id: 'accounting', label: 'Accounting',  file: 'accounting.html' },
+        { id: 'wallet',     label: 'Wallet',      file: 'wallet.html' }
+    ];
+
+    var STORAGE_KEY = 'ionMiningWorkstation';
+    var THEME_KEY = 'ionMiningTheme';
+    var CURRENCY_KEY = 'ionMiningCurrency';
+    var CURRENCIES = { usd: 'USD', eur: 'EUR', gbp: 'GBP', cad: 'CAD', aud: 'AUD', jpy: 'JPY' };
+
+    var SUN_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+    var MOON_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+    function getMaxPanes() {
+        var w = window.innerWidth;
+        if (w >= 2600) return 3;
+        if (w >= 1400) return 2;
+        return 1;
+    }
+
+    function findPage(id) {
+        for (var i = 0; i < PAGES.length; i++) {
+            if (PAGES[i].id === id) return PAGES[i];
+        }
+        return null;
+    }
+
+    function loadConfig() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch(e) {}
+        return { panes: ['dashboard', 'charts', 'map'] };
+    }
+
+    function saveConfig(config) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        var btn = document.getElementById('wsTheme');
+        if (btn) btn.innerHTML = (theme === 'light') ? MOON_SVG : SUN_SVG;
+    }
+
+    function initCurrencySelect() {
+        var sel = document.getElementById('wsCurrency');
+        var current = localStorage.getItem(CURRENCY_KEY) || 'usd';
+        var html = '';
+        for (var k in CURRENCIES) {
+            html += '<option value="' + k + '"' + (k === current ? ' selected' : '') + '>' + CURRENCIES[k] + '</option>';
+        }
+        sel.innerHTML = html;
+    }
+
+    function broadcastToIframes(type, value) {
+        var iframes = document.querySelectorAll('.ws-pane iframe');
+        for (var i = 0; i < iframes.length; i++) {
+            try {
+                iframes[i].contentWindow.postMessage({ ionMining: true, type: type, value: value }, '*');
+            } catch(e) {}
+        }
+    }
+
+    function render() {
+        var maxPanes = getMaxPanes();
+        var container = document.getElementById('paneContainer');
+        var narrowMsg = document.getElementById('narrowMsg');
+
+        if (maxPanes < 2) {
+            container.style.display = 'none';
+            narrowMsg.style.display = 'block';
+            document.getElementById('paneSelectors').innerHTML = '';
+            return;
+        }
+        container.style.display = 'grid';
+        narrowMsg.style.display = 'none';
+
+        var config = loadConfig();
+        var activePanes = config.panes.slice(0, maxPanes);
+        while (activePanes.length < 1) activePanes.push('dashboard');
+
+        // Build pane selectors
+        var selectorsDiv = document.getElementById('paneSelectors');
+        selectorsDiv.innerHTML = '';
+        for (var i = 0; i < maxPanes; i++) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'ws-pane-select-group';
+
+            var label = document.createElement('label');
+            label.textContent = (i + 1) + ':';
+
+            var select = document.createElement('select');
+            select.dataset.paneIndex = i;
+
+            if (i > 0) {
+                var noneOpt = document.createElement('option');
+                noneOpt.value = '';
+                noneOpt.textContent = '-- None --';
+                select.appendChild(noneOpt);
+            }
+
+            for (var p = 0; p < PAGES.length; p++) {
+                var opt = document.createElement('option');
+                opt.value = PAGES[p].id;
+                opt.textContent = PAGES[p].label;
+                if (activePanes[i] === PAGES[p].id) opt.selected = true;
+                select.appendChild(opt);
+            }
+
+            select.addEventListener('change', onPaneSelect);
+            wrapper.appendChild(label);
+            wrapper.appendChild(select);
+            selectorsDiv.appendChild(wrapper);
+        }
+
+        // Build iframe panes
+        container.innerHTML = '';
+        var visiblePanes = [];
+        for (var v = 0; v < activePanes.length; v++) {
+            if (activePanes[v]) visiblePanes.push(activePanes[v]);
+        }
+        if (visiblePanes.length === 0) visiblePanes = ['dashboard'];
+
+        container.className = 'ws-panes panes-' + visiblePanes.length;
+
+        for (var j = 0; j < visiblePanes.length; j++) {
+            var page = findPage(visiblePanes[j]);
+            if (!page) continue;
+
+            var pane = document.createElement('div');
+            pane.className = 'ws-pane';
+
+            var header = document.createElement('div');
+            header.className = 'ws-pane-header';
+            header.textContent = page.label;
+            pane.appendChild(header);
+
+            var iframe = document.createElement('iframe');
+            iframe.src = './' + page.file + '?embed=1';
+            iframe.title = page.label;
+            if (j > 0) iframe.loading = 'lazy';
+            pane.appendChild(iframe);
+
+            container.appendChild(pane);
+        }
+    }
+
+    function onPaneSelect(e) {
+        var index = parseInt(e.target.dataset.paneIndex);
+        var config = loadConfig();
+        var maxPanes = getMaxPanes();
+        while (config.panes.length < maxPanes) config.panes.push('');
+        config.panes[index] = e.target.value;
+        saveConfig(config);
+        render();
+    }
+
+    // Resize handler
+    var resizeTimer;
+    var lastMaxPanes = getMaxPanes();
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            var newMax = getMaxPanes();
+            if (newMax !== lastMaxPanes) {
+                lastMaxPanes = newMax;
+                render();
+            }
+        }, 300);
+    });
+
+    // Sync theme/currency from iframes via storage event
+    window.addEventListener('storage', function(e) {
+        if (e.key === THEME_KEY) applyTheme(e.newValue || 'dark');
+        if (e.key === CURRENCY_KEY) {
+            var sel = document.getElementById('wsCurrency');
+            if (sel) sel.value = e.newValue || 'usd';
+        }
+    });
+
+    // Theme toggle
+    document.getElementById('wsTheme').addEventListener('click', function() {
+        var current = document.documentElement.dataset.theme || 'dark';
+        var next = (current === 'dark') ? 'light' : 'dark';
+        localStorage.setItem(THEME_KEY, next);
+        applyTheme(next);
+        broadcastToIframes('themeChange', next);
+    });
+
+    // Currency change
+    document.getElementById('wsCurrency').addEventListener('change', function() {
+        localStorage.setItem(CURRENCY_KEY, this.value);
+        broadcastToIframes('currencyChange', this.value);
+    });
+
+    // Init
+    applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+    initCurrencySelect();
+    render();
+})();
+</script>
+</body>
+</html>
