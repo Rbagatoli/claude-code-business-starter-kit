@@ -793,8 +793,7 @@ var _globeRef = null, _showGlobePopupRef = null;
             }, 1100);
         } else {
             if (!leafletMap) return;
-            var zoom = state ? 6 : 5;
-            leafletMap.flyTo([centroid.lat, centroid.lng], zoom, { duration: 1 });
+            leafletMap.flyTo([centroid.lat, centroid.lng], leafletMap.getZoom(), { duration: 1 });
 
             setTimeout(function() {
                 if (state && leafletStateMarkers[locKey]) {
