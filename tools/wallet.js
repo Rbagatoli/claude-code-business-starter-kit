@@ -203,7 +203,7 @@ async function fetchStrikeData() {
                     source: 'Strike',
                     sourceType: 'Deposit',
                     timestamp: new Date(dep.created || dep.completedAt || dep.createdAt).getTime() / 1000,
-                    amount: parseStrikeAmount(dep.amount || dep),
+                    amount: parseStrikeAmount(dep.amount || dep.amountReceived || dep),
                     status: dep.state || dep.status || 'completed',
                     id: dep.depositId || dep.id || ''
                 });
@@ -219,7 +219,7 @@ async function fetchStrikeData() {
                     source: 'Strike',
                     sourceType: 'Payout',
                     timestamp: new Date(pay.created || pay.completedAt || pay.createdAt).getTime() / 1000,
-                    amount: -parseStrikeAmount(pay.amount || pay),
+                    amount: -parseStrikeAmount(pay.amount || pay.amountPaid || pay),
                     status: pay.state || pay.status || 'completed',
                     id: pay.payoutId || pay.id || ''
                 });
@@ -235,7 +235,7 @@ async function fetchStrikeData() {
                     source: 'Strike',
                     sourceType: 'Receive',
                     timestamp: new Date(rec.created || rec.completedAt || rec.createdAt).getTime() / 1000,
-                    amount: parseStrikeAmount(rec.amount || rec),
+                    amount: parseStrikeAmount(rec.amountReceived || rec.amountCredited || rec.amount || rec),
                     status: rec.state || rec.status || 'completed',
                     id: rec.receiveId || rec.id || ''
                 });
@@ -679,10 +679,11 @@ document.getElementById('testStrike').addEventListener('click', async function()
     FleetData.saveSettings(settings);
 
     if (data && !data.error) {
-        var balArr = Array.isArray(data) ? data : (data.items || [data]);
+        var balances = data.balances || data;
+        var balArr = Array.isArray(balances) ? balances : (balances.items || [balances]);
         var info = [];
         for (var i = 0; i < balArr.length; i++) {
-            info.push(balArr[i].currency + ': ' + balArr[i].amount);
+            info.push(balArr[i].currency + ': ' + (balArr[i].available || balArr[i].total || '0'));
         }
         result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
     } else {

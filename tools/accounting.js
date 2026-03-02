@@ -273,7 +273,7 @@ document.getElementById('testStrikeAcct').addEventListener('click', async functi
         var balances = data.balances || data;
         var balArr = Array.isArray(balances) ? balances : (balances.items || [balances]);
         var info = [];
-        for (var i = 0; i < balArr.length; i++) info.push(balArr[i].currency + ': ' + balArr[i].amount);
+        for (var i = 0; i < balArr.length; i++) info.push(balArr[i].currency + ': ' + (balArr[i].available || balArr[i].total || balArr[i].amount || '0'));
         result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
     } else {
         result.innerHTML = '<span style="color:#f55;">Failed: ' + ((data && data.error) || 'Unknown') + '</span>';
@@ -379,7 +379,7 @@ function buildUnifiedPnL() {
             var sItem = allStrikeIn[si];
             var sDate = strikeItemDate(sItem);
             if (sDate >= acctPeriod.start && sDate <= acctPeriod.end) {
-                var sAmt = parseStrikeAmountAcct(sItem.amount);
+                var sAmt = parseStrikeAmountAcct(sItem.amountReceived || sItem.amountCredited || sItem.amount);
                 totalRevenueBtc += sAmt.btc;
                 totalRevenueUsd += sAmt.usd;
                 revenueEntries.push({
@@ -433,7 +433,7 @@ function buildUnifiedPnL() {
             var sPay = strikeAcctData.payouts[sp];
             var spDate = strikeItemDate(sPay);
             if (spDate >= acctPeriod.start && spDate <= acctPeriod.end) {
-                var spAmt = parseStrikeAmountAcct(sPay.amount);
+                var spAmt = parseStrikeAmountAcct(sPay.amount || sPay.amountPaid);
                 totalExpenses += spAmt.usd;
                 expenseEntries.push({
                     date: spDate,
