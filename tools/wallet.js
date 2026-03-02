@@ -928,16 +928,22 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
             amount: { amount: amt, currency: cur }
         }, pin);
     } else {
-        var tier = document.getElementById('sendTier').value;
+        var tierSelect = document.getElementById('sendTier');
+        var tier = tierSelect.value;
+        if (!tier) {
+            result.innerHTML = '<span style="color:#888;">Loading fee tiers...</span>';
+            await loadOnchainTiers();
+            tier = tierSelect.value;
+        }
+        if (!tier) {
+            result.innerHTML = '<span style="color:#f55;">Could not load fee tiers</span>';
+            return;
+        }
         var body = {
             btcAddress: dest,
             sourceCurrency: cur,
             amount: { amount: amt, currency: cur, feePolicy: 'EXCLUSIVE' }
         };
-        if (!tier) {
-            result.innerHTML = '<span style="color:#f55;">Select a network fee tier first</span>';
-            return;
-        }
         body.onchainTierId = tier;
         quoteData = await StrikeAPI.sendQuoteOnchain(body, pin);
     }
