@@ -1,64 +1,93 @@
 // ===== ION MINING GROUP — Onboarding Wizard =====
-// 3-step first-time user overlay. Shows once per device.
-// Stored as ionMiningOnboarded in localStorage (not synced).
+// 9-step guided tour across all pages. Shows once per device.
+// Progress stored in localStorage so it survives page navigation.
 
 (function initOnboarding() {
     var ONBOARDED_KEY = 'ionMiningOnboarded';
+    var STEP_KEY = 'ionMiningStep';
 
-    // Only run on dashboard page
-    if (!document.getElementById('btnAddMiner')) return;
-
-    // Already onboarded
+    // Already completed onboarding
     if (localStorage.getItem(ONBOARDED_KEY)) return;
 
-    var currentStep = 0;
     var steps = [
         {
             title: 'Welcome to Ion Mining',
-            body: 'Your all-in-one BTC mining dashboard. Track your fleet, monitor earnings, manage wallets, and analyze profitability — all in one place.',
-            target: null
+            body: 'Your all-in-one BTC mining dashboard. Track your fleet, monitor earnings, manage wallets, and analyze profitability \u2014 all in one place.',
+            target: null,
+            page: 'index.html'
         },
         {
             title: 'Add Your First Miner',
             body: 'Start by adding your ASIC miners. Enter the model, hashrate, and power draw to see fleet-wide stats and estimated daily earnings.',
-            target: 'btnAddMiner'
+            target: 'btnAddMiner',
+            page: 'index.html'
         },
         {
             title: 'Connect Your Pool',
             body: 'Link your F2Pool account to pull live hashrate, worker status, and earnings data directly into the dashboard.',
-            target: 'btnConnectAPI'
+            target: 'btnConnectAPI',
+            page: 'index.html'
         },
         {
             title: 'Calculator',
             body: 'Project your mining profitability over time with adjustable difficulty, price, and halving parameters. Compare miners side-by-side.',
-            target: null
+            target: null,
+            page: 'calculator.html'
         },
         {
             title: 'Payouts',
             body: 'Track your mining earnings and payout history. See what you\'ve earned and when it arrived.',
-            target: null
+            target: null,
+            page: 'payouts.html'
         },
         {
             title: 'Network Data',
             body: 'Live Bitcoin price, network difficulty, and hashrate charts. Stay on top of the metrics that affect your mining profitability.',
-            target: null
+            target: null,
+            page: 'charts.html'
         },
         {
             title: 'Wallet',
             body: 'Watch-only wallet monitoring. Track your BTC balances and transactions without exposing private keys.',
-            target: null
+            target: null,
+            page: 'wallet.html'
         },
         {
             title: 'Map',
             body: 'Visualize your fleet\'s geographic distribution on an interactive map and 3D globe. Click any location for details.',
-            target: null
+            target: null,
+            page: 'map.html'
         },
         {
             title: 'Accounting',
             body: 'Financial summaries and tax reporting tools. Keep your mining operation\'s books in order.',
-            target: null
+            target: null,
+            page: 'accounting.html'
         }
     ];
+
+    // Detect current page from URL
+    var path = location.pathname;
+    var currentPage = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+
+    // Read stored step (or start at 0 if on dashboard for first time)
+    var storedStep = localStorage.getItem(STEP_KEY);
+    var currentStep = storedStep !== null ? parseInt(storedStep, 10) : 0;
+
+    // Validate step range
+    if (currentStep < 0 || currentStep >= steps.length) {
+        localStorage.removeItem(STEP_KEY);
+        return;
+    }
+
+    // Only show wizard if we're on the correct page for the current step
+    if (steps[currentStep].page !== currentPage) {
+        // First visit with no stored step — only start on dashboard
+        if (storedStep === null && currentPage !== 'index.html') return;
+        // Stored step exists but we're on wrong page — user navigated away, don't show
+        if (storedStep !== null) return;
+        return;
+    }
 
     // Inject overlay
     var overlay = document.createElement('div');
@@ -77,6 +106,22 @@
     overlay.appendChild(spotlight);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+
+    function highlightNavTab(page) {
+        // Remove previous highlights
+        var tabs = document.querySelectorAll('.ion-nav-tabs a');
+        for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove('onboard-highlight');
+        }
+        // Find and highlight the matching tab
+        var href = './' + page;
+        for (var j = 0; j < tabs.length; j++) {
+            if (tabs[j].getAttribute('href') === href) {
+                tabs[j].classList.add('onboard-highlight');
+                break;
+            }
+        }
+    }
 
     function renderStep() {
         var step = steps[currentStep];
@@ -101,12 +146,24 @@
             if (isLast) {
                 finish();
             } else {
-                currentStep++;
-                renderStep();
+                var nextStep = currentStep + 1;
+                var nextPage = steps[nextStep].page;
+                if (nextPage !== currentPage) {
+                    // Navigate to the next page — wizard continues there
+                    localStorage.setItem(STEP_KEY, String(nextStep));
+                    window.location.href = './' + nextPage;
+                } else {
+                    currentStep = nextStep;
+                    localStorage.setItem(STEP_KEY, String(currentStep));
+                    renderStep();
+                }
             }
         });
 
-        // Spotlight target
+        // Highlight nav tab for current step's page
+        highlightNavTab(step.page);
+
+        // Spotlight target (only for elements on this page)
         if (step.target) {
             var el = document.getElementById(step.target);
             if (el) {
@@ -116,7 +173,6 @@
                 spotlight.style.left = (rect.left - 8) + 'px';
                 spotlight.style.width = (rect.width + 16) + 'px';
                 spotlight.style.height = (rect.height + 16) + 'px';
-                // Scroll target into view
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         } else {
@@ -126,9 +182,19 @@
 
     function finish() {
         localStorage.setItem(ONBOARDED_KEY, '1');
+        localStorage.removeItem(STEP_KEY);
+        // Remove nav highlight
+        var tabs = document.querySelectorAll('.ion-nav-tabs a');
+        for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove('onboard-highlight');
+        }
         overlay.classList.add('fade-out');
         setTimeout(function() {
             overlay.remove();
+            // If not on dashboard, go back
+            if (currentPage !== 'index.html') {
+                window.location.href = './index.html';
+            }
         }, 300);
     }
 

@@ -1635,6 +1635,15 @@ footer {
 [data-theme="light"] .toggle-btn { background: rgba(0,0,0,0.04); color: var(--text); border-color: var(--border); }
 
 /* ===== Onboarding Wizard ===== */
+.onboard-highlight {
+    animation: onboard-pulse 1.5s ease-in-out infinite;
+    border-radius: 6px;
+}
+@keyframes onboard-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(247, 147, 26, 0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(247, 147, 26, 0); }
+}
+
 .onboard-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.85); z-index: 10000;
