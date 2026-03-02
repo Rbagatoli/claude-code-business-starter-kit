@@ -1,18 +1,18 @@
 // ===== ION MINING GROUP — Shared Module =====
 
-// --- One-time SW cleanup (removes old cached service workers) ---
+// --- Aggressive SW auto-update: check for new SW on every page load ---
 (function() {
-    if (localStorage.getItem('sw_clean_v68')) return;
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.getRegistrations().then(function(regs) {
-        var promises = regs.map(function(r) { return r.unregister(); });
-        promises.push(caches.keys().then(function(keys) {
-            return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-        }));
-        Promise.all(promises).then(function() {
-            localStorage.setItem('sw_clean_v68', '1');
-            location.reload();
-        });
+    navigator.serviceWorker.register('./sw.js').then(function(reg) {
+        // Force check for updated SW on every visit
+        reg.update();
+    });
+    // When a new SW takes over, reload to get fresh assets
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (refreshing) return;
+        refreshing = true;
+        location.reload();
     });
 })();
 
