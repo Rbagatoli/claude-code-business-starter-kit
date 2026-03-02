@@ -1060,13 +1060,11 @@ document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     var secret = generateBase32Secret(16);
     var otpauthUri = 'otpauth://totp/IonMining:dashboard?secret=' + secret + '&issuer=IonMining';
 
-    // Show result panel FIRST (canvas can't render in display:none)
     document.getElementById('twofa-secret-display').textContent = secret;
     document.getElementById('twofa-setup-content').style.display = 'none';
     document.getElementById('twofa-setup-result').style.display = '';
 
-    // Generate QR code client-side AFTER container is visible
+    // QR code via API
     var qrEl = document.getElementById('twofa-qr');
-    qrEl.innerHTML = '';
-    new QRCode(qrEl, { text: otpauthUri, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff' });
+    qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' + encodeURIComponent(otpauthUri);
 });
