@@ -62,12 +62,9 @@ function switchCurrency(code) {
     if (window.liveBtcPrices[code]) {
         window.liveBtcPrice = window.liveBtcPrices[code];
     }
-    // Reset sparkline for new currency
+    // Re-seed sparkline with 24h history for new currency
     window.ionNavPriceHistory = [];
-    if (window.liveBtcPrice) {
-        window.ionNavPriceHistory.push({ time: Date.now(), price: window.liveBtcPrice });
-    }
-    renderNavSparkline();
+    if (typeof seedNavSparkline === 'function') seedNavSparkline();
     if (typeof window.onCurrencyChange === 'function') window.onCurrencyChange();
 }
 
@@ -312,16 +309,45 @@ function updateNavSparklinePrice() {
         .catch(function() {});
 }
 
+function seedNavSparkline() {
+    var cur = window.selectedCurrency || 'usd';
+    fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=' + cur + '&days=1')
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(data) {
+            if (!data || !data.prices || data.prices.length === 0) return;
+            var prices = data.prices;
+            // Sample evenly to get NAV_SPARKLINE_MAX_POINTS
+            var step = Math.max(1, Math.floor(prices.length / NAV_SPARKLINE_MAX_POINTS));
+            window.ionNavPriceHistory = [];
+            for (var i = 0; i < prices.length; i += step) {
+                window.ionNavPriceHistory.push({ time: prices[i][0], price: Math.round(prices[i][1]) });
+            }
+            // Ensure last point is the most recent
+            var last = prices[prices.length - 1];
+            var lastEntry = window.ionNavPriceHistory[window.ionNavPriceHistory.length - 1];
+            if (lastEntry.time !== last[0]) {
+                window.ionNavPriceHistory.push({ time: last[0], price: Math.round(last[1]) });
+            }
+            while (window.ionNavPriceHistory.length > NAV_SPARKLINE_MAX_POINTS) {
+                window.ionNavPriceHistory.shift();
+            }
+            // Update global price
+            window.liveBtcPrice = Math.round(last[1]);
+            window.liveBtcPrices[cur] = window.liveBtcPrice;
+            renderNavSparkline();
+        })
+        .catch(function() {
+            // Fallback: just fetch current price
+            updateNavSparklinePrice();
+        });
+}
+
 function startNavSparkline() {
     if (window.ION_EMBED) return;
     if (window.innerWidth < 600) return;
 
-    if (window.liveBtcPrice) {
-        window.ionNavPriceHistory.push({ time: Date.now(), price: window.liveBtcPrice });
-        renderNavSparkline();
-    }
-
-    updateNavSparklinePrice();
+    // Seed with 24h history for immediate chart
+    seedNavSparkline();
 
     if (_navSparklineInterval) clearInterval(_navSparklineInterval);
     _navSparklineInterval = setInterval(updateNavSparklinePrice, NAV_SPARKLINE_POLL_MS);
