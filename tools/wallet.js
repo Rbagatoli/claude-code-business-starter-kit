@@ -137,13 +137,87 @@ var StrikeAPI = (function() {
         }
     }
 
+    async function apiPostWithPin(route, body, pin) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var res = await fetch(proxy.replace(/\/$/, '') + route, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Dashboard-Pin': pin },
+                body: JSON.stringify(body)
+            });
+            var data = await res.json();
+            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
+            return data;
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
+    }
+
+    async function apiPatchWithPin(route, body, pin) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var res = await fetch(proxy.replace(/\/$/, '') + route, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-Dashboard-Pin': pin },
+                body: JSON.stringify(body || {})
+            });
+            var data = await res.json();
+            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
+            return data;
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
+    }
+
+    async function apiGetWithPin(route, pin) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var res = await fetch(proxy.replace(/\/$/, '') + route, {
+                headers: { 'X-Dashboard-Pin': pin }
+            });
+            var data = await res.json();
+            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
+            return data;
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
+    }
+
+    async function sendQuoteLightning(body, pin) {
+        return await apiPostWithPin('/send/quote/lightning', body, pin);
+    }
+
+    async function sendQuoteOnchain(body, pin) {
+        return await apiPostWithPin('/send/quote/onchain', body, pin);
+    }
+
+    async function getOnchainTiers(body, pin) {
+        return await apiPostWithPin('/send/onchain-tiers', body, pin);
+    }
+
+    async function executeSend(quoteId, pin) {
+        return await apiPatchWithPin('/send/execute/' + quoteId, {}, pin);
+    }
+
+    async function getSendStatus(paymentId, pin) {
+        return await apiGetWithPin('/send/status/' + paymentId, pin);
+    }
+
     return {
         getBalances: getBalances,
         getDeposits: getDeposits,
         getPayouts: getPayouts,
         getReceives: getReceives,
         getInvoices: getInvoices,
-        testConnection: testConnection
+        testConnection: testConnection,
+        sendQuoteLightning: sendQuoteLightning,
+        sendQuoteOnchain: sendQuoteOnchain,
+        getOnchainTiers: getOnchainTiers,
+        executeSend: executeSend,
+        getSendStatus: getSendStatus
     };
 })();
 
@@ -155,6 +229,7 @@ function loadStrikeSettings() {
         strikeConnected = true;
         updateStrikeStatus('Connected');
     }
+    updateSendButton();
 }
 
 function updateStrikeStatus(label) {
@@ -707,6 +782,7 @@ document.getElementById('saveStrike').addEventListener('click', async function()
     FleetData.saveSettings(settings);
     strikeConnected = true;
     updateStrikeStatus('Connected');
+    updateSendButton();
     document.getElementById('strikeConnectPanel').classList.remove('open');
     await loadAndRefreshWallet();
 });
@@ -719,8 +795,211 @@ function disconnectStrike() {
     strikeBalances = null;
     strikeTransactions = [];
     updateStrikeStatus(null);
+    updateSendButton();
     renderWallet();
     renderTransactionHistory();
 }
 // Make available globally for inline onclick
 window.disconnectStrike = disconnectStrike;
+
+// ===== SEND BTC PANEL =====
+var activeSendQuote = null;
+var quoteExpiryInterval = null;
+
+// Show send button only when Strike is connected
+function updateSendButton() {
+    var btn = document.getElementById('btnSendBtc');
+    if (btn) btn.style.display = strikeConnected ? '' : 'none';
+}
+
+document.getElementById('btnSendBtc').addEventListener('click', function() {
+    document.getElementById('sendStep1').style.display = '';
+    document.getElementById('sendStep2').style.display = 'none';
+    document.getElementById('sendResult').innerHTML = '';
+    document.getElementById('sendPin').value = '';
+    document.getElementById('sendPinConfirm').value = '';
+    document.getElementById('sendDest').value = '';
+    document.getElementById('sendAmount').value = '';
+    activeSendQuote = null;
+    updateSendTypeUI();
+    document.getElementById('sendBtcPanel').classList.toggle('open');
+});
+
+document.getElementById('cancelSend').addEventListener('click', function() {
+    document.getElementById('sendBtcPanel').classList.remove('open');
+    clearQuoteExpiry();
+});
+
+document.getElementById('cancelQuote').addEventListener('click', function() {
+    document.getElementById('sendStep1').style.display = '';
+    document.getElementById('sendStep2').style.display = 'none';
+    document.getElementById('sendResult').innerHTML = '';
+    clearQuoteExpiry();
+});
+
+document.getElementById('sendType').addEventListener('change', updateSendTypeUI);
+
+function updateSendTypeUI() {
+    var type = document.getElementById('sendType').value;
+    var destLabel = document.getElementById('sendDestLabel');
+    var dest = document.getElementById('sendDest');
+    var amountGroup = document.getElementById('sendAmountGroup');
+    var tierGroup = document.getElementById('sendTierGroup');
+
+    if (type === 'lightning') {
+        destLabel.textContent = 'Lightning Invoice';
+        dest.placeholder = 'lnbc...';
+        amountGroup.style.display = '';
+        tierGroup.style.display = 'none';
+    } else {
+        destLabel.textContent = 'BTC Address';
+        dest.placeholder = 'bc1q... or 1... or 3...';
+        amountGroup.style.display = '';
+        tierGroup.style.display = '';
+        loadOnchainTiers();
+    }
+}
+
+async function loadOnchainTiers() {
+    var pin = document.getElementById('sendPin').value;
+    var tierSelect = document.getElementById('sendTier');
+    tierSelect.innerHTML = '<option value="">Loading tiers...</option>';
+
+    var addr = document.getElementById('sendDest').value.trim();
+    var amt = document.getElementById('sendAmount').value.trim();
+    var cur = document.getElementById('sendCurrency').value;
+    if (!addr || !amt || !pin) {
+        tierSelect.innerHTML = '<option value="">Enter address, amount & PIN first</option>';
+        return;
+    }
+
+    var body = { btcAddress: addr, amount: { amount: amt, currency: cur } };
+    var data = await StrikeAPI.getOnchainTiers(body, pin);
+    if (data && !data.error && Array.isArray(data)) {
+        tierSelect.innerHTML = '';
+        for (var i = 0; i < data.length; i++) {
+            var t = data[i];
+            var fee = t.estimatedFee ? t.estimatedFee.amount + ' ' + t.estimatedFee.currency : 'free';
+            var mins = t.estimatedDeliveryDurationInMin || '?';
+            var opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.id.replace('tier_', '') + ' (~' + mins + ' min, fee: ' + fee + ')';
+            tierSelect.appendChild(opt);
+        }
+    } else {
+        tierSelect.innerHTML = '<option value="">' + (data.error || 'Could not load tiers') + '</option>';
+    }
+}
+
+// Get Quote
+document.getElementById('btnGetQuote').addEventListener('click', async function() {
+    var type = document.getElementById('sendType').value;
+    var dest = document.getElementById('sendDest').value.trim();
+    var amt = document.getElementById('sendAmount').value.trim();
+    var cur = document.getElementById('sendCurrency').value;
+    var pin = document.getElementById('sendPin').value;
+    var result = document.getElementById('sendResult');
+
+    if (!dest) { result.innerHTML = '<span style="color:#f55;">Enter a destination</span>'; return; }
+    if (!amt) { result.innerHTML = '<span style="color:#f55;">Enter an amount</span>'; return; }
+    if (!pin) { result.innerHTML = '<span style="color:#f55;">Enter your PIN</span>'; return; }
+
+    result.innerHTML = '<span style="color:#888;">Getting quote...</span>';
+
+    var quoteData;
+    if (type === 'lightning') {
+        quoteData = await StrikeAPI.sendQuoteLightning({
+            lnInvoice: dest,
+            sourceCurrency: cur,
+            amount: { amount: amt, currency: cur }
+        }, pin);
+    } else {
+        var tier = document.getElementById('sendTier').value;
+        var body = {
+            btcAddress: dest,
+            sourceCurrency: cur,
+            amount: { amount: amt, currency: cur, feePolicy: 'EXCLUSIVE' }
+        };
+        if (tier) body.onchainTierId = tier;
+        quoteData = await StrikeAPI.sendQuoteOnchain(body, pin);
+    }
+
+    if (quoteData && !quoteData.error && quoteData.paymentQuoteId) {
+        activeSendQuote = quoteData;
+        showQuoteConfirmation(quoteData, type, dest);
+        result.innerHTML = '';
+    } else {
+        result.innerHTML = '<span style="color:#f55;">' + (quoteData.error || 'Quote failed') + '</span>';
+    }
+});
+
+function showQuoteConfirmation(quote, type, dest) {
+    document.getElementById('sendStep1').style.display = 'none';
+    document.getElementById('sendStep2').style.display = '';
+    document.getElementById('sendPinConfirm').value = '';
+
+    var totalAmt = quote.totalAmount ? quote.totalAmount.amount + ' ' + quote.totalAmount.currency : '?';
+    var totalFee = quote.totalFee ? quote.totalFee.amount + ' ' + quote.totalFee.currency : '0';
+    var destShort = dest.length > 30 ? dest.substring(0, 15) + '...' + dest.substring(dest.length - 15) : dest;
+
+    var html = '<div><strong>Type:</strong> ' + (type === 'lightning' ? 'Lightning' : 'On-chain') + '</div>';
+    html += '<div><strong>To:</strong> <span style="word-break:break-all; color:#aaa;">' + destShort + '</span></div>';
+    html += '<div><strong>Total:</strong> <span style="color:#f7931a;">' + totalAmt + '</span></div>';
+    html += '<div><strong>Fee:</strong> ' + totalFee + '</div>';
+    if (quote.conversionRate) {
+        html += '<div><strong>Rate:</strong> 1 BTC = ' + (1 / parseFloat(quote.conversionRate.amount || 1)).toFixed(2) + ' ' + quote.conversionRate.sourceCurrency + '</div>';
+    }
+
+    document.getElementById('quoteDetails').innerHTML = html;
+
+    // Expiry countdown
+    clearQuoteExpiry();
+    if (quote.validUntil) {
+        var expiry = new Date(quote.validUntil).getTime();
+        quoteExpiryInterval = setInterval(function() {
+            var remaining = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+            document.getElementById('quoteExpiry').textContent = remaining > 0 ? 'Quote expires in ' + remaining + 's' : 'Quote expired — go back and get a new one';
+            if (remaining <= 0) clearInterval(quoteExpiryInterval);
+        }, 1000);
+    }
+}
+
+function clearQuoteExpiry() {
+    if (quoteExpiryInterval) { clearInterval(quoteExpiryInterval); quoteExpiryInterval = null; }
+}
+
+// Confirm & Send
+document.getElementById('btnConfirmSend').addEventListener('click', async function() {
+    var pin = document.getElementById('sendPinConfirm').value;
+    var result = document.getElementById('sendResult');
+    if (!pin) { result.innerHTML = '<span style="color:#f55;">Enter your PIN to confirm</span>'; return; }
+    if (!activeSendQuote || !activeSendQuote.paymentQuoteId) { result.innerHTML = '<span style="color:#f55;">No active quote</span>'; return; }
+
+    // Check if quote expired
+    if (activeSendQuote.validUntil && new Date(activeSendQuote.validUntil).getTime() < Date.now()) {
+        result.innerHTML = '<span style="color:#f55;">Quote expired. Go back and get a new one.</span>';
+        return;
+    }
+
+    result.innerHTML = '<span style="color:#f7931a;">Sending...</span>';
+    document.getElementById('btnConfirmSend').disabled = true;
+
+    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, pin);
+
+    document.getElementById('btnConfirmSend').disabled = false;
+    document.getElementById('sendPinConfirm').value = '';
+    clearQuoteExpiry();
+
+    if (sendResult && !sendResult.error) {
+        var state = sendResult.state || 'COMPLETED';
+        result.innerHTML = '<span style="color:#4ade80;">Payment ' + state + '!</span>';
+        activeSendQuote = null;
+        // Refresh balances after send
+        setTimeout(function() {
+            document.getElementById('sendBtcPanel').classList.remove('open');
+            loadAndRefreshWallet();
+        }, 2000);
+    } else {
+        result.innerHTML = '<span style="color:#f55;">' + (sendResult.error || 'Send failed') + '</span>';
+    }
+});
