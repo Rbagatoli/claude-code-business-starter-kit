@@ -577,6 +577,7 @@ function recalculate() {
 
     document.getElementById('metEfficiency').textContent = efficiency.toFixed(1);
     document.getElementById('metTotalMined').textContent = fmtBTC(cumulBtcMined);
+    document.getElementById('metFinalBtcPrice').textContent = 'BTC @ ' + fmtUSD(finalBtcPrice);
     const heldValEl = document.getElementById('metHeldValue');
     const grossValue = totalPL + totalCapex;
     heldValEl.textContent = fmtUSD(grossValue);
