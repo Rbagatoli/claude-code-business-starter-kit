@@ -580,7 +580,7 @@ function recalculate() {
     const heldValEl = document.getElementById('metHeldValue');
     const grossValue = totalPL + totalCapex;
     heldValEl.textContent = fmtUSD(grossValue);
-    heldValEl.className = 'value ' + (grossValue >= 0 ? 'positive' : 'negative');
+    heldValEl.className = 'value btc-orange';
     document.getElementById('metFinalPrice').textContent = fmtUSD(totalPL) + ' P/L + ' + fmtUSD(totalCapex) + ' cost';
 
     const plEl = document.getElementById('metTotalPL');
