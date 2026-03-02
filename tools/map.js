@@ -793,21 +793,15 @@ var _globeRef = null, _showGlobePopupRef = null;
             }, 1100);
         } else {
             if (!leafletMap) return;
-            leafletMap.flyTo([centroid.lat, centroid.lng], leafletMap.getZoom(), { duration: 1 });
-
-            setTimeout(function() {
-                if (state && leafletStateMarkers[locKey]) {
-                    leafletStateMarkers[locKey].openPopup();
-                } else if (leafletGeoLayer) {
-                    leafletGeoLayer.eachLayer(function(layer) {
-                        if (!layer.feature) return;
-                        var a2 = NUM_TO_A2[String(layer.feature.id)];
-                        if (a2 === country) {
-                            layer.openPopup();
-                        }
-                    });
-                }
-            }, 1100);
+            if (state && leafletStateMarkers[locKey]) {
+                leafletStateMarkers[locKey].openPopup();
+            } else if (leafletGeoLayer) {
+                leafletGeoLayer.eachLayer(function(layer) {
+                    if (!layer.feature) return;
+                    var a2 = NUM_TO_A2[String(layer.feature.id)];
+                    if (a2 === country) layer.openPopup();
+                });
+            }
         }
     });
 })();
