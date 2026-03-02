@@ -1062,10 +1062,13 @@ document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     var account = 'dashboard';
     var otpauthUri = 'otpauth://totp/' + issuer + ':' + account + '?secret=' + secret + '&issuer=' + issuer + '&digits=6&period=30';
 
-    // Show QR via Google Charts API
-    var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=' + encodeURIComponent(otpauthUri);
-    document.getElementById('twofa-qr').src = qrUrl;
+    // Show result panel FIRST (canvas can't render in display:none)
     document.getElementById('twofa-secret-display').textContent = secret;
     document.getElementById('twofa-setup-content').style.display = 'none';
     document.getElementById('twofa-setup-result').style.display = '';
+
+    // Generate QR code client-side AFTER container is visible
+    var qrEl = document.getElementById('twofa-qr');
+    qrEl.innerHTML = '';
+    new QRCode(qrEl, { text: otpauthUri, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff' });
 });
