@@ -442,7 +442,7 @@ async function refreshAllCharts() {
 
     // Fetch price data (CryptoCompare — free, full history)
     try {
-        var priceRes = await fetch('https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD&allData=true');
+        var priceRes = await fetch('https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD&allData=true', { cache: 'no-cache' });
         if (priceRes.ok) {
             var priceJson = await priceRes.json();
             allPriceData = (priceJson.Data && priceJson.Data.Data) || [];
@@ -461,7 +461,7 @@ async function refreshAllCharts() {
 
     // Fetch mining data
     try {
-        var miningRes = await fetch('https://mempool.space/api/v1/mining/hashrate/all');
+        var miningRes = await fetch('https://mempool.space/api/v1/mining/hashrate/all', { cache: 'no-cache' });
         if (miningRes.ok) {
             allMiningData = await miningRes.json();
             renderDifficultyChart(currentDiffTimeframe);
