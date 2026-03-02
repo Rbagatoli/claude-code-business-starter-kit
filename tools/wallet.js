@@ -934,7 +934,11 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
             sourceCurrency: cur,
             amount: { amount: amt, currency: cur, feePolicy: 'EXCLUSIVE' }
         };
-        if (tier) body.onchainTierId = tier;
+        if (!tier) {
+            result.innerHTML = '<span style="color:#f55;">Select a network fee tier first</span>';
+            return;
+        }
+        body.onchainTierId = tier;
         quoteData = await StrikeAPI.sendQuoteOnchain(body, pin);
     }
 
