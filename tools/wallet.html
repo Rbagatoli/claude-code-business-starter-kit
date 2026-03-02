@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=132">
+    <link rel="stylesheet" href="./shared.css?v=133">
     <script>
-    if (!localStorage.getItem('sw_clean_v132') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v133') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v132', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v133', '1'); location.reload(); });
         });
     }
     </script>
@@ -105,6 +105,9 @@
     <div class="slide-panel" id="addAddressPanel">
         <div class="panel-inner">
             <h4 id="addressFormTitle">Add Bitcoin Address</h4>
+            <div id="strikeAddressWarning" style="display:none; margin-bottom:12px; padding:10px 14px; background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.25); border-radius:8px; font-size:12px; color:#a78bfa;">
+                <strong>Note:</strong> Your Strike deposit address will show 0 balance here. Strike is custodial &mdash; it sweeps incoming funds to pooled storage. Your Strike balance is shown via the Strike connection above.
+            </div>
             <div class="panel-form-grid">
                 <div class="input-group">
                     <label>BTC Address</label>
@@ -167,15 +170,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=132"></script>
-<script src="./sync.js?v=132"></script>
-<script src="./auth-ui.js?v=132"></script>
-<script src="./profile-panel.js?v=132"></script>
-<script src="./shared.js?v=132"></script>
-<script src="./fleet-data.js?v=132"></script>
-<script src="./wallet.js?v=132"></script>
-<script src="./widget-settings.js?v=132"></script>
-<script src="./alerts.js?v=132"></script>
-<script src="./onboarding.js?v=132"></script>
+<script src="./firebase-config.js?v=133"></script>
+<script src="./sync.js?v=133"></script>
+<script src="./auth-ui.js?v=133"></script>
+<script src="./profile-panel.js?v=133"></script>
+<script src="./shared.js?v=133"></script>
+<script src="./fleet-data.js?v=133"></script>
+<script src="./wallet.js?v=133"></script>
+<script src="./widget-settings.js?v=133"></script>
+<script src="./alerts.js?v=133"></script>
+<script src="./onboarding.js?v=133"></script>
 </body>
 </html>

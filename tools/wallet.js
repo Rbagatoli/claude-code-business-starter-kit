@@ -608,6 +608,8 @@ var addAddressPanel = document.getElementById('addAddressPanel');
 document.getElementById('btnAddAddress').addEventListener('click', function() {
     document.getElementById('faAddress').value = '';
     document.getElementById('faLabel').value = '';
+    var warning = document.getElementById('strikeAddressWarning');
+    if (warning) warning.style.display = strikeConnected ? 'block' : 'none';
     addAddressPanel.classList.add('open');
 });
 
