@@ -346,7 +346,6 @@ async function fetchLiveMarketData() {
 (function() {
     var canvas = document.getElementById('techLinesCanvas');
     if (!canvas) return;
-    if (window.ION_EMBED) { canvas.style.display = 'none'; return; }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     var ctx = canvas.getContext('2d');
