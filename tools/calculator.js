@@ -577,12 +577,11 @@ function recalculate() {
 
     document.getElementById('metEfficiency').textContent = efficiency.toFixed(1);
     document.getElementById('metTotalMined').textContent = fmtBTC(cumulBtcMined);
-    document.getElementById('metTotalHeld').textContent = fmtBTC(cumulBtcHeld);
-
     const heldValEl = document.getElementById('metHeldValue');
-    heldValEl.textContent = fmtUSD(heldBtcValue);
-    heldValEl.className = 'value btc-orange';
-    document.getElementById('metFinalPrice').textContent = 'at ' + fmtUSD(finalBtcPrice) + '/BTC';
+    const grossValue = totalPL + totalCapex;
+    heldValEl.textContent = fmtUSD(grossValue);
+    heldValEl.className = 'value ' + (grossValue >= 0 ? 'positive' : 'negative');
+    document.getElementById('metFinalPrice').textContent = fmtUSD(totalPL) + ' P/L + ' + fmtUSD(totalCapex) + ' cost';
 
     const plEl = document.getElementById('metTotalPL');
     plEl.textContent = fmtUSD(totalPL);
