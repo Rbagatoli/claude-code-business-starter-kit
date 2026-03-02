@@ -35,6 +35,12 @@ window.selectedCurrency = localStorage.getItem('ionMiningCurrency') || 'usd';
 window.liveBtcPrices = {};
 window.onCurrencyChange = null;
 
+// --- Nav Sparkline State ---
+window.ionNavPriceHistory = [];
+var NAV_SPARKLINE_MAX_POINTS = 24;
+var NAV_SPARKLINE_POLL_MS = 45000;
+var _navSparklineInterval = null;
+
 function getCurrencySymbol() {
     var c = CURRENCY_CONFIG[window.selectedCurrency];
     return c ? c.symbol : '$';
@@ -56,6 +62,12 @@ function switchCurrency(code) {
     if (window.liveBtcPrices[code]) {
         window.liveBtcPrice = window.liveBtcPrices[code];
     }
+    // Reset sparkline for new currency
+    window.ionNavPriceHistory = [];
+    if (window.liveBtcPrice) {
+        window.ionNavPriceHistory.push({ time: Date.now(), price: window.liveBtcPrice });
+    }
+    renderNavSparkline();
     if (typeof window.onCurrencyChange === 'function') window.onCurrencyChange();
 }
 
@@ -82,6 +94,7 @@ function initNav(activePage) {
             '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[6] + '</a>' +
         '</div>' +
         '<div class="ion-nav-actions">' +
+            (!mobile ? '<div class="ion-nav-sparkline" id="navSparkline"><canvas id="navSparklineCanvas" width="70" height="24"></canvas><span class="ion-nav-sparkline-price" id="navSparklinePrice">--</span></div>' : '') +
             (!mobile ? '<a href="./workstation.html" class="ion-nav-ws-link" title="Workstation (multi-pane view)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="3" x2="8" y2="17"/><line x1="16" y1="3" x2="16" y2="17"/><line x1="2" y1="21" x2="22" y2="21"/></svg></a>' : '') +
             '<select class="ion-currency-select" id="currencySelect">' +
                 (function() {
@@ -202,6 +215,116 @@ function initNav(activePage) {
             }
         });
     }
+
+    // Start live sparkline in nav (desktop only)
+    startNavSparkline();
+}
+
+// --- Nav Sparkline Functions ---
+function renderNavSparkline() {
+    var canvas = document.getElementById('navSparklineCanvas');
+    var priceEl = document.getElementById('navSparklinePrice');
+    if (!canvas || !priceEl) return;
+
+    var history = window.ionNavPriceHistory;
+    if (!history || history.length === 0) return;
+
+    var last = history[history.length - 1].price;
+
+    // Update price text
+    priceEl.textContent = getCurrencySymbol() + Math.round(last).toLocaleString();
+
+    if (history.length < 2) {
+        priceEl.style.color = '#f7931a';
+        return;
+    }
+
+    var first = history[0].price;
+    var isUp = last >= first;
+    var lineColor = isUp ? '#4ade80' : '#ef4444';
+    priceEl.style.color = lineColor;
+
+    // HiDPI scaling
+    var dpr = window.devicePixelRatio || 1;
+    var w = 70, h = 24;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    var prices = history.map(function(p) { return p.price; });
+    var min = Math.min.apply(null, prices);
+    var max = Math.max.apply(null, prices);
+    var range = max - min || 1;
+    var pad = 2;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath();
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    for (var i = 0; i < prices.length; i++) {
+        var x = pad + (i / (prices.length - 1)) * (w - pad * 2);
+        var y = h - pad - ((prices[i] - min) / range) * (h - pad * 2);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Fill under line
+    ctx.lineTo(pad + (w - pad * 2), h - pad);
+    ctx.lineTo(pad, h - pad);
+    ctx.closePath();
+    var grad = ctx.createLinearGradient(0, 0, 0, h);
+    var fillTop = isUp ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)';
+    var fillBot = isUp ? 'rgba(74,222,128,0)' : 'rgba(239,68,68,0)';
+    grad.addColorStop(0, fillTop);
+    grad.addColorStop(1, fillBot);
+    ctx.fillStyle = grad;
+    ctx.fill();
+}
+
+function updateNavSparklinePrice() {
+    var currencies = Object.keys(CURRENCY_CONFIG).join(',');
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=' + currencies)
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(data) {
+            if (!data || !data.bitcoin) return;
+            var btc = data.bitcoin;
+            for (var cur in CURRENCY_CONFIG) {
+                if (btc[cur] && btc[cur] > 0) window.liveBtcPrices[cur] = Math.round(btc[cur]);
+            }
+            window.liveBtcPrice = window.liveBtcPrices[window.selectedCurrency];
+            var price = window.liveBtcPrice;
+            if (!price) return;
+
+            window.ionNavPriceHistory.push({ time: Date.now(), price: price });
+            while (window.ionNavPriceHistory.length > NAV_SPARKLINE_MAX_POINTS) {
+                window.ionNavPriceHistory.shift();
+            }
+            renderNavSparkline();
+        })
+        .catch(function() {});
+}
+
+function startNavSparkline() {
+    if (window.ION_EMBED) return;
+    if (window.innerWidth < 600) return;
+
+    if (window.liveBtcPrice) {
+        window.ionNavPriceHistory.push({ time: Date.now(), price: window.liveBtcPrice });
+        renderNavSparkline();
+    }
+
+    updateNavSparklinePrice();
+
+    if (_navSparklineInterval) clearInterval(_navSparklineInterval);
+    _navSparklineInterval = setInterval(updateNavSparklinePrice, NAV_SPARKLINE_POLL_MS);
 }
 
 // --- Swipe / Slide Page Navigation ---
