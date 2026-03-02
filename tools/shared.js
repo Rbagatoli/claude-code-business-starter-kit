@@ -66,7 +66,7 @@ function initNav(activePage) {
     if (window.ION_EMBED) { nav.style.display = 'none'; return; }
     nav.className = 'ion-nav';
     var mobile = window.innerWidth < 600;
-    var labels = mobile ? ['Data', 'Calc', 'Map', 'Home', 'Pay', 'Acct', 'Wallet'] : ['Data', 'Calculator', 'Map', 'Dashboard', 'Payouts', 'Accounting', 'Wallet'];
+    var labels = mobile ? ['Data', 'Calc', 'Pay', 'Home', 'Map', 'Acct', 'Wallet'] : ['Data', 'Calculator', 'Payouts', 'Dashboard', 'Map', 'Accounting', 'Wallet'];
     nav.innerHTML =
         '<a class="ion-nav-brand" href="./index.html">' +
             '<span class="icon"><svg width="24" height="24" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="8" fill="#f7931a"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="38" ry="14" stroke="#f7931a" stroke-width="3" transform="rotate(120 50 50)"/></svg></span>' +
@@ -75,9 +75,9 @@ function initNav(activePage) {
         '<div class="ion-nav-tabs">' +
             '<a href="./charts.html" class="' + (activePage === 'charts' ? 'active' : '') + '">' + labels[0] + '</a>' +
             '<a href="./calculator.html" class="' + (activePage === 'calculator' ? 'active' : '') + '">' + labels[1] + '</a>' +
-            '<a href="./map.html" class="' + (activePage === 'map' ? 'active' : '') + '">' + labels[2] + '</a>' +
+            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[2] + '</a>' +
             '<a href="./index.html" class="' + (activePage === 'dashboard' ? 'active' : '') + '">' + labels[3] + '</a>' +
-            '<a href="./payouts.html" class="' + (activePage === 'payouts' ? 'active' : '') + '">' + labels[4] + '</a>' +
+            '<a href="./map.html" class="' + (activePage === 'map' ? 'active' : '') + '">' + labels[4] + '</a>' +
             '<a href="./accounting.html" class="' + (activePage === 'accounting' ? 'active' : '') + '">' + labels[5] + '</a>' +
             '<a href="./wallet.html" class="' + (activePage === 'wallet' ? 'active' : '') + '">' + labels[6] + '</a>' +
         '</div>' +
