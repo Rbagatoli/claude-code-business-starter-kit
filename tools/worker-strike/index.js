@@ -1,8 +1,11 @@
 // Ion Mining Group — Strike API Proxy (Cloudflare Worker)
-// Per-user auth with session tokens, per-user PIN, TOTP, caps, rate limits.
+// Firebase auth + per-user session tokens, TOTP, caps, rate limits.
 // Each user connects their own Strike API key. Owner key used as fallback.
 
 var STRIKE_BASE = 'https://api.strike.me';
+var FIREBASE_PROJECT_ID = 'ion-mining';
+var GOOGLE_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+
 var ALLOWED_ORIGINS = [
     'https://rbagatoli.github.io',
     'http://localhost',
@@ -12,6 +15,9 @@ var ALLOWED_ORIGINS = [
 // Defaults for new users
 var DEFAULT_MAX_SEND_USD = 1000;
 var DEFAULT_MAX_SENDS_PER_HOUR = 5;
+
+// Session TTL: 30 days (rolling refresh)
+var SESSION_TTL = 2592000;
 
 // TOTP brute-force protection
 var MAX_TOTP_FAILS = 5;
@@ -34,18 +40,6 @@ function corsHeaders(origin) {
 }
 
 // ===== UTILITIES =====
-
-async function hashPin(pin) {
-    var encoder = new TextEncoder();
-    var data = encoder.encode(pin);
-    var hash = await crypto.subtle.digest('SHA-256', data);
-    var arr = new Uint8Array(hash);
-    var hex = '';
-    for (var i = 0; i < arr.length; i++) {
-        hex += ('0' + arr[i].toString(16)).slice(-2);
-    }
-    return hex;
-}
 
 function generateId(prefix) {
     var arr = new Uint8Array(8);
@@ -117,6 +111,97 @@ function getUserApiKey(user, env) {
     return user.strikeApiKey || env.STRIKE_API_KEY || '';
 }
 
+// ===== FIREBASE JWT VERIFICATION =====
+
+// In-memory cache for Google public keys (per worker instance)
+var _googleCerts = null;
+var _googleCertsExpiry = 0;
+
+async function getGoogleCerts() {
+    var now = Date.now();
+    if (_googleCerts && now < _googleCertsExpiry) return _googleCerts;
+
+    var res = await fetch(GOOGLE_CERTS_URL);
+    if (!res.ok) throw new Error('Failed to fetch Google certificates');
+
+    // Parse Cache-Control max-age for TTL
+    var cacheControl = res.headers.get('Cache-Control') || '';
+    var maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
+    var maxAge = maxAgeMatch ? parseInt(maxAgeMatch[1]) * 1000 : 3600000; // default 1h
+
+    _googleCerts = await res.json();
+    _googleCertsExpiry = now + maxAge;
+    return _googleCerts;
+}
+
+function base64UrlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    var binary = atob(str);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
+function pemToArrayBuffer(pem) {
+    var b64 = pem.replace(/-----BEGIN CERTIFICATE-----/g, '')
+                 .replace(/-----END CERTIFICATE-----/g, '')
+                 .replace(/\s/g, '');
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+}
+
+async function verifyFirebaseToken(idToken) {
+    // Split JWT
+    var parts = idToken.split('.');
+    if (parts.length !== 3) throw new Error('Invalid token format');
+
+    var headerJson = new TextDecoder().decode(base64UrlDecode(parts[0]));
+    var payloadJson = new TextDecoder().decode(base64UrlDecode(parts[1]));
+    var header = JSON.parse(headerJson);
+    var payload = JSON.parse(payloadJson);
+
+    // Check claims
+    if (payload.iss !== 'https://securetoken.google.com/' + FIREBASE_PROJECT_ID) {
+        throw new Error('Invalid issuer');
+    }
+    if (payload.aud !== FIREBASE_PROJECT_ID) {
+        throw new Error('Invalid audience');
+    }
+    var now = Math.floor(Date.now() / 1000);
+    if (payload.exp < now) {
+        throw new Error('Token expired');
+    }
+    if (payload.iat > now + 300) {
+        throw new Error('Token issued in the future');
+    }
+    if (!payload.sub || typeof payload.sub !== 'string') {
+        throw new Error('Missing subject');
+    }
+
+    // Verify signature using Google's public certificates
+    var certs = await getGoogleCerts();
+    var certPem = certs[header.kid];
+    if (!certPem) throw new Error('Unknown signing key');
+
+    var certDer = pemToArrayBuffer(certPem);
+    var cryptoKey = await crypto.subtle.importKey(
+        'x509', certDer,
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+        false, ['verify']
+    );
+
+    var signatureBytes = base64UrlDecode(parts[2]);
+    var dataBytes = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+
+    var valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, signatureBytes, dataBytes);
+    if (!valid) throw new Error('Invalid signature');
+
+    return payload;
+}
+
 // ===== AUTH: SESSION-BASED =====
 
 async function checkSession(request, env, origin) {
@@ -135,6 +220,9 @@ async function checkSession(request, env, origin) {
     if (!user || user.disabled) {
         return { error: jsonResponse({ error: 'Account disabled' }, 403, origin) };
     }
+
+    // Rolling refresh: extend session TTL on each use
+    await env.SETTINGS.put('session:' + token, JSON.stringify(sessionData), { expirationTtl: SESSION_TTL });
 
     return { user: user };
 }
@@ -278,92 +366,59 @@ async function recordSend(env, user) {
 
 // ===== AUTH ROUTE HANDLERS =====
 
-async function handleRegister(request, env, origin) {
+async function handleFirebaseLogin(request, env, origin) {
     var body = await request.json().catch(function() { return {}; });
-    var username = (body.username || '').trim().toLowerCase();
-    var pin = body.pin || '';
+    var idToken = body.idToken || '';
 
-    // Validate username
-    if (!username || username.length < 3 || username.length > 20 || !/^[a-z0-9_]+$/.test(username)) {
-        return jsonResponse({ error: 'Username must be 3-20 characters (letters, numbers, underscore)' }, 400, origin);
+    if (!idToken) {
+        return jsonResponse({ error: 'Firebase ID token required' }, 400, origin);
     }
 
-    // Validate PIN
-    if (!pin || pin.length < 4 || pin.length > 20) {
-        return jsonResponse({ error: 'PIN must be 4-20 characters' }, 400, origin);
+    // Verify Firebase JWT
+    var payload;
+    try {
+        payload = await verifyFirebaseToken(idToken);
+    } catch (e) {
+        return jsonResponse({ error: 'Invalid Firebase token', message: e.message }, 401, origin);
     }
 
-    // Check if username taken
-    var existingUser = await env.SETTINGS.get('username:' + username);
-    if (existingUser) {
-        return jsonResponse({ error: 'Username already taken' }, 409, origin);
-    }
+    var firebaseUid = payload.sub;
+    var email = payload.email || '';
+    var userId = 'fb_' + firebaseUid;
 
-    var userId = generateId('u_');
-    var pinHash = await hashPin(pin);
-
-    var userRecord = {
-        id: userId,
-        username: username,
-        pinHash: pinHash,
-        totpSecret: '',
-        strikeApiKey: '',
-        maxSendUsd: DEFAULT_MAX_SEND_USD,
-        maxSendsPerHour: DEFAULT_MAX_SENDS_PER_HOUR,
-        createdAt: new Date().toISOString(),
-        disabled: false
-    };
-
-    // Write user record and username index
-    await env.SETTINGS.put('user:' + userId, JSON.stringify(userRecord));
-    await env.SETTINGS.put('username:' + username, userId);
-
-    return jsonResponse({
-        ok: true,
-        userId: userId,
-        message: 'Account created! Log in and connect your Strike account to get started.'
-    }, 201, origin);
-}
-
-async function handleLogin(request, env, origin) {
-    var body = await request.json().catch(function() { return {}; });
-    var username = (body.username || '').trim().toLowerCase();
-    var pin = body.pin || '';
-
-    if (!username || !pin) {
-        return jsonResponse({ error: 'Username and PIN required' }, 400, origin);
-    }
-
-    // Look up username
-    var userId = await env.SETTINGS.get('username:' + username);
-    if (!userId) {
-        return jsonResponse({ error: 'Invalid username or PIN' }, 401, origin);
-    }
-
-    // Get user record
+    // Get or create user record
     var user = await env.SETTINGS.get('user:' + userId, 'json');
     if (!user) {
-        return jsonResponse({ error: 'Invalid username or PIN' }, 401, origin);
+        user = {
+            id: userId,
+            email: email,
+            totpSecret: '',
+            strikeApiKey: '',
+            maxSendUsd: DEFAULT_MAX_SEND_USD,
+            maxSendsPerHour: DEFAULT_MAX_SENDS_PER_HOUR,
+            createdAt: new Date().toISOString(),
+            disabled: false
+        };
+        await env.SETTINGS.put('user:' + userId, JSON.stringify(user));
+    } else {
+        // Update email if changed
+        if (email && user.email !== email) {
+            user.email = email;
+            await env.SETTINGS.put('user:' + userId, JSON.stringify(user));
+        }
     }
 
     if (user.disabled) {
         return jsonResponse({ error: 'Account disabled' }, 403, origin);
     }
 
-    // Verify PIN
-    var pinHash = await hashPin(pin);
-    if (pinHash !== user.pinHash) {
-        return jsonResponse({ error: 'Invalid username or PIN' }, 401, origin);
-    }
-
-    // Generate session token
+    // Generate session token (30-day TTL)
     var token = 'sess_' + generateId('');
     await env.SETTINGS.put('session:' + token, JSON.stringify({
         userId: user.id,
         createdAt: Date.now()
-    }), { expirationTtl: 86400 }); // 24h
+    }), { expirationTtl: SESSION_TTL });
 
-    // Determine if Strike is connected (own key OR owner fallback)
     var hasStrike = !!(user.strikeApiKey || env.STRIKE_API_KEY);
 
     return jsonResponse({
@@ -371,7 +426,7 @@ async function handleLogin(request, env, origin) {
         token: token,
         user: {
             id: user.id,
-            username: user.username,
+            email: user.email,
             strikeConnected: hasStrike,
             hasOwnKey: !!user.strikeApiKey,
             maxSendUsd: user.maxSendUsd,
@@ -397,7 +452,7 @@ async function handleMe(request, env, origin) {
     var hasStrike = !!(user.strikeApiKey || env.STRIKE_API_KEY);
     return jsonResponse({
         id: user.id,
-        username: user.username,
+        email: user.email,
         strikeConnected: hasStrike,
         hasOwnKey: !!user.strikeApiKey,
         maxSendUsd: user.maxSendUsd,
@@ -428,7 +483,6 @@ async function handleSetupTotp(request, env, origin) {
         return jsonResponse({ error: 'Verification failed', message: 'The code does not match. Scan the QR code and enter the current code.' }, 403, origin);
     }
 
-    // Update user record with new TOTP secret
     user.totpSecret = newSecret;
     await env.SETTINGS.put('user:' + user.id, JSON.stringify(user));
 
@@ -449,7 +503,6 @@ async function handleConnectStrike(request, env, origin) {
         return jsonResponse({ error: 'API key required' }, 400, origin);
     }
 
-    // Validate the key by making a test call
     try {
         await strikeGet('/v1/balances', apiKey);
     } catch (e) {
@@ -459,7 +512,6 @@ async function handleConnectStrike(request, env, origin) {
         }, 400, origin);
     }
 
-    // Store the key in user record
     user.strikeApiKey = apiKey;
     await env.SETTINGS.put('user:' + user.id, JSON.stringify(user));
 
@@ -562,12 +614,9 @@ export default {
         var path = url.pathname;
 
         try {
-            // ===== AUTH ROUTES (no session required) =====
-            if (path === '/auth/register' && request.method === 'POST') {
-                return await handleRegister(request, env, origin);
-            }
-            if (path === '/auth/login' && request.method === 'POST') {
-                return await handleLogin(request, env, origin);
+            // ===== AUTH ROUTES =====
+            if (path === '/auth/firebase-login' && request.method === 'POST') {
+                return await handleFirebaseLogin(request, env, origin);
             }
             if (path === '/auth/logout' && request.method === 'POST') {
                 return await handleLogout(request, env, origin);

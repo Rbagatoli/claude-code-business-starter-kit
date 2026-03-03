@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=147">
+    <link rel="stylesheet" href="./shared.css?v=148">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -71,57 +71,12 @@
         </div>
     </div>
 
-    <!-- ===== LOGIN / REGISTER PANEL (shown when Strike connected but not logged in) ===== -->
-    <div id="loginPanel" style="display:none;">
-        <div class="card" style="padding:20px; margin-bottom:16px;">
-            <h4 style="margin:0 0 4px; color:#f7931a;">Sign In</h4>
-            <p style="font-size:12px; color:#888; margin:0 0 16px;">Log in to view balances, send BTC, and manage your wallet.</p>
-
-            <!-- Login Form -->
-            <div id="loginForm">
-                <div class="input-group" style="margin-bottom:10px;">
-                    <label>Username</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username" autocapitalize="none">
-                    </div>
-                </div>
-                <div class="input-group" style="margin-bottom:12px;">
-                    <label>PIN</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="loginPin" placeholder="Enter your PIN" autocomplete="current-password">
-                    </div>
-                </div>
-                <button class="btn btn-primary" id="btnLogin" style="width:100%; margin-bottom:8px;">Log In</button>
-                <div id="loginResult" style="font-size:12px; min-height:18px;"></div>
-            </div>
-
-            <!-- Register Form (hidden by default) -->
-            <div id="registerForm" style="display:none;">
-                <div class="input-group" style="margin-bottom:10px;">
-                    <label>Username</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="registerUsername" placeholder="Choose a username (3-20 chars)" autocomplete="username" autocapitalize="none">
-                    </div>
-                </div>
-                <div class="input-group" style="margin-bottom:10px;">
-                    <label>PIN</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="registerPin" placeholder="Choose a PIN (4+ chars)" autocomplete="new-password">
-                    </div>
-                </div>
-                <div class="input-group" style="margin-bottom:10px;">
-                    <label>Confirm PIN</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="registerPinConfirm" placeholder="Re-enter PIN" autocomplete="new-password">
-                    </div>
-                </div>
-                <button class="btn btn-primary" id="btnRegister" style="width:100%; margin-bottom:8px;">Create Account</button>
-                <div id="registerResult" style="font-size:12px; min-height:18px;"></div>
-            </div>
-
-            <div style="text-align:center; margin-top:8px;">
-                <a href="#" id="loginToggleLink" style="color:#f7931a; font-size:12px; text-decoration:none;">Create Account</a>
-            </div>
+    <!-- ===== SIGN IN PROMPT (shown when not signed in via Firebase) ===== -->
+    <div id="signInPrompt" style="display:none;">
+        <div class="card" style="padding:24px; margin-bottom:16px; border-color:rgba(247,147,26,0.3); background:rgba(247,147,26,0.04); text-align:center;">
+            <h4 style="margin:0 0 8px; color:#f7931a;">Sign In to Access Your Wallet</h4>
+            <p style="font-size:13px; color:#aaa; margin:0 0 16px;">Sign in with your Ion Mining account to view balances, send BTC, and manage your wallet.</p>
+            <button class="btn btn-primary" onclick="if(typeof IonAuthUI!=='undefined')IonAuthUI.show('signin');" style="width:100%;">Sign In</button>
         </div>
     </div>
 
@@ -420,15 +375,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=147"></script>
-<script src="./sync.js?v=147"></script>
-<script src="./auth-ui.js?v=147"></script>
-<script src="./profile-panel.js?v=147"></script>
-<script src="./shared.js?v=147"></script>
-<script src="./fleet-data.js?v=147"></script>
-<script src="./wallet.js?v=147"></script>
-<script src="./widget-settings.js?v=147"></script>
-<script src="./alerts.js?v=147"></script>
-<script src="./onboarding.js?v=147"></script>
+<script src="./firebase-config.js?v=148"></script>
+<script src="./sync.js?v=148"></script>
+<script src="./auth-ui.js?v=148"></script>
+<script src="./profile-panel.js?v=148"></script>
+<script src="./shared.js?v=148"></script>
+<script src="./fleet-data.js?v=148"></script>
+<script src="./wallet.js?v=148"></script>
+<script src="./widget-settings.js?v=148"></script>
+<script src="./alerts.js?v=148"></script>
+<script src="./onboarding.js?v=148"></script>
 </body>
 </html>

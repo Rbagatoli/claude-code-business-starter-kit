@@ -50,6 +50,52 @@ var StrikeAuth = (function() {
     };
 })();
 
+// ===== FIREBASE AUTO-LOGIN =====
+async function autoLoginWithFirebase() {
+    if (typeof IonAuth === 'undefined' || !IonAuth.isSignedIn()) {
+        showSignInPrompt();
+        return;
+    }
+
+    // Already have a valid worker session? Just use it.
+    if (StrikeAuth.isLoggedIn()) {
+        showAuthenticatedUI();
+        if (StrikeAuth.hasStrike()) {
+            hideConnectStrikePrompt();
+            await loadAndRefreshWallet();
+        } else {
+            showConnectStrikePrompt();
+            await loadAndRefreshWallet();
+        }
+        return;
+    }
+
+    // Get Firebase ID token and exchange for worker session
+    try {
+        var user = IonAuth.getUser();
+        if (!user) { showSignInPrompt(); return; }
+        var idToken = await user.getIdToken();
+        var data = await StrikeAPI.firebaseLogin(idToken);
+        if (data && data.ok) {
+            StrikeAuth.saveSession(data.token, data.user);
+            showAuthenticatedUI();
+            if (data.user.strikeConnected) {
+                hideConnectStrikePrompt();
+                await loadAndRefreshWallet();
+            } else {
+                showConnectStrikePrompt();
+                await loadAndRefreshWallet();
+            }
+        } else {
+            console.warn('[Wallet] Firebase login failed:', data && data.error);
+            showSignInPrompt();
+        }
+    } catch(e) {
+        console.warn('[Wallet] Firebase auto-login error:', e);
+        showSignInPrompt();
+    }
+}
+
 // ===== INIT =====
 (async function() {
     var data = await fetchLiveMarketData();
@@ -57,24 +103,26 @@ var StrikeAuth = (function() {
     window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderWallet(); };
     loadStrikeSettings();
 
-    if (strikeConnected && StrikeAuth.isLoggedIn()) {
-        if (StrikeAuth.hasStrike()) {
-            showAuthenticatedUI();
-            await loadAndRefreshWallet();
-            startAutoRefresh();
-        } else {
-            showAuthenticatedUI();
-            showConnectStrikePrompt();
-            await loadAndRefreshWallet();
-            startAutoRefresh();
-        }
-    } else if (strikeConnected) {
-        showLoginUI();
-        await loadAndRefreshWallet();
-        startAutoRefresh();
+    if (strikeConnected) {
+        await autoLoginWithFirebase();
     } else {
         await loadAndRefreshWallet();
-        startAutoRefresh();
+    }
+    startAutoRefresh();
+
+    // Listen for Firebase auth state changes
+    if (typeof IonAuth !== 'undefined') {
+        IonAuth.onAuthChange(function(fbUser) {
+            if (fbUser && strikeConnected) {
+                // User just signed in — auto-login to worker
+                if (!StrikeAuth.isLoggedIn()) {
+                    autoLoginWithFirebase();
+                }
+            } else if (!fbUser) {
+                // User signed out — clear everything
+                clearAllWalletState();
+            }
+        });
     }
 })();
 
@@ -166,7 +214,12 @@ var StrikeAPI = (function() {
     function handleAuthError(res) {
         if (res.status === 401) {
             StrikeAuth.clearSession();
-            showLoginUI();
+            // Try to re-auth with Firebase, or show sign-in prompt
+            if (typeof IonAuth !== 'undefined' && IonAuth.isSignedIn()) {
+                autoLoginWithFirebase();
+            } else {
+                showSignInPrompt();
+            }
             return true;
         }
         return false;
@@ -258,36 +311,20 @@ var StrikeAPI = (function() {
         }
     }
 
-    // Auth calls
-    async function login(username, pin) {
+    // Firebase login — exchange Firebase ID token for worker session
+    async function firebaseLogin(idToken) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
-            var res = await fetch(proxy.replace(/\/$/, '') + '/auth/login', {
+            var res = await fetch(proxy.replace(/\/$/, '') + '/auth/firebase-login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username, pin: pin })
+                body: JSON.stringify({ idToken: idToken })
             });
             var data = await res.json();
             if (data.ok && data.token) {
                 StrikeAuth.saveSession(data.token, data.user);
             }
-            return data;
-        } catch(e) {
-            return { error: e.message || 'Network error' };
-        }
-    }
-
-    async function register(username, pin) {
-        var proxy = getProxyUrl();
-        if (!proxy) return { error: 'No proxy URL configured' };
-        try {
-            var res = await fetch(proxy.replace(/\/$/, '') + '/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username, pin: pin })
-            });
-            var data = await res.json();
             return data;
         } catch(e) {
             return { error: e.message || 'Network error' };
@@ -345,8 +382,7 @@ var StrikeAPI = (function() {
         getOnchainTiers: getOnchainTiers,
         executeSend: executeSend,
         getSendStatus: getSendStatus,
-        login: login,
-        register: register,
+        firebaseLogin: firebaseLogin,
         logout: logout,
         apiPost: apiPost,
         connectStrike: connectStrike,
@@ -355,10 +391,10 @@ var StrikeAPI = (function() {
     };
 })();
 
-// ===== LOGIN / AUTH UI =====
-function showLoginUI() {
-    var panel = document.getElementById('loginPanel');
-    if (panel) panel.style.display = '';
+// ===== SIGN-IN PROMPT UI =====
+function showSignInPrompt() {
+    var prompt = document.getElementById('signInPrompt');
+    if (prompt) prompt.style.display = '';
     var authBar = document.getElementById('userAuthBar');
     if (authBar) authBar.style.display = 'none';
     hideConnectStrikePrompt();
@@ -367,16 +403,26 @@ function showLoginUI() {
     updateAccountButtons();
 }
 
+function hideSignInPrompt() {
+    var prompt = document.getElementById('signInPrompt');
+    if (prompt) prompt.style.display = 'none';
+}
+
 function showAuthenticatedUI() {
-    var panel = document.getElementById('loginPanel');
-    if (panel) panel.style.display = 'none';
+    hideSignInPrompt();
     var authBar = document.getElementById('userAuthBar');
     if (authBar) {
         authBar.style.display = '';
-        var user = StrikeAuth.getUser();
         var nameEl = document.getElementById('authUsername');
-        if (nameEl && user) {
-            nameEl.textContent = user.username;
+        if (nameEl) {
+            // Show Firebase display name or email
+            var fbUser = (typeof IonAuth !== 'undefined') ? IonAuth.getUser() : null;
+            if (fbUser) {
+                nameEl.textContent = fbUser.displayName || fbUser.email || 'User';
+            } else {
+                var user = StrikeAuth.getUser();
+                nameEl.textContent = (user && user.email) || 'User';
+            }
         }
     }
     updateSendButton();
@@ -394,6 +440,25 @@ function updateAccountButtons() {
         // Show connect button only if user doesn't have their own key
         connectBtn.style.display = (loggedIn && user && !user.hasOwnKey) ? '' : 'none';
     }
+}
+
+// Clear all wallet state (on sign-out)
+function clearAllWalletState() {
+    StrikeAPI.logout();
+    strikeBalances = null;
+    strikeTransactions = [];
+    activeSendQuote = null;
+    totpEnabled = false;
+    clearQuoteExpiry();
+    // Close all open slide panels
+    var panels = document.querySelectorAll('.slide-panel.open');
+    for (var i = 0; i < panels.length; i++) {
+        panels[i].classList.remove('open');
+    }
+    hideConnectStrikePrompt();
+    showSignInPrompt();
+    renderWallet();
+    renderTransactionHistory();
 }
 
 // ===== CONNECT STRIKE PROMPT =====
@@ -852,112 +917,17 @@ window.addEventListener('beforeunload', function() {
     if (refreshInterval) clearInterval(refreshInterval);
 });
 
-// ===== LOGIN PANEL HANDLERS =====
+// ===== LOGOUT HANDLER =====
 (function() {
-    var loginBtn = document.getElementById('btnLogin');
-    var registerBtn = document.getElementById('btnRegister');
-    var toggleLink = document.getElementById('loginToggleLink');
-    var loginForm = document.getElementById('loginForm');
-    var registerForm = document.getElementById('registerForm');
-    var loginResult = document.getElementById('loginResult');
-    var registerResult = document.getElementById('registerResult');
-
-    if (loginBtn) {
-        loginBtn.addEventListener('click', async function() {
-            var username = document.getElementById('loginUsername').value.trim();
-            var pin = document.getElementById('loginPin').value;
-            if (!username || !pin) { loginResult.innerHTML = '<span style="color:#f55;">Enter username and PIN</span>'; return; }
-
-            loginResult.innerHTML = '<span style="color:#888;">Logging in...</span>';
-            loginBtn.disabled = true;
-
-            var data = await StrikeAPI.login(username, pin);
-            loginBtn.disabled = false;
-
-            if (data.ok) {
-                loginResult.innerHTML = '<span style="color:#4ade80;">Welcome, ' + escapeHtml(data.user.username) + '!</span>';
-                setTimeout(function() {
-                    showAuthenticatedUI();
-                    if (data.user.strikeConnected) {
-                        hideConnectStrikePrompt();
-                        loadAndRefreshWallet();
-                    } else {
-                        showConnectStrikePrompt();
-                    }
-                }, 500);
-            } else {
-                loginResult.innerHTML = '<span style="color:#f55;">' + (data.error || 'Login failed') + '</span>';
-            }
-        });
-    }
-
-    if (registerBtn) {
-        registerBtn.addEventListener('click', async function() {
-            var username = document.getElementById('registerUsername').value.trim();
-            var pin = document.getElementById('registerPin').value;
-            var pinConfirm = document.getElementById('registerPinConfirm').value;
-
-            if (!username || !pin) { registerResult.innerHTML = '<span style="color:#f55;">Enter username and PIN</span>'; return; }
-            if (pin !== pinConfirm) { registerResult.innerHTML = '<span style="color:#f55;">PINs do not match</span>'; return; }
-            if (pin.length < 4) { registerResult.innerHTML = '<span style="color:#f55;">PIN must be at least 4 characters</span>'; return; }
-
-            registerResult.innerHTML = '<span style="color:#888;">Creating account...</span>';
-            registerBtn.disabled = true;
-
-            var data = await StrikeAPI.register(username, pin);
-            registerBtn.disabled = false;
-
-            if (data.ok) {
-                registerResult.innerHTML = '<span style="color:#4ade80;">' + (data.message || 'Account created!') + '</span>';
-                // Switch to login view
-                setTimeout(function() {
-                    if (loginForm) loginForm.style.display = '';
-                    if (registerForm) registerForm.style.display = 'none';
-                    document.getElementById('loginUsername').value = username;
-                }, 1500);
-            } else {
-                registerResult.innerHTML = '<span style="color:#f55;">' + (data.error || data.message || 'Registration failed') + '</span>';
-            }
-        });
-    }
-
-    if (toggleLink) {
-        toggleLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (registerForm && registerForm.style.display === 'none') {
-                if (loginForm) loginForm.style.display = 'none';
-                registerForm.style.display = '';
-                toggleLink.textContent = 'Back to Login';
-            } else {
-                if (loginForm) loginForm.style.display = '';
-                if (registerForm) registerForm.style.display = 'none';
-                toggleLink.textContent = 'Create Account';
-            }
-        });
-    }
-
-    // Logout — fully clears all state
     var logoutBtn = document.getElementById('btnLogout');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', async function() {
-            await StrikeAPI.logout();
-            // Clear all in-memory data
-            strikeBalances = null;
-            strikeTransactions = [];
-            activeSendQuote = null;
-            totpEnabled = false;
-            clearQuoteExpiry();
-            // Close all open slide panels
-            var panels = document.querySelectorAll('.slide-panel.open');
-            for (var i = 0; i < panels.length; i++) {
-                panels[i].classList.remove('open');
+        logoutBtn.addEventListener('click', function() {
+            // Sign out of Firebase — the onAuthChange listener will clear wallet state
+            if (typeof IonAuth !== 'undefined') {
+                IonAuth.signOut();
+            } else {
+                clearAllWalletState();
             }
-            // Hide connect prompt
-            hideConnectStrikePrompt();
-            // Reset UI
-            showLoginUI();
-            renderWallet();
-            renderTransactionHistory();
         });
     }
 })();
@@ -1067,13 +1037,8 @@ document.getElementById('saveStrike').addEventListener('click', async function()
     updateAccountButtons();
     document.getElementById('strikeConnectPanel').classList.remove('open');
 
-    // Show login UI if not logged in
-    if (!StrikeAuth.isLoggedIn()) {
-        showLoginUI();
-    } else {
-        showAuthenticatedUI();
-        await loadAndRefreshWallet();
-    }
+    // Auto-login with Firebase if signed in
+    await autoLoginWithFirebase();
 });
 
 function disconnectStrike() {
@@ -1089,8 +1054,7 @@ function disconnectStrike() {
     update2FAButton();
     updateAccountButtons();
     hideConnectStrikePrompt();
-    var loginPanel = document.getElementById('loginPanel');
-    if (loginPanel) loginPanel.style.display = 'none';
+    hideSignInPrompt();
     var authBar = document.getElementById('userAuthBar');
     if (authBar) authBar.style.display = 'none';
     renderWallet();
@@ -1378,8 +1342,9 @@ document.getElementById('cancel2FA').addEventListener('click', function() {
 
 document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     var secret = generateBase32Secret(16);
-    var user = StrikeAuth.getUser();
-    var label = user ? user.username : 'dashboard';
+    // Use Firebase email for 2FA label
+    var fbUser = (typeof IonAuth !== 'undefined') ? IonAuth.getUser() : null;
+    var label = fbUser ? (fbUser.email || fbUser.displayName || 'user') : 'user';
     var otpauthUri = 'otpauth://totp/IonMining:' + label + '?secret=' + secret + '&issuer=IonMining';
 
     document.getElementById('twofa-secret-display').textContent = secret;
