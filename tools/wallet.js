@@ -400,6 +400,8 @@ function showSignInPrompt(errorMsg) {
     if (errEl) errEl.textContent = errorMsg || '';
     var authBar = document.getElementById('userAuthBar');
     if (authBar) authBar.style.display = 'none';
+    var content = document.getElementById('walletContent');
+    if (content) content.style.display = 'none';
     hideConnectStrikePrompt();
     updateSendButton();
     update2FAButton();
@@ -413,6 +415,8 @@ function hideSignInPrompt() {
 
 function showAuthenticatedUI() {
     hideSignInPrompt();
+    var content = document.getElementById('walletContent');
+    if (content) content.style.display = '';
     var authBar = document.getElementById('userAuthBar');
     if (authBar) {
         authBar.style.display = '';

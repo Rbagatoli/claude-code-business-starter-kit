@@ -4,7 +4,7 @@
 
 var STRIKE_BASE = 'https://api.strike.me';
 var FIREBASE_PROJECT_ID = 'ion-mining';
-var GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
+var GOOGLE_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 
 var ALLOWED_ORIGINS = [
     'https://rbagatoli.github.io',
