@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Banking</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=176">
+    <link rel="stylesheet" href="./shared.css?v=177">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -16,7 +16,7 @@
         });
     }
     </script>
-    <script src="./chart.min.js?v=176"></script>
+    <script src="./chart.min.js?v=177"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -169,343 +169,8 @@
     </div>
     </div>
 
-    </div><!-- /tabWallet -->
-
-    <!-- ============================================================ -->
-    <!-- TAB: INCOME                                                  -->
-    <!-- ============================================================ -->
-    <div class="banking-tab-content" id="tabIncome" style="display:none;">
-
-    <!-- ===== EARNINGS SUMMARY ===== -->
-    <div class="widget-section" data-widget="earnings">
-    <div class="section-label">Earnings Summary</div>
-    <section class="fleet-grid">
-        <div class="metric-card">
-            <div class="label">Total BTC Earned</div>
-            <div class="value btc-orange" id="sumTotalEarned">--</div>
-            <div class="sub">all-time logged</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Total USD Value</div>
-            <div class="value neutral" id="sumTotalUSD">--</div>
-            <div class="sub" id="sumAvgPrice">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Avg Daily Earnings</div>
-            <div class="value btc-orange" id="sumAvgDaily">--</div>
-            <div class="sub">BTC per day</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Total Payouts</div>
-            <div class="value positive" id="sumTotalPayouts">--</div>
-            <div class="sub" id="sumPayoutBTC">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Last Snapshot</div>
-            <div class="value neutral" id="sumLastSnapshot">--</div>
-            <div class="sub" id="sumSnapshotDate">--</div>
-        </div>
-    </section>
-
-    <!-- ===== ACTION BUTTONS ===== -->
-    <div class="dashboard-actions">
-        <button class="btn btn-primary" id="btnAddPayout">+ Add Payout</button>
-        <button class="btn btn-secondary" onclick="switchBankingTab('accounting')">Tax Exports &rarr; Accounting</button>
-    </div>
-
-    <div id="f2poolSyncStatus" style="text-align:center; color:#555; font-size:12px; margin-top:8px;"></div>
-    </div>
-
-    <!-- ===== ELECTRICITY COST SUMMARY ===== -->
-    <div class="widget-section" data-widget="electricity">
-    <div class="section-label">Electricity Costs</div>
-    <section class="fleet-grid">
-        <div class="metric-card">
-            <div class="label">Total Electricity Cost</div>
-            <div class="value negative" id="elecTotalCost">--</div>
-            <div class="sub">all-time</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Avg Monthly Cost</div>
-            <div class="value neutral" id="elecAvgMonthly">--</div>
-            <div class="sub">per month</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Total kWh Consumed</div>
-            <div class="value neutral" id="elecTotalKWh">--</div>
-            <div class="sub">all-time</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Effective $/kWh</div>
-            <div class="value neutral" id="elecEffRate">--</div>
-            <div class="sub">weighted average</div>
-        </div>
-    </section>
-
-    <div class="dashboard-actions">
-        <button class="btn btn-primary" id="btnAddBill">+ Add Bill</button>
-        <button class="btn btn-secondary" id="btnEstimateFleet">Estimate from Fleet</button>
-    </div>
-    </div>
-
-    <!-- ===== PAYOUT LOG TABLE ===== -->
-    <div class="widget-section" data-widget="payout-log">
-    <div class="card">
-        <h3>Payout Log</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>BTC Amount</th>
-                        <th>BTC Price</th>
-                        <th>USD Value</th>
-                        <th>TX Hash</th>
-                        <th>Notes</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="payoutTableBody">
-                    <tr><td colspan="7" style="text-align:center; padding:20px; color:#555;">No payouts logged yet</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== ELECTRICITY LOG TABLE ===== -->
-    <div class="widget-section" data-widget="elec-log">
-    <div class="card">
-        <h3>Electricity Log</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>kWh</th>
-                        <th>Cost</th>
-                        <th>$/kWh</th>
-                        <th>Notes</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="elecTableBody">
-                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No electricity bills logged yet</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== EARNINGS OVER TIME CHART ===== -->
-    <div class="widget-section" data-widget="payouts-chart">
-    <div class="card">
-        <h3>Cumulative Payouts Over Time</h3>
-        <div class="earnings-chart-container" style="position:relative;">
-            <div id="chartEmptyMsg" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts to see the chart</div>
-            <canvas id="earningsOverTimeChart"></canvas>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== REVENUE VS COSTS CHART ===== -->
-    <div class="widget-section" data-widget="rev-chart">
-    <div class="card">
-        <h3>Revenue vs Electricity Costs</h3>
-        <div class="earnings-chart-container" style="position:relative;">
-            <div id="revCostEmptyMsg" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts and electricity bills to see the chart</div>
-            <canvas id="revVsCostChart"></canvas>
-        </div>
-    </div>
-    </div>
-
-    </div><!-- /tabIncome -->
-
-    <!-- ============================================================ -->
-    <!-- TAB: ACCOUNTING                                              -->
-    <!-- ============================================================ -->
-    <div class="banking-tab-content" id="tabAccounting" style="display:none;">
-
-    <!-- ===== QBO + STRIKE STATUS ===== -->
-    <div class="dashboard-actions" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <span id="qboStatusBadge" class="status-badge status-disconnected">QuickBooks: Not Connected</span>
-            <span id="strikeStatusBadgeAcct" class="status-badge status-disconnected">Strike: Not Connected</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary" id="btnConnectQbo">Connect QuickBooks</button>
-            <button class="btn btn-secondary" id="btnConnectStrikeAcct">Connect Strike</button>
-        </div>
-    </div>
-
-    <!-- ===== PERIOD SELECTOR ===== -->
-    <div class="card" style="padding: 10px 14px;">
-        <div class="time-range-selector" id="periodSelector" style="margin-bottom: 0;">
-            <button class="range-btn active" data-period="month">This Month</button>
-            <button class="range-btn" data-period="quarter">This Quarter</button>
-            <button class="range-btn" data-period="year">This Year</button>
-            <button class="range-btn" data-period="custom">Custom</button>
-        </div>
-        <div id="customDateRange" style="display:none; margin-top:8px; gap:8px; align-items:center;" class="inputs-grid">
-            <div class="input-group" style="margin-bottom:0;">
-                <div class="input-wrapper">
-                    <input type="date" id="acctStartDate">
-                </div>
-            </div>
-            <div class="input-group" style="margin-bottom:0;">
-                <div class="input-wrapper">
-                    <input type="date" id="acctEndDate">
-                </div>
-            </div>
-            <button class="btn btn-primary" id="btnApplyCustom" style="padding:6px 14px;">Apply</button>
-        </div>
-    </div>
-
-    <!-- ===== UNIFIED P&L SUMMARY ===== -->
-    <div class="widget-section" data-widget="pnl">
-    <div class="section-label">Profit & Loss Summary</div>
-    <section class="fleet-grid">
-        <div class="metric-card">
-            <div class="label">BTC Revenue</div>
-            <div class="value positive" id="pnlRevenue">--</div>
-            <div class="sub" id="pnlRevenueBtc">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Fiat Expenses</div>
-            <div class="value negative" id="pnlExpenses">--</div>
-            <div class="sub" id="pnlExpensesSrc">from local data</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Equipment CAPEX</div>
-            <div class="value negative" id="pnlCapex">--</div>
-            <div class="sub" id="pnlCapexCount">--</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Net Income</div>
-            <div class="value" id="pnlNet">--</div>
-            <div class="sub">revenue - expenses</div>
-        </div>
-        <div class="metric-card">
-            <div class="label">Unpaid Balance</div>
-            <div class="value btc-orange" id="pnlUnpaid">--</div>
-            <div class="sub">pool balances</div>
-        </div>
-    </section>
-    </div>
-
-    <!-- ===== REVENUE VS EXPENSES CHART ===== -->
-    <div class="widget-section" data-widget="pnl-chart">
-    <div class="card">
-        <h3>Revenue vs Expenses</h3>
-        <div class="combo-chart-container" style="position:relative;">
-            <div id="pnlChartEmpty" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts and expenses to see the chart</div>
-            <canvas id="pnlBarChart"></canvas>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== EXPENSE BREAKDOWN CHART ===== -->
-    <div class="widget-section" data-widget="expense-chart">
-    <div class="card">
-        <h3>Expense Breakdown</h3>
-        <div class="earnings-chart-container" style="position:relative;">
-            <div id="expenseChartEmpty" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add expenses to see the breakdown</div>
-            <canvas id="expenseDoughnut"></canvas>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== BANK ACCOUNTS (QBO) ===== -->
-    <div class="widget-section" data-widget="bank-accounts" id="bankAccountsSection" style="display:none;">
-    <div class="section-label">Bank Accounts</div>
-    <section class="fleet-grid" id="bankAccountsGrid">
-    </section>
-    </div>
-
-    <!-- ===== REVENUE BREAKDOWN ===== -->
-    <div class="widget-section" data-widget="revenue">
-    <div class="card">
-        <h3>Revenue Breakdown</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Source</th>
-                        <th>BTC Amount</th>
-                        <th>BTC Price</th>
-                        <th>USD Value</th>
-                        <th>Category</th>
-                    </tr>
-                </thead>
-                <tbody id="revenueTableBody">
-                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No revenue data</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== EXPENSES BREAKDOWN ===== -->
-    <div class="widget-section" data-widget="expenses">
-    <div class="card">
-        <h3>Expenses Breakdown</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Vendor / Payee</th>
-                        <th>Category</th>
-                        <th>Amount</th>
-                        <th>Account</th>
-                    </tr>
-                </thead>
-                <tbody id="expenseTableBody">
-                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">No expense data</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== INVOICES (QBO) ===== -->
-    <div class="widget-section" data-widget="invoices" id="invoicesSection" style="display:none;">
-    <div class="card">
-        <h3>Invoices</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Customer</th>
-                        <th>Amount</th>
-                        <th>Due Date</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="invoiceTableBody">
-                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">No invoices</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <!-- ===== EXPORT BUTTON ===== -->
-    <div class="dashboard-actions">
-        <button class="btn btn-primary" id="btnTaxExport">Export Tax Report</button>
-    </div>
-
-    </div><!-- /tabAccounting -->
-
-    <!-- ============================================================ -->
-    <!-- ===== ALL SLIDE PANELS =====                                 -->
-    <!-- ============================================================ -->
 
     <!-- ===== Wallet panels ===== -->
-
-    <!-- ===== 2FA SETUP PANEL ===== -->
     <div class="slide-panel" id="setup2FAPanel">
         <div class="panel-inner">
             <h4>Setup Google Authenticator</h4>
@@ -815,9 +480,159 @@
         </div>
     </div>
 
-    <!-- ===== Income panels ===== -->
 
-    <!-- Add Bill Slide Panel -->
+    </div><!-- /tabWallet -->
+
+    <!-- ============================================================ -->
+    <!-- TAB: INCOME                                                  -->
+    <!-- ============================================================ -->
+    <div class="banking-tab-content" id="tabIncome" style="display:none;">
+
+    <!-- ===== EARNINGS SUMMARY ===== -->
+    <div class="widget-section" data-widget="earnings">
+    <div class="section-label">Earnings Summary</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">Total BTC Earned</div>
+            <div class="value btc-orange" id="sumTotalEarned">--</div>
+            <div class="sub">all-time logged</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total USD Value</div>
+            <div class="value neutral" id="sumTotalUSD">--</div>
+            <div class="sub" id="sumAvgPrice">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg Daily Earnings</div>
+            <div class="value btc-orange" id="sumAvgDaily">--</div>
+            <div class="sub">BTC per day</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total Payouts</div>
+            <div class="value positive" id="sumTotalPayouts">--</div>
+            <div class="sub" id="sumPayoutBTC">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Last Snapshot</div>
+            <div class="value neutral" id="sumLastSnapshot">--</div>
+            <div class="sub" id="sumSnapshotDate">--</div>
+        </div>
+    </section>
+
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="dashboard-actions">
+        <button class="btn btn-primary" id="btnAddPayout">+ Add Payout</button>
+        <button class="btn btn-secondary" onclick="switchBankingTab('accounting')">Tax Exports &rarr; Accounting</button>
+    </div>
+
+    <div id="f2poolSyncStatus" style="text-align:center; color:#555; font-size:12px; margin-top:8px;"></div>
+    </div>
+
+    <!-- ===== ELECTRICITY COST SUMMARY ===== -->
+    <div class="widget-section" data-widget="electricity">
+    <div class="section-label">Electricity Costs</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">Total Electricity Cost</div>
+            <div class="value negative" id="elecTotalCost">--</div>
+            <div class="sub">all-time</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Avg Monthly Cost</div>
+            <div class="value neutral" id="elecAvgMonthly">--</div>
+            <div class="sub">per month</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Total kWh Consumed</div>
+            <div class="value neutral" id="elecTotalKWh">--</div>
+            <div class="sub">all-time</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Effective $/kWh</div>
+            <div class="value neutral" id="elecEffRate">--</div>
+            <div class="sub">weighted average</div>
+        </div>
+    </section>
+
+    <div class="dashboard-actions">
+        <button class="btn btn-primary" id="btnAddBill">+ Add Bill</button>
+        <button class="btn btn-secondary" id="btnEstimateFleet">Estimate from Fleet</button>
+    </div>
+    </div>
+
+    <!-- ===== PAYOUT LOG TABLE ===== -->
+    <div class="widget-section" data-widget="payout-log">
+    <div class="card">
+        <h3>Payout Log</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>BTC Amount</th>
+                        <th>BTC Price</th>
+                        <th>USD Value</th>
+                        <th>TX Hash</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="payoutTableBody">
+                    <tr><td colspan="7" style="text-align:center; padding:20px; color:#555;">No payouts logged yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== ELECTRICITY LOG TABLE ===== -->
+    <div class="widget-section" data-widget="elec-log">
+    <div class="card">
+        <h3>Electricity Log</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>kWh</th>
+                        <th>Cost</th>
+                        <th>$/kWh</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="elecTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No electricity bills logged yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== EARNINGS OVER TIME CHART ===== -->
+    <div class="widget-section" data-widget="payouts-chart">
+    <div class="card">
+        <h3>Cumulative Payouts Over Time</h3>
+        <div class="earnings-chart-container" style="position:relative;">
+            <div id="chartEmptyMsg" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts to see the chart</div>
+            <canvas id="earningsOverTimeChart"></canvas>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== REVENUE VS COSTS CHART ===== -->
+    <div class="widget-section" data-widget="rev-chart">
+    <div class="card">
+        <h3>Revenue vs Electricity Costs</h3>
+        <div class="earnings-chart-container" style="position:relative;">
+            <div id="revCostEmptyMsg" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts and electricity bills to see the chart</div>
+            <canvas id="revVsCostChart"></canvas>
+        </div>
+    </div>
+    </div>
+
+
+    <!-- ===== Income panels ===== -->
     <div class="slide-panel" id="addBillPanel">
         <div class="panel-inner">
             <h4>Add Electricity Bill</h4>
@@ -901,9 +716,186 @@
         </div>
     </div>
 
-    <!-- ===== Accounting panels ===== -->
+    </div><!-- /tabIncome -->
 
-    <!-- ===== CONNECT QUICKBOOKS PANEL ===== -->
+    <!-- ============================================================ -->
+    <!-- TAB: ACCOUNTING                                              -->
+    <!-- ============================================================ -->
+    <div class="banking-tab-content" id="tabAccounting" style="display:none;">
+
+    <!-- ===== QBO + STRIKE STATUS ===== -->
+    <div class="dashboard-actions" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span id="qboStatusBadge" class="status-badge status-disconnected">QuickBooks: Not Connected</span>
+            <span id="strikeStatusBadgeAcct" class="status-badge status-disconnected">Strike: Not Connected</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary" id="btnConnectQbo">Connect QuickBooks</button>
+            <button class="btn btn-secondary" id="btnConnectStrikeAcct">Connect Strike</button>
+        </div>
+    </div>
+
+    <!-- ===== PERIOD SELECTOR ===== -->
+    <div class="card" style="padding: 10px 14px;">
+        <div class="time-range-selector" id="periodSelector" style="margin-bottom: 0;">
+            <button class="range-btn active" data-period="month">This Month</button>
+            <button class="range-btn" data-period="quarter">This Quarter</button>
+            <button class="range-btn" data-period="year">This Year</button>
+            <button class="range-btn" data-period="custom">Custom</button>
+        </div>
+        <div id="customDateRange" style="display:none; margin-top:8px; gap:8px; align-items:center;" class="inputs-grid">
+            <div class="input-group" style="margin-bottom:0;">
+                <div class="input-wrapper">
+                    <input type="date" id="acctStartDate">
+                </div>
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+                <div class="input-wrapper">
+                    <input type="date" id="acctEndDate">
+                </div>
+            </div>
+            <button class="btn btn-primary" id="btnApplyCustom" style="padding:6px 14px;">Apply</button>
+        </div>
+    </div>
+
+    <!-- ===== UNIFIED P&L SUMMARY ===== -->
+    <div class="widget-section" data-widget="pnl">
+    <div class="section-label">Profit & Loss Summary</div>
+    <section class="fleet-grid">
+        <div class="metric-card">
+            <div class="label">BTC Revenue</div>
+            <div class="value positive" id="pnlRevenue">--</div>
+            <div class="sub" id="pnlRevenueBtc">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Fiat Expenses</div>
+            <div class="value negative" id="pnlExpenses">--</div>
+            <div class="sub" id="pnlExpensesSrc">from local data</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Equipment CAPEX</div>
+            <div class="value negative" id="pnlCapex">--</div>
+            <div class="sub" id="pnlCapexCount">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Net Income</div>
+            <div class="value" id="pnlNet">--</div>
+            <div class="sub">revenue - expenses</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">Unpaid Balance</div>
+            <div class="value btc-orange" id="pnlUnpaid">--</div>
+            <div class="sub">pool balances</div>
+        </div>
+    </section>
+    </div>
+
+    <!-- ===== REVENUE VS EXPENSES CHART ===== -->
+    <div class="widget-section" data-widget="pnl-chart">
+    <div class="card">
+        <h3>Revenue vs Expenses</h3>
+        <div class="combo-chart-container" style="position:relative;">
+            <div id="pnlChartEmpty" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add payouts and expenses to see the chart</div>
+            <canvas id="pnlBarChart"></canvas>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== EXPENSE BREAKDOWN CHART ===== -->
+    <div class="widget-section" data-widget="expense-chart">
+    <div class="card">
+        <h3>Expense Breakdown</h3>
+        <div class="earnings-chart-container" style="position:relative;">
+            <div id="expenseChartEmpty" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; color:#555; z-index:2;">Add expenses to see the breakdown</div>
+            <canvas id="expenseDoughnut"></canvas>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== BANK ACCOUNTS (QBO) ===== -->
+    <div class="widget-section" data-widget="bank-accounts" id="bankAccountsSection" style="display:none;">
+    <div class="section-label">Bank Accounts</div>
+    <section class="fleet-grid" id="bankAccountsGrid">
+    </section>
+    </div>
+
+    <!-- ===== REVENUE BREAKDOWN ===== -->
+    <div class="widget-section" data-widget="revenue">
+    <div class="card">
+        <h3>Revenue Breakdown</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Source</th>
+                        <th>BTC Amount</th>
+                        <th>BTC Price</th>
+                        <th>USD Value</th>
+                        <th>Category</th>
+                    </tr>
+                </thead>
+                <tbody id="revenueTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No revenue data</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== EXPENSES BREAKDOWN ===== -->
+    <div class="widget-section" data-widget="expenses">
+    <div class="card">
+        <h3>Expenses Breakdown</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Vendor / Payee</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Account</th>
+                    </tr>
+                </thead>
+                <tbody id="expenseTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">No expense data</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== INVOICES (QBO) ===== -->
+    <div class="widget-section" data-widget="invoices" id="invoicesSection" style="display:none;">
+    <div class="card">
+        <h3>Invoices</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="invoiceTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">No invoices</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===== EXPORT BUTTON ===== -->
+    <div class="dashboard-actions">
+        <button class="btn btn-primary" id="btnTaxExport">Export Tax Report</button>
+    </div>
+
+
+    <!-- ===== Accounting panels ===== -->
     <div class="slide-panel" id="qboConnectPanel">
         <div class="panel-inner">
             <h4>Connect QuickBooks</h4>
@@ -992,6 +984,8 @@
         </div>
     </div>
 
+    </div><!-- /tabAccounting -->
+
 </main>
 
 <footer>
@@ -1002,15 +996,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=176"></script>
-<script src="./sync.js?v=176"></script>
-<script src="./auth-ui.js?v=176"></script>
-<script src="./profile-panel.js?v=176"></script>
-<script src="./shared.js?v=176"></script>
-<script src="./fleet-data.js?v=176"></script>
-<script src="./banking.js?v=176"></script>
-<script src="./widget-settings.js?v=176"></script>
-<script src="./alerts.js?v=176"></script>
-<script src="./onboarding.js?v=176"></script>
+<script src="./firebase-config.js?v=177"></script>
+<script src="./sync.js?v=177"></script>
+<script src="./auth-ui.js?v=177"></script>
+<script src="./profile-panel.js?v=177"></script>
+<script src="./shared.js?v=177"></script>
+<script src="./fleet-data.js?v=177"></script>
+<script src="./banking.js?v=177"></script>
+<script src="./widget-settings.js?v=177"></script>
+<script src="./alerts.js?v=177"></script>
+<script src="./onboarding.js?v=177"></script>
 </body>
 </html>
