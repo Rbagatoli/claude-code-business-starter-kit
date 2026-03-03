@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=171">
+    <link rel="stylesheet" href="./shared.css?v=172">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -476,73 +476,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=171"></script>
-<script src="./sync.js?v=171"></script>
-<script src="./auth-ui.js?v=171"></script>
-<script src="./profile-panel.js?v=171"></script>
-<script src="./shared.js?v=171"></script>
-<script src="./fleet-data.js?v=171"></script>
-<script src="./wallet.js?v=171"></script>
-<script>
-// Auto-generate share link — shows URL in invoiceStatus (visible above panel overflow cutoff)
-(function() {
-    var _done = false;
-    var _seen = 0;
-
-    setInterval(function() {
-        var result = document.getElementById('invoiceResult');
-        if (!result || result.style.display === 'none') {
-            _done = false;
-            _seen = 0;
-            return;
-        }
-        if (_done) return;
-
-        var bolt11El = document.getElementById('lnInvoiceText');
-        if (!bolt11El || !bolt11El.textContent || bolt11El.textContent.length < 20) return;
-
-        // Check if wallet.js already put the URL in invoiceStatus
-        var statusEl = document.getElementById('invoiceStatus');
-        if (statusEl && statusEl.innerHTML.indexOf('/pay?id=') !== -1) {
-            _done = true;
-            return;
-        }
-
-        if (!_seen) { _seen = Date.now(); return; }
-        if (Date.now() - _seen < 3000) return;
-
-        if (typeof StrikeAPI === 'undefined' || !StrikeAPI.shareInvoice) return;
-        _done = true;
-
-        var amt = document.getElementById('receiveAmount').value.trim();
-        var cur = document.getElementById('receiveCurrency').value;
-        var desc = document.getElementById('receiveDescription').value.trim();
-
-        if (statusEl) statusEl.innerHTML = '<span style="color:#888;">Generating share link...</span>';
-
-        StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' }).then(function(data) {
-            if (data && data.shareId) {
-                var url = StrikeAPI.getProxyUrl().replace(/\/$/, '') + '/pay?id=' + data.shareId;
-                if (statusEl) {
-                    statusEl.innerHTML = '<div style="margin-top:4px;padding:10px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:8px;">' +
-                        '<div style="font-size:11px;color:#4ade80;margin-bottom:4px;font-weight:600;">Client Payment Link:</div>' +
-                        '<div id="shareUrlInline" style="font-size:11px;word-break:break-all;color:#4ade80;line-height:1.4;cursor:pointer;" onclick="navigator.clipboard.writeText(this.textContent).then(function(){document.getElementById(\'shareCopyMsg\').textContent=\'Copied!\';})">' + url + '</div>' +
-                        '<div id="shareCopyMsg" style="font-size:10px;color:#888;margin-top:4px;">Tap link to copy</div>' +
-                    '</div>';
-                }
-            } else if (statusEl) {
-                statusEl.innerHTML = '<span style="color:#f55;">' + (data && data.error || 'Share failed') + '</span>';
-                _done = false;
-            }
-        }).catch(function(e) {
-            if (statusEl) statusEl.innerHTML = '<span style="color:#f55;">Error: ' + e.message + '</span>';
-            _done = false;
-        });
-    }, 2000);
-})();
-</script>
-<script src="./widget-settings.js?v=171"></script>
-<script src="./alerts.js?v=171"></script>
-<script src="./onboarding.js?v=171"></script>
+<script src="./firebase-config.js?v=172"></script>
+<script src="./sync.js?v=172"></script>
+<script src="./auth-ui.js?v=172"></script>
+<script src="./profile-panel.js?v=172"></script>
+<script src="./shared.js?v=172"></script>
+<script src="./fleet-data.js?v=172"></script>
+<script src="./wallet.js?v=172"></script>
+<script src="./widget-settings.js?v=172"></script>
+<script src="./alerts.js?v=172"></script>
+<script src="./onboarding.js?v=172"></script>
 </body>
 </html>
