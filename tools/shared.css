@@ -890,11 +890,7 @@ footer {
     padding: 0 16px;
     background: rgba(255, 255, 255, 0.02);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    margin-bottom: 24px;
 }
 .banking-tab {
     flex: 1;
@@ -917,7 +913,18 @@ footer {
     border-bottom-color: #f7931a;
 }
 .banking-tab-content {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.banking-tab-content .widget-section {
+    margin-bottom: 0;
+}
+.banking-tab-content .card {
+    margin-bottom: 0;
+}
+.banking-tab-content section.fleet-grid {
+    gap: 16px;
 }
 
 /* ===== TIME RANGE SELECTOR ===== */
