@@ -132,7 +132,14 @@ async function hashPin(pin) {
 }
 
 async function checkPin(request, env, user, origin) {
-    if (!user.pinHash) return null; // No PIN set, skip
+    if (!user.pinHash) {
+        return jsonResponse({
+            error: 'PIN not configured',
+            message: 'You must set up a send PIN before making transactions.',
+            pinRequired: true,
+            pinNotSet: true
+        }, 403, origin);
+    }
     var pin = (request.headers.get('X-Dashboard-Pin') || '').trim();
     if (!pin) {
         return jsonResponse({

@@ -1183,6 +1183,19 @@ function updatePinVisibility() {
 }
 
 document.getElementById('btnSendBtc').addEventListener('click', function() {
+    // Block send if no PIN is set up
+    var user = StrikeAuth.getUser();
+    if (!user || !user.hasPin) {
+        var pinSection = document.getElementById('strikeKeyPinSection');
+        var keyPanel = document.getElementById('strikeApiKeyPanel');
+        if (pinSection && keyPanel) {
+            pinSection.style.display = '';
+            keyPanel.classList.add('open');
+            var resultEl = document.getElementById('strikeKeyResult');
+            if (resultEl) resultEl.innerHTML = '<span style="color:#f7931a;">You must create a send PIN before you can send BTC.</span>';
+        }
+        return;
+    }
     document.getElementById('sendStep1').style.display = '';
     document.getElementById('sendStep2').style.display = 'none';
     document.getElementById('sendResult').innerHTML = '';
@@ -1192,13 +1205,10 @@ document.getElementById('btnSendBtc').addEventListener('click', function() {
     document.getElementById('sendAmount').value = '';
     activeSendQuote = null;
     // Check if user has 2FA and/or PIN enabled
-    var user = StrikeAuth.getUser();
     if (user && user.has2FA) {
         totpEnabled = true;
     }
-    if (user && user.hasPin) {
-        pinEnabled = true;
-    }
+    pinEnabled = true; // PIN is always required now
     updateSendTypeUI();
     updateTotpVisibility();
     updatePinVisibility();
@@ -1447,7 +1457,19 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
             totpEnabled = true;
             updateTotpVisibility();
         }
-        if (sendResult.pinRequired) {
+        if (sendResult.pinNotSet) {
+            // No PIN configured — redirect to PIN setup
+            document.getElementById('sendBtcPanel').classList.remove('open');
+            var pinSection = document.getElementById('strikeKeyPinSection');
+            var keyPanel = document.getElementById('strikeApiKeyPanel');
+            if (pinSection && keyPanel) {
+                pinSection.style.display = '';
+                keyPanel.classList.add('open');
+                keyPanel.dataset.pinRequired = 'true';
+                var kr = document.getElementById('strikeKeyResult');
+                if (kr) kr.innerHTML = '<span style="color:#f7931a;">You must create a send PIN before you can send BTC.</span>';
+            }
+        } else if (sendResult.pinRequired) {
             pinEnabled = true;
             updatePinVisibility();
         }
@@ -1751,7 +1773,13 @@ function showOnchainAddress(address) {
     var cancelBtn = document.getElementById('cancelStrikeKey');
     if (cancelBtn) {
         cancelBtn.addEventListener('click', function() {
-            document.getElementById('strikeApiKeyPanel').classList.remove('open');
+            var panel = document.getElementById('strikeApiKeyPanel');
+            if (panel.dataset.pinRequired === 'true') {
+                var resultEl = document.getElementById('strikeKeyResult');
+                if (resultEl) resultEl.innerHTML = '<span style="color:#f7931a;">You must create a send PIN before continuing.</span>';
+                return; // Block close
+            }
+            panel.classList.remove('open');
         });
     }
 
@@ -1779,11 +1807,13 @@ function showOnchainAddress(address) {
                 }
                 hideConnectStrikePrompt();
                 updateAccountButtons();
-                // Show PIN creation UI
+                // Show PIN creation UI — PIN is mandatory, cannot skip
                 var pinSection = document.getElementById('strikeKeyPinSection');
                 if (pinSection && !(user && user.hasPin)) {
                     resultEl.innerHTML = '<span style="color:#4ade80;">Strike connected! Now create a send PIN below.</span>';
                     pinSection.style.display = '';
+                    // Mark panel as requiring PIN before close
+                    document.getElementById('strikeApiKeyPanel').dataset.pinRequired = 'true';
                 } else {
                     resultEl.innerHTML = '<span style="color:#4ade80;">Strike account connected!</span>';
                     setTimeout(function() {
