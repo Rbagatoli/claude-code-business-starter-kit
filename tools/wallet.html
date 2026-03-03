@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=168">
+    <link rel="stylesheet" href="./shared.css?v=169">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -381,13 +381,13 @@
                         <button class="btn btn-secondary" id="btnCopyInvoice" style="position:absolute; top:6px; right:6px; padding:4px 10px; font-size:11px;">Copy</button>
                     </div>
                     <div id="invoiceStatus" style="font-size:12px; margin-top:8px; color:#888;"></div>
-                    <button class="btn btn-secondary" id="btnShareInvoice" style="display:none; margin-top:10px; width:100%; padding:10px; font-size:13px; color:#4ade80; border-color:rgba(74,222,128,0.3); background:rgba(74,222,128,0.08);">Share Invoice Link</button>
-                    <div id="invoiceShareLink" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size:12px; color:#aaa; margin-bottom:4px;">Share this link with your client:</div>
+                    <div id="invoiceShareLink" style="display:none; margin-top:12px; padding:12px; background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.2); border-radius:10px;">
+                        <div style="font-size:12px; color:#4ade80; margin-bottom:6px; font-weight:500;">Client Payment Link:</div>
                         <div style="position:relative;">
-                            <div id="shareUrlText" style="background:rgba(255,255,255,0.05); padding:8px 40px 8px 12px; border-radius:8px; font-size:11px; word-break:break-all; color:#4ade80;"></div>
+                            <div id="shareUrlText" style="background:rgba(255,255,255,0.05); padding:8px 40px 8px 12px; border-radius:8px; font-size:11px; word-break:break-all; color:#4ade80; line-height:1.5;"></div>
                             <button class="btn btn-secondary" id="btnCopyShareLink" style="position:absolute; top:4px; right:6px; padding:4px 10px; font-size:11px;">Copy</button>
                         </div>
+                        <div style="font-size:10px; color:#666; margin-top:6px;">Send this link to your client — no app download needed</div>
                     </div>
                 </div>
             </div>
@@ -475,82 +475,72 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=168"></script>
-<script src="./sync.js?v=168"></script>
-<script src="./auth-ui.js?v=168"></script>
-<script src="./profile-panel.js?v=168"></script>
-<script src="./shared.js?v=168"></script>
-<script src="./fleet-data.js?v=168"></script>
-<script src="./wallet.js?v=168"></script>
+<script src="./firebase-config.js?v=169"></script>
+<script src="./sync.js?v=169"></script>
+<script src="./auth-ui.js?v=169"></script>
+<script src="./profile-panel.js?v=169"></script>
+<script src="./shared.js?v=169"></script>
+<script src="./fleet-data.js?v=169"></script>
+<script src="./wallet.js?v=169"></script>
 <script>
-// Inline share link handler — bypasses service worker JS cache
+// Auto-generate share link when invoice is created (polling — no MutationObserver)
 (function() {
-    var origCreate = document.getElementById('btnCreateInvoice');
-    var shareBtn = document.getElementById('btnShareInvoice');
-    var shareLinkEl = document.getElementById('invoiceShareLink');
-    var shareUrlText = document.getElementById('shareUrlText');
-    var copyShareBtn = document.getElementById('btnCopyShareLink');
-    var statusEl = document.getElementById('invoiceStatus');
+    var _done = false;
+    var _seen = 0;
 
-    if (!origCreate || !shareBtn) return;
-
-    // Show Share button after invoice is created
-    var obs = new MutationObserver(function() {
+    setInterval(function() {
         var result = document.getElementById('invoiceResult');
-        if (result && result.style.display !== 'none') {
-            shareBtn.style.display = '';
-        }
-    });
-    obs.observe(document.getElementById('invoiceResult'), { attributes: true, attributeFilter: ['style'] });
 
-    // Share button click
-    shareBtn.addEventListener('click', async function() {
-        shareBtn.disabled = true;
-        shareBtn.textContent = 'Generating...';
-        try {
-            var amt = document.getElementById('receiveAmount').value.trim();
-            var cur = document.getElementById('receiveCurrency').value;
-            var desc = document.getElementById('receiveDescription').value.trim();
-            var data = await StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' });
+        // Reset when invoice area is hidden (panel closed or new invoice)
+        if (!result || result.style.display === 'none') {
+            _done = false;
+            _seen = 0;
+            return;
+        }
+
+        if (_done) return;
+
+        // Invoice is visible — check if bolt11 is present
+        var bolt11El = document.getElementById('lnInvoiceText');
+        if (!bolt11El || !bolt11El.textContent || bolt11El.textContent.length < 20) return;
+
+        // Check if wallet.js already generated the share link
+        var shareUrl = document.getElementById('shareUrlText');
+        var shareLink = document.getElementById('invoiceShareLink');
+        if (shareUrl && shareUrl.textContent && shareUrl.textContent.length > 10) {
+            _done = true;
+            if (shareLink) shareLink.style.display = '';
+            return;
+        }
+
+        // Wait 3 seconds after invoice appears to let wallet.js try first
+        if (!_seen) { _seen = Date.now(); return; }
+        if (Date.now() - _seen < 3000) return;
+
+        // wallet.js didn't generate it — do it from here
+        if (typeof StrikeAPI === 'undefined' || !StrikeAPI.shareInvoice) return;
+        _done = true;
+
+        var amt = document.getElementById('receiveAmount').value.trim();
+        var cur = document.getElementById('receiveCurrency').value;
+        var desc = document.getElementById('receiveDescription').value.trim();
+
+        StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' }).then(function(data) {
             if (data && data.shareId) {
                 var url = StrikeAPI.getProxyUrl().replace(/\/$/, '') + '/pay?id=' + data.shareId;
-                shareUrlText.textContent = url;
-                shareLinkEl.style.display = '';
-                shareBtn.style.display = 'none';
+                if (shareUrl) shareUrl.textContent = url;
+                if (shareLink) shareLink.style.display = '';
             } else {
-                statusEl.innerHTML = '<span style="color:#f55;">' + (data && data.error || 'Share failed') + '</span>';
-                shareBtn.disabled = false;
-                shareBtn.textContent = 'Share Invoice Link';
+                _done = false;
             }
-        } catch(e) {
-            statusEl.innerHTML = '<span style="color:#f55;">Error: ' + e.message + '</span>';
-            shareBtn.disabled = false;
-            shareBtn.textContent = 'Share Invoice Link';
-        }
-    });
-
-    // Copy share link
-    if (copyShareBtn) {
-        copyShareBtn.addEventListener('click', function() {
-            var url = shareUrlText.textContent;
-            var btn = this;
-            navigator.clipboard.writeText(url).then(function() {
-                btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-            }).catch(function() {
-                var ta = document.createElement('textarea');
-                ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
-                document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-                document.body.removeChild(ta);
-                btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-            });
+        }).catch(function() {
+            _done = false;
         });
-    }
+    }, 1000);
 })();
 </script>
-<script src="./widget-settings.js?v=168"></script>
-<script src="./alerts.js?v=168"></script>
-<script src="./onboarding.js?v=168"></script>
+<script src="./widget-settings.js?v=169"></script>
+<script src="./alerts.js?v=169"></script>
+<script src="./onboarding.js?v=169"></script>
 </body>
 </html>
