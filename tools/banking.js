@@ -56,6 +56,11 @@ function switchBankingTab(tabName) {
         accountingChartsInited = true;
         renderAccounting();
     }
+
+    // Re-init widget drag handles for the newly visible tab
+    if (typeof window.initBankingTabWidgets === 'function') {
+        window.initBankingTabWidgets();
+    }
 }
 window.switchBankingTab = switchBankingTab;
 

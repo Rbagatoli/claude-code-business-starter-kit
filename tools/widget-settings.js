@@ -313,4 +313,17 @@
         applyLock();
         injectSettingsUI();
     }, 100);
+
+    // Expose re-init function for banking tabs
+    if (page === 'banking') {
+        window.initBankingTabWidgets = function() {
+            // Re-run initialization for the newly visible tab
+            var newSections = getWidgetContainer().querySelectorAll('.widget-section[data-widget]');
+            if (newSections.length > 0) {
+                addDragHandles();
+                applyLayout();
+                applyLock();
+            }
+        };
+    }
 })();
