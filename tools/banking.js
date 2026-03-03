@@ -2826,6 +2826,7 @@ function updateRevCostChart() {
     revCostChart.update();
     var emptyMsg = document.getElementById('revCostEmptyMsg');
     if (emptyMsg) emptyMsg.style.display = chartData.labels.length === 0 ? 'flex' : 'none';
+}
 
 
 // ===== SECTION 5: ACCOUNTING TAB LOGIC (from accounting.js) =====
