@@ -1225,7 +1225,8 @@ async function loadOnchainTiers() {
             tierSelect.appendChild(opt);
         }
     } else {
-        tierSelect.innerHTML = '<option value="">' + (data && data.error ? data.error : 'Could not load tiers') + '</option>';
+        var tierErr = (data && data.error) ? data.error : (data ? JSON.stringify(data) : 'Could not load tiers');
+        tierSelect.innerHTML = '<option value="">' + tierErr + '</option>';
     }
 }
 
