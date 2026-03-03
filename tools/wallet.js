@@ -368,6 +368,7 @@ var StrikeAPI = (function() {
     }
 
     async function createInvoice(body) { return await apiPost('/invoice/create', body); }
+    async function createInvoiceQuote(invoiceId) { return await apiPost('/invoice/' + invoiceId + '/quote', {}); }
     async function getInvoice(invoiceId) { return await apiFetch('/invoice/' + invoiceId); }
 
     async function setPin(pin) { return await apiPost('/auth/set-pin', { pin: pin }); }
@@ -392,6 +393,7 @@ var StrikeAPI = (function() {
         getOnchainTiers: getOnchainTiers,
         executeSend: executeSend,
         createInvoice: createInvoice,
+        createInvoiceQuote: createInvoiceQuote,
         getInvoice: getInvoice,
         setPin: setPin,
         getSendStatus: getSendStatus,
@@ -1601,22 +1603,32 @@ document.getElementById('btnCreateInvoice').addEventListener('click', async func
 
     var body = { correlationId: 'inv_' + Date.now().toString(36), description: desc || 'Payment', amount: { amount: amt, currency: cur } };
     var data = await StrikeAPI.createInvoice(body);
+
+    if (!data || data.error || !data.invoiceId) {
+        this.disabled = false;
+        resultEl.innerHTML = '<span style="color:#f55;">' + (data && data.error || 'Failed to create invoice') + '</span>';
+        return;
+    }
+
+    // Step 2: Generate quote to get the bolt11 payment request
+    resultEl.innerHTML = '<span style="color:#888;">Generating Lightning invoice...</span>';
+    var quote = await StrikeAPI.createInvoiceQuote(data.invoiceId);
     this.disabled = false;
 
-    if (data && !data.error && data.invoiceId) {
-        resultEl.innerHTML = '';
-        var bolt11 = data.lnInvoice || data.bolt11 || '';
-        document.getElementById('lnInvoiceText').textContent = bolt11;
-
-        // QR code via api.qrserver.com (same pattern as 2FA)
-        var qrImg = document.getElementById('lnInvoiceQR');
-        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent('lightning:' + bolt11);
-
-        document.getElementById('invoiceResult').style.display = '';
-        startInvoicePoll(data.invoiceId);
-    } else {
-        resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || 'Failed to create invoice') + '</span>';
+    var bolt11 = (quote && quote.lnInvoice) || '';
+    if (!bolt11) {
+        resultEl.innerHTML = '<span style="color:#f55;">' + (quote && quote.error || 'Could not generate Lightning invoice') + '</span>';
+        return;
     }
+
+    resultEl.innerHTML = '';
+    document.getElementById('lnInvoiceText').textContent = bolt11;
+
+    var qrImg = document.getElementById('lnInvoiceQR');
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent('lightning:' + bolt11);
+
+    document.getElementById('invoiceResult').style.display = '';
+    startInvoicePoll(data.invoiceId);
 });
 
 // Copy invoice

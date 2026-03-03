@@ -748,9 +748,10 @@ export default {
             var isExchangeExec = path.match(/^\/exchange\/execute\/(.+)$/);
             var isSendExec = path.match(/^\/send\/execute\/(.+)$/);
             var isSendStatus = path.match(/^\/send\/status\/(.+)$/);
-            var isInvoiceGet = path.match(/^\/invoice\/(.+)$/);
+            var isInvoiceQuote = path.match(/^\/invoice\/(.+)\/quote$/);
+            var isInvoiceGet = !isInvoiceQuote && path.match(/^\/invoice\/(.+)$/);
 
-            if (isGatedRoute || isExchangeExec || isSendExec || isSendStatus || isInvoiceGet) {
+            if (isGatedRoute || isExchangeExec || isSendExec || isSendStatus || isInvoiceGet || isInvoiceQuote) {
                 var auth2 = await checkSession(request, env, origin);
                 if (auth2.error) return auth2.error;
                 var user = auth2.user;
@@ -770,6 +771,15 @@ export default {
                     var statusData = await strikeGet('/v1/payments/' + paymentId, userKey2);
                     if (hasStrikeError(statusData)) return strikeErrorResponse(statusData, origin);
                     return jsonResponse(statusData, 200, origin);
+                }
+
+                // Invoice quote (POST) — generates bolt11
+                if (isInvoiceQuote && request.method === 'POST') {
+                    var iqId = isInvoiceQuote[1];
+                    var quoteBody = await request.json().catch(function() { return {}; });
+                    var quoteData = await strikePost('/v1/invoices/' + iqId + '/quote', quoteBody, userKey2);
+                    if (hasStrikeError(quoteData)) return strikeErrorResponse(quoteData, origin);
+                    return jsonResponse(quoteData, 200, origin);
                 }
 
                 // Invoice details (GET)
