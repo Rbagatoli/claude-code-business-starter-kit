@@ -97,7 +97,7 @@
     // Apply lock/unlock state to all widgets
     function applyLock() {
         var widgets = getWidgetContainer().querySelectorAll('.widget-section');
-        var handles = document.querySelectorAll('.widget-drag-handle');
+        var handles = getWidgetContainer().querySelectorAll('.widget-drag-handle');
         for (var i = 0; i < widgets.length; i++) {
             widgets[i].setAttribute('draggable', config.locked ? 'false' : 'true');
         }

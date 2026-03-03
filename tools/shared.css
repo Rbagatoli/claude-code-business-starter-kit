@@ -1884,6 +1884,7 @@ main { display: flex; flex-direction: column; }
 
     /* Miner cards */
     .miner-cards-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    .banking-tab-content .miner-cards-grid { gap: 16px !important; }
     .miner-card { padding: 10px; border-radius: 8px; }
     .miner-card-header { margin-bottom: 6px; }
     .miner-card-model { font-size: 13px; }
