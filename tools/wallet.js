@@ -1262,7 +1262,7 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
         var body = {
             btcAddress: dest,
             sourceCurrency: cur,
-            amount: { amount: amt, currency: cur, feePolicy: 'EXCLUSIVE' }
+            amount: { amount: amt, currency: cur }
         };
         body.onchainTierId = tier;
         quoteData = await StrikeAPI.sendQuoteOnchain(body);
