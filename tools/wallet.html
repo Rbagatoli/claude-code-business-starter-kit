@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=169">
+    <link rel="stylesheet" href="./shared.css?v=170">
     <script>
-    if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
+    // Force full cache clear for v170 — nukes all service workers and caches
+    if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v134', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v170', '1'); location.reload(); });
         });
     }
     </script>
@@ -475,13 +476,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=169"></script>
-<script src="./sync.js?v=169"></script>
-<script src="./auth-ui.js?v=169"></script>
-<script src="./profile-panel.js?v=169"></script>
-<script src="./shared.js?v=169"></script>
-<script src="./fleet-data.js?v=169"></script>
-<script src="./wallet.js?v=169"></script>
+<script src="./firebase-config.js?v=170"></script>
+<script src="./sync.js?v=170"></script>
+<script src="./auth-ui.js?v=170"></script>
+<script src="./profile-panel.js?v=170"></script>
+<script src="./shared.js?v=170"></script>
+<script src="./fleet-data.js?v=170"></script>
+<script src="./wallet.js?v=170"></script>
 <script>
 // Auto-generate share link when invoice is created (polling — no MutationObserver)
 (function() {
@@ -539,8 +540,8 @@
     }, 1000);
 })();
 </script>
-<script src="./widget-settings.js?v=169"></script>
-<script src="./alerts.js?v=169"></script>
-<script src="./onboarding.js?v=169"></script>
+<script src="./widget-settings.js?v=170"></script>
+<script src="./alerts.js?v=170"></script>
+<script src="./onboarding.js?v=170"></script>
 </body>
 </html>
