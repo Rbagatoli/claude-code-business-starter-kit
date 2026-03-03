@@ -370,6 +370,7 @@ var StrikeAPI = (function() {
     async function createInvoice(body) { return await apiPost('/invoice/create', body); }
     async function createInvoiceQuote(invoiceId) { return await apiPost('/invoice/' + invoiceId + '/quote', {}); }
     async function getInvoice(invoiceId) { return await apiFetch('/invoice/' + invoiceId); }
+    async function shareInvoice(body) { return await apiPost('/invoice/share', body); }
 
     async function setPin(pin) { return await apiPost('/auth/set-pin', { pin: pin }); }
 
@@ -395,6 +396,7 @@ var StrikeAPI = (function() {
         createInvoice: createInvoice,
         createInvoiceQuote: createInvoiceQuote,
         getInvoice: getInvoice,
+        shareInvoice: shareInvoice,
         setPin: setPin,
         getSendStatus: getSendStatus,
         firebaseLogin: firebaseLogin,
@@ -1629,12 +1631,33 @@ document.getElementById('btnCreateInvoice').addEventListener('click', async func
 
     document.getElementById('invoiceResult').style.display = '';
     startInvoicePoll(data.invoiceId);
+
+    // Create shareable invoice link
+    var shareLinkEl = document.getElementById('invoiceShareLink');
+    if (shareLinkEl) {
+        shareLinkEl.style.display = 'none';
+        resultEl.innerHTML = '<span style="color:#888;">Generating share link...</span>';
+        var shareData = await StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' });
+        resultEl.innerHTML = '';
+        if (shareData && shareData.shareId) {
+            var baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+            var shareUrl = baseUrl + 'pay.html?id=' + shareData.shareId + '&api=' + encodeURIComponent(StrikeAPI.getProxyUrl());
+            document.getElementById('shareUrlText').textContent = shareUrl;
+            shareLinkEl.style.display = '';
+        }
+    }
 });
 
 // Copy invoice
 document.getElementById('btnCopyInvoice').addEventListener('click', function() {
     var bolt11 = document.getElementById('lnInvoiceText').textContent;
     copyToClipboard(bolt11, this);
+});
+
+// Copy share link
+document.getElementById('btnCopyShareLink').addEventListener('click', function() {
+    var url = document.getElementById('shareUrlText').textContent;
+    copyToClipboard(url, this);
 });
 
 // Poll invoice for payment

@@ -743,13 +743,126 @@ export default {
                 return jsonResponse(sessData, 200, origin);
             }
 
+            // ===== SHAREABLE INVOICE ROUTES (mixed auth) =====
+            var isSharedStatus = path.match(/^\/invoice\/shared\/([a-z0-9]+)\/status$/);
+            var isSharedInvoice = !isSharedStatus && path.match(/^\/invoice\/shared\/([a-z0-9]+)$/);
+            var isInvoiceShare = path === '/invoice/share' && request.method === 'POST';
+
+            // GET /invoice/shared/{id}/status — PUBLIC
+            if (isSharedStatus && request.method === 'GET') {
+                var statusShareId = isSharedStatus[1];
+                var statusInv = await env.SETTINGS.get('invoice:' + statusShareId, 'json');
+                if (!statusInv) return jsonResponse({ error: 'Invoice not found' }, 404, origin);
+
+                var ownerKey3 = env.STRIKE_API_KEY;
+                if (ownerKey3 && statusInv.invoiceId) {
+                    var strikeInv = await strikeGet('/v1/invoices/' + statusInv.invoiceId, ownerKey3);
+                    if (strikeInv && strikeInv.state === 'PAID' && statusInv.status !== 'PAID') {
+                        statusInv.status = 'PAID';
+                        await env.SETTINGS.put('invoice:' + statusShareId, JSON.stringify(statusInv), { expirationTtl: 86400 * 30 });
+                    } else if (strikeInv && (strikeInv.state === 'CANCELLED')) {
+                        statusInv.status = 'EXPIRED';
+                    }
+                }
+                return jsonResponse({ status: statusInv.status || 'UNPAID' }, 200, origin);
+            }
+
+            // GET /invoice/shared/{id} — PUBLIC
+            if (isSharedInvoice && request.method === 'GET') {
+                var viewShareId = isSharedInvoice[1];
+                var viewInv = await env.SETTINGS.get('invoice:' + viewShareId, 'json');
+                if (!viewInv) return jsonResponse({ error: 'Invoice not found' }, 404, origin);
+
+                // If bolt11 quote expired, try to regenerate
+                var bolt11 = viewInv.bolt11 || '';
+                if (viewInv.invoiceId && viewInv.quoteExpires && new Date(viewInv.quoteExpires).getTime() < Date.now()) {
+                    var ownerKey4 = env.STRIKE_API_KEY;
+                    if (ownerKey4) {
+                        var newQuote = await strikePost('/v1/invoices/' + viewInv.invoiceId + '/quote', {}, ownerKey4);
+                        if (newQuote && newQuote.lnInvoice) {
+                            bolt11 = newQuote.lnInvoice;
+                            viewInv.bolt11 = bolt11;
+                            viewInv.quoteExpires = newQuote.expirationInSec
+                                ? new Date(Date.now() + newQuote.expirationInSec * 1000).toISOString()
+                                : new Date(Date.now() + 3600000).toISOString();
+                            await env.SETTINGS.put('invoice:' + viewShareId, JSON.stringify(viewInv), { expirationTtl: 86400 * 30 });
+                        }
+                    }
+                }
+
+                return jsonResponse({
+                    amount: viewInv.amount,
+                    currency: viewInv.currency,
+                    description: viewInv.description,
+                    bolt11: bolt11,
+                    status: viewInv.status || 'UNPAID',
+                    businessName: viewInv.businessName || '',
+                    created: viewInv.created
+                }, 200, origin);
+            }
+
+            // POST /invoice/share — AUTHENTICATED
+            if (isInvoiceShare) {
+                var auth3 = await checkSession(request, env, origin);
+                if (auth3.error) return auth3.error;
+                var shareUser = auth3.user;
+                var shareKey = getUserApiKey(shareUser, env);
+                if (!shareKey) {
+                    return jsonResponse({ error: 'Strike not connected' }, 403, origin);
+                }
+
+                var shareBody = await request.json().catch(function() { return {}; });
+                var shareAmt = shareBody.amount || '';
+                var shareCur = shareBody.currency || 'USD';
+                var shareDesc = shareBody.description || 'Payment';
+
+                // Create Strike invoice
+                var invoiceBody = {
+                    correlationId: 'share_' + Date.now().toString(36),
+                    description: shareDesc,
+                    amount: { amount: shareAmt, currency: shareCur }
+                };
+                var strikeInvoice = await strikePost('/v1/invoices', invoiceBody, shareKey);
+                if (hasStrikeError(strikeInvoice)) return strikeErrorResponse(strikeInvoice, origin);
+
+                // Generate bolt11 quote
+                var shareQuote = await strikePost('/v1/invoices/' + strikeInvoice.invoiceId + '/quote', {}, shareKey);
+                var shareBolt11 = (shareQuote && shareQuote.lnInvoice) || '';
+
+                // Generate share ID and store in KV
+                var shareId = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+                var quoteExpires = shareQuote && shareQuote.expirationInSec
+                    ? new Date(Date.now() + shareQuote.expirationInSec * 1000).toISOString()
+                    : new Date(Date.now() + 3600000).toISOString();
+
+                var invoiceRecord = {
+                    invoiceId: strikeInvoice.invoiceId,
+                    bolt11: shareBolt11,
+                    amount: shareAmt,
+                    currency: shareCur,
+                    description: shareDesc,
+                    businessName: shareBody.businessName || '',
+                    created: new Date().toISOString(),
+                    quoteExpires: quoteExpires,
+                    status: 'UNPAID',
+                    userId: shareUser.id
+                };
+                await env.SETTINGS.put('invoice:' + shareId, JSON.stringify(invoiceRecord), { expirationTtl: 86400 * 30 });
+
+                return jsonResponse({
+                    shareId: shareId,
+                    bolt11: shareBolt11,
+                    invoiceId: strikeInvoice.invoiceId
+                }, 200, origin);
+            }
+
             // ===== TIER 3: Gated routes (per-user key) =====
             var isGatedRoute = GATED_ROUTES[path];
             var isExchangeExec = path.match(/^\/exchange\/execute\/(.+)$/);
             var isSendExec = path.match(/^\/send\/execute\/(.+)$/);
             var isSendStatus = path.match(/^\/send\/status\/(.+)$/);
             var isInvoiceQuote = path.match(/^\/invoice\/(.+)\/quote$/);
-            var isInvoiceGet = !isInvoiceQuote && path.match(/^\/invoice\/(.+)$/);
+            var isInvoiceGet = !isInvoiceQuote && !path.startsWith('/invoice/shared/') && path.match(/^\/invoice\/(.+)$/);
 
             if (isGatedRoute || isExchangeExec || isSendExec || isSendStatus || isInvoiceGet || isInvoiceQuote) {
                 var auth2 = await checkSession(request, env, origin);

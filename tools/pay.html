@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice — Payment</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #060606;
+            color: #e8e8e8;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .invoice-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            max-width: 440px;
+            width: 100%;
+            padding: 32px 28px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .business-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f7931a;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .invoice-label {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .details {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 14px;
+        }
+        .detail-row .label { color: #888; }
+        .detail-row .value { color: #e8e8e8; font-weight: 500; }
+        .detail-row .value.amount { color: #f7931a; font-size: 18px; font-weight: 700; }
+        .qr-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .qr-section img {
+            border-radius: 12px;
+            background: #fff;
+            padding: 10px;
+            width: 220px;
+            height: 220px;
+        }
+        .bolt11-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .bolt11-text {
+            background: rgba(255,255,255,0.05);
+            padding: 10px 50px 10px 14px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            word-break: break-all;
+            color: #f7931a;
+            max-height: 70px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            padding: 5px 12px;
+            font-size: 11px;
+            background: rgba(247,147,26,0.15);
+            border: 1px solid rgba(247,147,26,0.3);
+            color: #f7931a;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .copy-btn:hover { background: rgba(247,147,26,0.25); }
+        .status-bar {
+            text-align: center;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        .status-waiting {
+            background: rgba(247,147,26,0.08);
+            border: 1px solid rgba(247,147,26,0.25);
+            color: #f7931a;
+        }
+        .status-paid {
+            background: rgba(74,222,128,0.08);
+            border: 1px solid rgba(74,222,128,0.25);
+            color: #4ade80;
+        }
+        .status-expired {
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #ef4444;
+        }
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #555;
+            margin-top: 16px;
+        }
+        .error-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #ef4444;
+            font-size: 15px;
+        }
+        .loading-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+            font-size: 15px;
+        }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="invoice-card">
+        <div id="loadingState" class="loading-state">
+            <div class="pulse">Loading invoice...</div>
+        </div>
+        <div id="errorState" class="error-state" style="display:none;"></div>
+        <div id="invoiceContent" style="display:none;">
+            <div class="business-name" id="bizName">Invoice</div>
+            <div class="invoice-label">Payment Request</div>
+
+            <div class="details">
+                <div class="detail-row">
+                    <span class="label">Amount</span>
+                    <span class="value amount" id="invAmount">--</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Description</span>
+                    <span class="value" id="invDesc">--</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Created</span>
+                    <span class="value" id="invDate">--</span>
+                </div>
+            </div>
+
+            <div id="statusBar" class="status-bar status-waiting">Waiting for payment...</div>
+
+            <div id="paymentSection">
+                <div class="qr-section">
+                    <img id="lnQR" alt="Lightning QR Code">
+                </div>
+                <div style="font-size: 12px; color: #888; margin-bottom: 6px;">Lightning Invoice:</div>
+                <div class="bolt11-box">
+                    <div class="bolt11-text" id="bolt11Text"></div>
+                    <button class="copy-btn" id="btnCopy">Copy</button>
+                </div>
+            </div>
+
+            <div class="footer">Secured payment via Lightning Network</div>
+        </div>
+    </div>
+
+<script>
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var invoiceId = params.get('id') || '';
+    var apiUrl = params.get('api') || '';
+
+    if (!invoiceId || !apiUrl) {
+        showError('Invalid invoice link. Missing invoice ID or API endpoint.');
+        return;
+    }
+
+    var baseUrl = apiUrl.replace(/\/$/, '');
+
+    loadInvoice();
+
+    async function loadInvoice() {
+        try {
+            var res = await fetch(baseUrl + '/invoice/shared/' + invoiceId);
+            if (!res.ok) {
+                var errData = await res.json().catch(function() { return {}; });
+                showError(errData.error || 'Invoice not found (HTTP ' + res.status + ')');
+                return;
+            }
+            var data = await res.json();
+            renderInvoice(data);
+
+            if (data.status !== 'PAID' && data.status !== 'EXPIRED') {
+                startPolling();
+            }
+        } catch(e) {
+            showError('Could not load invoice: ' + (e.message || e));
+        }
+    }
+
+    function renderInvoice(data) {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('invoiceContent').style.display = '';
+
+        if (data.businessName) {
+            document.getElementById('bizName').textContent = data.businessName;
+        }
+
+        var amountText = data.amount || '0';
+        var currency = (data.currency || 'USD').toUpperCase();
+        if (currency === 'USD') {
+            amountText = '$' + parseFloat(amountText).toFixed(2) + ' USD';
+        } else {
+            amountText = amountText + ' ' + currency;
+        }
+        document.getElementById('invAmount').textContent = amountText;
+        document.getElementById('invDesc').textContent = data.description || '-';
+
+        if (data.created) {
+            var d = new Date(data.created);
+            document.getElementById('invDate').textContent =
+                (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear() + ' ' +
+                String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        if (data.status === 'PAID') {
+            showPaid();
+            return;
+        }
+        if (data.status === 'EXPIRED') {
+            showExpired();
+            return;
+        }
+
+        var bolt11 = data.bolt11 || '';
+        if (bolt11) {
+            document.getElementById('bolt11Text').textContent = bolt11;
+            document.getElementById('lnQR').src =
+                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=' + encodeURIComponent('lightning:' + bolt11);
+        } else {
+            document.getElementById('paymentSection').innerHTML =
+                '<div style="text-align:center; color:#888; padding:20px;">Lightning invoice is being generated...</div>';
+        }
+
+        document.title = 'Invoice — ' + amountText;
+    }
+
+    function showPaid() {
+        var bar = document.getElementById('statusBar');
+        bar.className = 'status-bar status-paid';
+        bar.textContent = 'Payment Received';
+        document.getElementById('paymentSection').style.display = 'none';
+    }
+
+    function showExpired() {
+        var bar = document.getElementById('statusBar');
+        bar.className = 'status-bar status-expired';
+        bar.textContent = 'Invoice Expired';
+        document.getElementById('paymentSection').style.display = 'none';
+    }
+
+    function showError(msg) {
+        document.getElementById('loadingState').style.display = 'none';
+        var el = document.getElementById('errorState');
+        el.style.display = '';
+        el.textContent = msg;
+    }
+
+    function startPolling() {
+        setInterval(async function() {
+            try {
+                var res = await fetch(baseUrl + '/invoice/shared/' + invoiceId + '/status');
+                if (!res.ok) return;
+                var data = await res.json();
+                if (data.status === 'PAID') {
+                    showPaid();
+                } else if (data.status === 'EXPIRED') {
+                    showExpired();
+                }
+            } catch(e) {}
+        }, 5000);
+    }
+
+    // Copy button
+    document.getElementById('btnCopy').addEventListener('click', function() {
+        var text = document.getElementById('bolt11Text').textContent;
+        var btn = this;
+        navigator.clipboard.writeText(text).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+        }).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+        });
+    });
+})();
+</script>
+</body>
+</html>

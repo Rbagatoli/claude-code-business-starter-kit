@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=160">
+    <link rel="stylesheet" href="./shared.css?v=161">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -381,6 +381,13 @@
                         <button class="btn btn-secondary" id="btnCopyInvoice" style="position:absolute; top:6px; right:6px; padding:4px 10px; font-size:11px;">Copy</button>
                     </div>
                     <div id="invoiceStatus" style="font-size:12px; margin-top:8px; color:#888;"></div>
+                    <div id="invoiceShareLink" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:12px; color:#aaa; margin-bottom:4px;">Share this link with your client:</div>
+                        <div style="position:relative;">
+                            <div id="shareUrlText" style="background:rgba(255,255,255,0.05); padding:8px 40px 8px 12px; border-radius:8px; font-size:11px; word-break:break-all; color:#4ade80;"></div>
+                            <button class="btn btn-secondary" id="btnCopyShareLink" style="position:absolute; top:4px; right:6px; padding:4px 10px; font-size:11px;">Copy</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -467,15 +474,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=160"></script>
-<script src="./sync.js?v=160"></script>
-<script src="./auth-ui.js?v=160"></script>
-<script src="./profile-panel.js?v=160"></script>
-<script src="./shared.js?v=160"></script>
-<script src="./fleet-data.js?v=160"></script>
-<script src="./wallet.js?v=160"></script>
-<script src="./widget-settings.js?v=160"></script>
-<script src="./alerts.js?v=160"></script>
-<script src="./onboarding.js?v=160"></script>
+<script src="./firebase-config.js?v=161"></script>
+<script src="./sync.js?v=161"></script>
+<script src="./auth-ui.js?v=161"></script>
+<script src="./profile-panel.js?v=161"></script>
+<script src="./shared.js?v=161"></script>
+<script src="./fleet-data.js?v=161"></script>
+<script src="./wallet.js?v=161"></script>
+<script src="./widget-settings.js?v=161"></script>
+<script src="./alerts.js?v=161"></script>
+<script src="./onboarding.js?v=161"></script>
 </body>
 </html>
