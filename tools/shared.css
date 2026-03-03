@@ -577,12 +577,22 @@ footer {
     opacity: 0;
     pointer-events: none;
     transition: top 0.3s ease, opacity 0.3s ease;
-    z-index: 1500;
+    z-index: 1501;
 }
 .slide-panel.open {
     top: 10vh;
     opacity: 1;
     pointer-events: auto;
+}
+.slide-panel.open::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
 }
 .slide-panel .panel-inner {
     padding: 20px;
