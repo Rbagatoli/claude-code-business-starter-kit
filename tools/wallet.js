@@ -1637,13 +1637,19 @@ document.getElementById('btnCreateInvoice').addEventListener('click', async func
     if (shareLinkEl) {
         shareLinkEl.style.display = 'none';
         resultEl.innerHTML = '<span style="color:#888;">Generating share link...</span>';
-        var shareData = await StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' });
-        resultEl.innerHTML = '';
-        if (shareData && shareData.shareId) {
-            var baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
-            var shareUrl = baseUrl + 'pay.html?id=' + shareData.shareId + '&api=' + encodeURIComponent(StrikeAPI.getProxyUrl());
-            document.getElementById('shareUrlText').textContent = shareUrl;
-            shareLinkEl.style.display = '';
+        try {
+            var shareData = await StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' });
+            resultEl.innerHTML = '';
+            if (shareData && shareData.shareId) {
+                var baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+                var shareUrl = baseUrl + 'pay.html?id=' + shareData.shareId + '&api=' + encodeURIComponent(StrikeAPI.getProxyUrl());
+                document.getElementById('shareUrlText').textContent = shareUrl;
+                shareLinkEl.style.display = '';
+            } else {
+                resultEl.innerHTML = '<span style="color:#f55;">Share link failed: ' + (shareData && shareData.error || 'Unknown error') + '</span>';
+            }
+        } catch(e) {
+            resultEl.innerHTML = '<span style="color:#f55;">Share link error: ' + e.message + '</span>';
         }
     }
 });
