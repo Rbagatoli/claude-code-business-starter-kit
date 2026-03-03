@@ -1273,7 +1273,8 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
         showQuoteConfirmation(quoteData, type, dest);
         result.innerHTML = '';
     } else {
-        result.innerHTML = '<span style="color:#f55;">' + (quoteData.error || 'Quote failed') + '</span>';
+        var errMsg = quoteData.error || quoteData.message || quoteData.title || JSON.stringify(quoteData);
+        result.innerHTML = '<span style="color:#f55;">' + errMsg + '</span>';
     }
 });
 
