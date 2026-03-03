@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=158">
+    <link rel="stylesheet" href="./shared.css?v=159">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -41,7 +41,7 @@
         <div style="display:flex; gap:8px;">
             <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
             <button class="btn btn-secondary" id="btnSetup2FA" style="display:none;">Setup 2FA</button>
-            <button class="btn btn-secondary" id="btnConnectStrikeKey" style="display:none;">Connect Key</button>
+
             <button class="btn btn-secondary" id="btnAccountSettings" style="display:none;">Settings</button>
         </div>
     </div>
@@ -244,6 +244,7 @@
         <button class="btn btn-primary" id="btnAddAddress">+ Add Address</button>
         <button class="btn btn-secondary" id="btnRefreshBalances">Refresh All</button>
         <button class="btn btn-secondary" id="btnSendBtc" style="display:none;">Send BTC</button>
+        <button class="btn btn-secondary" id="btnReceiveBtc" style="display:none;">Receive BTC</button>
     </div>
     </div>
 
@@ -335,6 +336,66 @@
         </div>
     </div>
 
+    <!-- ===== RECEIVE BTC SLIDE PANEL ===== -->
+    <div class="slide-panel" id="receiveBtcPanel">
+        <div class="panel-inner">
+            <h4>Receive BTC</h4>
+            <div class="map-view-toggle" id="receiveTabs" style="margin-bottom:14px;">
+                <button class="map-toggle-btn active" data-tab="lightning">Lightning</button>
+                <button class="map-toggle-btn" data-tab="onchain">On-chain</button>
+            </div>
+
+            <!-- Lightning tab -->
+            <div id="receiveTabLightning">
+                <div class="panel-form-grid" style="grid-template-columns:1fr;">
+                    <div class="input-group">
+                        <label>Amount</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div class="input-wrapper" style="flex:1;">
+                                <input type="number" id="receiveAmount" placeholder="0.00" step="any">
+                            </div>
+                            <div class="input-wrapper" style="width:80px;">
+                                <select id="receiveCurrency">
+                                    <option value="USD">USD</option>
+                                    <option value="BTC">BTC</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="receiveConversion" style="font-size:12px; color:#888; padding:2px 0 0 4px; min-height:18px;"></div>
+                    </div>
+                    <div class="input-group">
+                        <label>Description (optional)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="receiveDescription" placeholder="e.g. Payment for invoice #123">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btnCreateInvoice" style="width:100%; margin-top:12px;">Create Invoice</button>
+                <div id="invoiceResult" style="display:none; margin-top:14px;">
+                    <div style="text-align:center; margin-bottom:10px;">
+                        <img id="lnInvoiceQR" width="200" height="200" style="border-radius:8px; background:#fff; padding:8px;">
+                    </div>
+                    <div style="font-size:12px; color:#aaa; margin-bottom:6px;">Lightning Invoice:</div>
+                    <div style="position:relative;">
+                        <div id="lnInvoiceText" style="background:rgba(255,255,255,0.05); padding:10px 40px 10px 14px; border-radius:8px; font-family:monospace; font-size:11px; word-break:break-all; color:#f7931a; max-height:80px; overflow-y:auto;"></div>
+                        <button class="btn btn-secondary" id="btnCopyInvoice" style="position:absolute; top:6px; right:6px; padding:4px 10px; font-size:11px;">Copy</button>
+                    </div>
+                    <div id="invoiceStatus" style="font-size:12px; margin-top:8px; color:#888;"></div>
+                </div>
+            </div>
+
+            <!-- On-chain tab -->
+            <div id="receiveTabOnchain" style="display:none;">
+                <div id="onchainReceiveContent" style="text-align:center;"></div>
+            </div>
+
+            <div class="panel-actions" style="margin-top:14px;">
+                <button class="btn btn-secondary" id="cancelReceive">Close</button>
+            </div>
+            <div id="receiveResult" style="margin-top:10px; font-size:12px;"></div>
+        </div>
+    </div>
+
     <!-- Add Address Slide Panel -->
     <div class="slide-panel" id="addAddressPanel">
         <div class="panel-inner">
@@ -381,13 +442,14 @@
                     <tr>
                         <th>Date</th>
                         <th>Source</th>
+                        <th>To</th>
                         <th>Amount</th>
                         <th>Type / TX</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="txHistoryBody">
-                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#555;">No addresses added yet</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No addresses added yet</td></tr>
                 </tbody>
             </table>
         </div>
@@ -405,15 +467,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=158"></script>
-<script src="./sync.js?v=158"></script>
-<script src="./auth-ui.js?v=158"></script>
-<script src="./profile-panel.js?v=158"></script>
-<script src="./shared.js?v=158"></script>
-<script src="./fleet-data.js?v=158"></script>
-<script src="./wallet.js?v=158"></script>
-<script src="./widget-settings.js?v=158"></script>
-<script src="./alerts.js?v=158"></script>
-<script src="./onboarding.js?v=158"></script>
+<script src="./firebase-config.js?v=159"></script>
+<script src="./sync.js?v=159"></script>
+<script src="./auth-ui.js?v=159"></script>
+<script src="./profile-panel.js?v=159"></script>
+<script src="./shared.js?v=159"></script>
+<script src="./fleet-data.js?v=159"></script>
+<script src="./wallet.js?v=159"></script>
+<script src="./widget-settings.js?v=159"></script>
+<script src="./alerts.js?v=159"></script>
+<script src="./onboarding.js?v=159"></script>
 </body>
 </html>

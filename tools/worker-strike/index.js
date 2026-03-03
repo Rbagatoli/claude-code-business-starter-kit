@@ -748,8 +748,9 @@ export default {
             var isExchangeExec = path.match(/^\/exchange\/execute\/(.+)$/);
             var isSendExec = path.match(/^\/send\/execute\/(.+)$/);
             var isSendStatus = path.match(/^\/send\/status\/(.+)$/);
+            var isInvoiceGet = path.match(/^\/invoice\/(.+)$/);
 
-            if (isGatedRoute || isExchangeExec || isSendExec || isSendStatus) {
+            if (isGatedRoute || isExchangeExec || isSendExec || isSendStatus || isInvoiceGet) {
                 var auth2 = await checkSession(request, env, origin);
                 if (auth2.error) return auth2.error;
                 var user = auth2.user;
@@ -769,6 +770,14 @@ export default {
                     var statusData = await strikeGet('/v1/payments/' + paymentId, userKey2);
                     if (hasStrikeError(statusData)) return strikeErrorResponse(statusData, origin);
                     return jsonResponse(statusData, 200, origin);
+                }
+
+                // Invoice details (GET)
+                if (isInvoiceGet && request.method === 'GET') {
+                    var invoiceId = isInvoiceGet[1];
+                    var invoiceData = await strikeGet('/v1/invoices/' + invoiceId, userKey2);
+                    if (hasStrikeError(invoiceData)) return strikeErrorResponse(invoiceData, origin);
+                    return jsonResponse(invoiceData, 200, origin);
                 }
 
                 // All remaining gated routes require POST or PATCH
