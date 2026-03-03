@@ -20,8 +20,13 @@
         }
     }
 
+    // Helper: get the container for widget queries (banking page uses visible tab, others use document)
+    function getWidgetContainer() {
+        return document.querySelector('.banking-tab-content:not([style*="display: none"])') || document;
+    }
+
     // Build DEFAULT_ORDER and WIDGET_LABELS dynamically from the page's DOM
-    var sections = document.querySelectorAll('.widget-section[data-widget]');
+    var sections = getWidgetContainer().querySelectorAll('.widget-section[data-widget]');
     if (sections.length === 0) return; // No widgets on this page
 
     var DEFAULT_ORDER = [];
@@ -79,7 +84,7 @@
 
     // Apply order + visibility
     function applyLayout() {
-        var widgets = document.querySelectorAll('.widget-section');
+        var widgets = getWidgetContainer().querySelectorAll('.widget-section');
         for (var i = 0; i < widgets.length; i++) {
             var w = widgets[i];
             var wKey = w.dataset.widget;
@@ -91,7 +96,7 @@
 
     // Apply lock/unlock state to all widgets
     function applyLock() {
-        var widgets = document.querySelectorAll('.widget-section');
+        var widgets = getWidgetContainer().querySelectorAll('.widget-section');
         var handles = document.querySelectorAll('.widget-drag-handle');
         for (var i = 0; i < widgets.length; i++) {
             widgets[i].setAttribute('draggable', config.locked ? 'false' : 'true');
@@ -103,7 +108,7 @@
 
     // Add drag handles to each widget
     function addDragHandles() {
-        var widgets = document.querySelectorAll('.widget-section');
+        var widgets = getWidgetContainer().querySelectorAll('.widget-section');
         for (var i = 0; i < widgets.length; i++) {
             var w = widgets[i];
             var label = w.querySelector('.section-label') || w.querySelector('h3');
@@ -126,7 +131,7 @@
 
             w.addEventListener('dragend', function() {
                 this.classList.remove('widget-dragging');
-                var all = document.querySelectorAll('.widget-section');
+                var all = getWidgetContainer().querySelectorAll('.widget-section');
                 for (var j = 0; j < all.length; j++) {
                     all[j].classList.remove('widget-drag-over');
                 }
@@ -175,7 +180,7 @@
                     if (!widget.classList.contains('widget-dragging')) return;
                     e.preventDefault();
                     var touchY = e.touches[0].clientY;
-                    var all = document.querySelectorAll('.widget-section');
+                    var all = getWidgetContainer().querySelectorAll('.widget-section');
                     for (var k = 0; k < all.length; k++) {
                         var rect = all[k].getBoundingClientRect();
                         if (touchY > rect.top && touchY < rect.bottom && all[k] !== widget) {
@@ -190,7 +195,7 @@
                     if (!widget.classList.contains('widget-dragging')) return;
                     widget.classList.remove('widget-dragging');
                     var touchY = e.changedTouches[0].clientY;
-                    var all = document.querySelectorAll('.widget-section');
+                    var all = getWidgetContainer().querySelectorAll('.widget-section');
                     var target = null;
                     for (var k = 0; k < all.length; k++) {
                         all[k].classList.remove('widget-drag-over');
