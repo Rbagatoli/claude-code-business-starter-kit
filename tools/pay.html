@@ -257,9 +257,8 @@
         var bolt11 = data.bolt11 || '';
         if (bolt11) {
             document.getElementById('bolt11Text').textContent = bolt11;
-            // QR encodes raw bolt11 (no lightning: prefix) to avoid Cash App intercepting the URI
             document.getElementById('lnQR').src =
-                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=' + encodeURIComponent(bolt11);
+                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=' + encodeURIComponent('lightning:' + bolt11);
             // Set deep-link for Open in Wallet button
             document.getElementById('btnOpenWallet').href = 'lightning:' + bolt11;
             document.getElementById('walletBtnWrap').style.display = '';
