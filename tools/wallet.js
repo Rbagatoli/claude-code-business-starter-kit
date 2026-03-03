@@ -1627,7 +1627,8 @@ document.getElementById('btnCreateInvoice').addEventListener('click', async func
     document.getElementById('lnInvoiceText').textContent = bolt11;
 
     var qrImg = document.getElementById('lnInvoiceQR');
-    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent('lightning:' + bolt11);
+    // QR encodes raw bolt11 (no lightning: prefix) to avoid Cash App intercepting the URI
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(bolt11);
 
     document.getElementById('invoiceResult').style.display = '';
     startInvoicePoll(data.invoiceId);

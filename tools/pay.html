@@ -178,6 +178,10 @@
                 </div>
             </div>
 
+            <div id="walletBtnWrap" style="display:none; text-align:center; margin-bottom:16px;">
+                <a id="btnOpenWallet" href="#" style="display:inline-block; padding:12px 28px; background:rgba(247,147,26,0.15); border:1px solid rgba(247,147,26,0.3); color:#f7931a; border-radius:10px; text-decoration:none; font-size:14px; font-weight:600;">Open in Wallet</a>
+            </div>
+
             <div class="footer">Secured payment via Lightning Network</div>
         </div>
     </div>
@@ -253,8 +257,12 @@
         var bolt11 = data.bolt11 || '';
         if (bolt11) {
             document.getElementById('bolt11Text').textContent = bolt11;
+            // QR encodes raw bolt11 (no lightning: prefix) to avoid Cash App intercepting the URI
             document.getElementById('lnQR').src =
-                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=' + encodeURIComponent('lightning:' + bolt11);
+                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=' + encodeURIComponent(bolt11);
+            // Set deep-link for Open in Wallet button
+            document.getElementById('btnOpenWallet').href = 'lightning:' + bolt11;
+            document.getElementById('walletBtnWrap').style.display = '';
         } else {
             document.getElementById('paymentSection').innerHTML =
                 '<div style="text-align:center; color:#888; padding:20px;">Lightning invoice is being generated...</div>';
