@@ -4,7 +4,7 @@
 
 var STRIKE_BASE = 'https://api.strike.me';
 var FIREBASE_PROJECT_ID = 'ion-mining';
-var GOOGLE_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+var GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 
 var ALLOWED_ORIGINS = [
     'https://rbagatoli.github.io',
@@ -113,25 +113,31 @@ function getUserApiKey(user, env) {
 
 // ===== FIREBASE JWT VERIFICATION =====
 
-// In-memory cache for Google public keys (per worker instance)
-var _googleCerts = null;
-var _googleCertsExpiry = 0;
+// In-memory cache for Google JWKs (per worker instance)
+var _googleJwks = null;
+var _googleJwksExpiry = 0;
 
-async function getGoogleCerts() {
+async function getGoogleJwks() {
     var now = Date.now();
-    if (_googleCerts && now < _googleCertsExpiry) return _googleCerts;
+    if (_googleJwks && now < _googleJwksExpiry) return _googleJwks;
 
-    var res = await fetch(GOOGLE_CERTS_URL);
-    if (!res.ok) throw new Error('Failed to fetch Google certificates');
+    var res = await fetch(GOOGLE_JWKS_URL);
+    if (!res.ok) throw new Error('Failed to fetch Google public keys');
 
-    // Parse Cache-Control max-age for TTL
     var cacheControl = res.headers.get('Cache-Control') || '';
     var maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
-    var maxAge = maxAgeMatch ? parseInt(maxAgeMatch[1]) * 1000 : 3600000; // default 1h
+    var maxAge = maxAgeMatch ? parseInt(maxAgeMatch[1]) * 1000 : 3600000;
 
-    _googleCerts = await res.json();
-    _googleCertsExpiry = now + maxAge;
-    return _googleCerts;
+    var data = await res.json();
+    // Index by kid for fast lookup
+    var keysMap = {};
+    for (var i = 0; i < data.keys.length; i++) {
+        keysMap[data.keys[i].kid] = data.keys[i];
+    }
+
+    _googleJwks = keysMap;
+    _googleJwksExpiry = now + maxAge;
+    return _googleJwks;
 }
 
 function base64UrlDecode(str) {
@@ -143,18 +149,7 @@ function base64UrlDecode(str) {
     return bytes;
 }
 
-function pemToArrayBuffer(pem) {
-    var b64 = pem.replace(/-----BEGIN CERTIFICATE-----/g, '')
-                 .replace(/-----END CERTIFICATE-----/g, '')
-                 .replace(/\s/g, '');
-    var binary = atob(b64);
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes.buffer;
-}
-
 async function verifyFirebaseToken(idToken) {
-    // Split JWT
     var parts = idToken.split('.');
     if (parts.length !== 3) throw new Error('Invalid token format');
 
@@ -181,14 +176,13 @@ async function verifyFirebaseToken(idToken) {
         throw new Error('Missing subject');
     }
 
-    // Verify signature using Google's public certificates
-    var certs = await getGoogleCerts();
-    var certPem = certs[header.kid];
-    if (!certPem) throw new Error('Unknown signing key');
+    // Verify RS256 signature using Google's JWK public keys
+    var jwks = await getGoogleJwks();
+    var jwk = jwks[header.kid];
+    if (!jwk) throw new Error('Unknown signing key');
 
-    var certDer = pemToArrayBuffer(certPem);
     var cryptoKey = await crypto.subtle.importKey(
-        'x509', certDer,
+        'jwk', jwk,
         { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
         false, ['verify']
     );
