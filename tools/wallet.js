@@ -51,48 +51,48 @@ var StrikeAuth = (function() {
 })();
 
 // ===== FIREBASE AUTO-LOGIN =====
-async function autoLoginWithFirebase() {
-    if (typeof IonAuth === 'undefined' || !IonAuth.isSignedIn()) {
-        showSignInPrompt();
-        return;
-    }
+var _walletAuthResolved = false;
 
+async function autoLoginWithFirebase() {
     // Already have a valid worker session? Just use it.
     if (StrikeAuth.isLoggedIn()) {
         showAuthenticatedUI();
         if (StrikeAuth.hasStrike()) {
             hideConnectStrikePrompt();
-            await loadAndRefreshWallet();
         } else {
             showConnectStrikePrompt();
-            await loadAndRefreshWallet();
         }
+        await loadAndRefreshWallet();
         return;
     }
 
-    // Get Firebase ID token and exchange for worker session
+    // Need Firebase user to get an ID token
+    var fbUser = (typeof IonAuth !== 'undefined') ? IonAuth.getUser() : null;
+    if (!fbUser) {
+        showSignInPrompt();
+        return;
+    }
+
+    // Exchange Firebase ID token for worker session
     try {
-        var user = IonAuth.getUser();
-        if (!user) { showSignInPrompt(); return; }
-        var idToken = await user.getIdToken();
+        var idToken = await fbUser.getIdToken(true); // force refresh
         var data = await StrikeAPI.firebaseLogin(idToken);
         if (data && data.ok) {
             StrikeAuth.saveSession(data.token, data.user);
             showAuthenticatedUI();
             if (data.user.strikeConnected) {
                 hideConnectStrikePrompt();
-                await loadAndRefreshWallet();
             } else {
                 showConnectStrikePrompt();
-                await loadAndRefreshWallet();
             }
+            await loadAndRefreshWallet();
         } else {
-            console.warn('[Wallet] Firebase login failed:', data && data.error);
-            showSignInPrompt();
+            console.warn('[Wallet] Firebase login failed:', data);
+            showSignInPrompt(data && data.error ? data.error + (data.message ? ': ' + data.message : '') : 'Login failed');
         }
     } catch(e) {
         console.warn('[Wallet] Firebase auto-login error:', e);
-        showSignInPrompt();
+        showSignInPrompt('Auto-login error: ' + (e.message || e));
     }
 }
 
@@ -103,27 +103,28 @@ async function autoLoginWithFirebase() {
     window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderWallet(); };
     loadStrikeSettings();
 
-    if (strikeConnected) {
-        await autoLoginWithFirebase();
-    } else {
-        await loadAndRefreshWallet();
-    }
-    startAutoRefresh();
-
-    // Listen for Firebase auth state changes
-    if (typeof IonAuth !== 'undefined') {
+    // Let Firebase onAuthChange drive the wallet auth (avoids race condition)
+    if (strikeConnected && typeof IonAuth !== 'undefined') {
         IonAuth.onAuthChange(function(fbUser) {
-            if (fbUser && strikeConnected) {
-                // User just signed in — auto-login to worker
-                if (!StrikeAuth.isLoggedIn()) {
-                    autoLoginWithFirebase();
+            _walletAuthResolved = true;
+            if (fbUser) {
+                autoLoginWithFirebase();
+            } else {
+                // Firebase says no user — show sign-in
+                if (StrikeAuth.isLoggedIn()) {
+                    clearAllWalletState();
+                } else {
+                    showSignInPrompt();
                 }
-            } else if (!fbUser) {
-                // User signed out — clear everything
-                clearAllWalletState();
             }
         });
+    } else if (strikeConnected) {
+        // No Firebase at all — show sign-in
+        showSignInPrompt();
     }
+
+    await loadAndRefreshWallet();
+    startAutoRefresh();
 })();
 
 // Listen for sync engine wallet updates (cross-device)
@@ -392,9 +393,11 @@ var StrikeAPI = (function() {
 })();
 
 // ===== SIGN-IN PROMPT UI =====
-function showSignInPrompt() {
+function showSignInPrompt(errorMsg) {
     var prompt = document.getElementById('signInPrompt');
     if (prompt) prompt.style.display = '';
+    var errEl = document.getElementById('signInError');
+    if (errEl) errEl.textContent = errorMsg || '';
     var authBar = document.getElementById('userAuthBar');
     if (authBar) authBar.style.display = 'none';
     hideConnectStrikePrompt();

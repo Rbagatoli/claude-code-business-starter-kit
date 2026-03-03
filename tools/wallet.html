@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=148">
+    <link rel="stylesheet" href="./shared.css?v=149">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -77,6 +77,7 @@
             <h4 style="margin:0 0 8px; color:#f7931a;">Sign In to Access Your Wallet</h4>
             <p style="font-size:13px; color:#aaa; margin:0 0 16px;">Sign in with your Ion Mining account to view balances, send BTC, and manage your wallet.</p>
             <button class="btn btn-primary" onclick="if(typeof IonAuthUI!=='undefined')IonAuthUI.show('signin');" style="width:100%;">Sign In</button>
+            <div id="signInError" style="font-size:12px; color:#ef4444; margin-top:10px;"></div>
         </div>
     </div>
 
@@ -375,15 +376,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=148"></script>
-<script src="./sync.js?v=148"></script>
-<script src="./auth-ui.js?v=148"></script>
-<script src="./profile-panel.js?v=148"></script>
-<script src="./shared.js?v=148"></script>
-<script src="./fleet-data.js?v=148"></script>
-<script src="./wallet.js?v=148"></script>
-<script src="./widget-settings.js?v=148"></script>
-<script src="./alerts.js?v=148"></script>
-<script src="./onboarding.js?v=148"></script>
+<script src="./firebase-config.js?v=149"></script>
+<script src="./sync.js?v=149"></script>
+<script src="./auth-ui.js?v=149"></script>
+<script src="./profile-panel.js?v=149"></script>
+<script src="./shared.js?v=149"></script>
+<script src="./fleet-data.js?v=149"></script>
+<script src="./wallet.js?v=149"></script>
+<script src="./widget-settings.js?v=149"></script>
+<script src="./alerts.js?v=149"></script>
+<script src="./onboarding.js?v=149"></script>
 </body>
 </html>
