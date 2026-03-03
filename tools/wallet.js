@@ -922,10 +922,12 @@ async function loadOnchainTiers() {
 
     var body = { btcAddress: addr, amount: { amount: amt, currency: cur } };
     var data = await StrikeAPI.getOnchainTiers(body, pin);
-    if (data && !data.error && Array.isArray(data)) {
+    // Handle both array response and object with nested array (e.g. {items: [...]})
+    var tiers = Array.isArray(data) ? data : (data && data.items ? data.items : (data && data.tiers ? data.tiers : null));
+    if (tiers && tiers.length > 0) {
         tierSelect.innerHTML = '';
-        for (var i = 0; i < data.length; i++) {
-            var t = data[i];
+        for (var i = 0; i < tiers.length; i++) {
+            var t = tiers[i];
             var fee = t.estimatedFee ? t.estimatedFee.amount + ' ' + t.estimatedFee.currency : 'free';
             var mins = t.estimatedDeliveryDurationInMin || '?';
             var opt = document.createElement('option');
@@ -934,7 +936,7 @@ async function loadOnchainTiers() {
             tierSelect.appendChild(opt);
         }
     } else {
-        tierSelect.innerHTML = '<option value="">' + (data.error || 'Could not load tiers') + '</option>';
+        tierSelect.innerHTML = '<option value="">' + (data && data.error ? data.error : 'Could not load tiers') + '</option>';
     }
 }
 
