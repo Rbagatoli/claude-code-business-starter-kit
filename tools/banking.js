@@ -701,7 +701,7 @@ function hideConnectStrikePrompt() {
 function loadStrikeSettings() {
     var settings = FleetData.getSettings();
     if (settings.strike && settings.strike.proxyUrl && settings.strike.enabled) {
-        document.getElementById('strikeProxyUrl').value = settings.strike.proxyUrl;
+        document.getElementById('walletStrikeProxyUrl').value = settings.strike.proxyUrl;
         strikeConnected = true;
         updateStrikeStatus('Connected');
     }
