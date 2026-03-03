@@ -577,7 +577,7 @@ footer {
     opacity: 0;
     pointer-events: none;
     transition: top 0.3s ease, opacity 0.3s ease;
-    z-index: 100;
+    z-index: 200;
 }
 .slide-panel.open {
     top: 10vh;
