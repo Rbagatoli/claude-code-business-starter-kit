@@ -143,10 +143,11 @@ function initNav(activePage) {
 
     // Auth button handler
     var syncBtn = document.getElementById('syncBtn');
+    var _wasSignedIn = false;
     if (syncBtn && typeof IonAuth !== 'undefined') {
         IonAuth.onAuthChange(function(user) {
             if (user) {
-                sessionStorage.removeItem('ionSignedOut');
+                _wasSignedIn = true;
                 var initial = (user.displayName || user.email || '?').charAt(0).toUpperCase();
                 syncBtn.innerHTML = '<span class="ion-nav-avatar">' + initial + '</span>';
                 syncBtn.title = 'Signed in as ' + (user.displayName || user.email) + ' — click to sign out';
@@ -179,9 +180,9 @@ function initNav(activePage) {
                 syncBtn.title = 'Sign in to sync across devices';
                 syncBtn.className = 'ion-nav-sync-btn';
                 SyncEngine.stopAll();
-                if (!sessionStorage.getItem('ionSignedOut')) {
+                if (_wasSignedIn) {
+                    _wasSignedIn = false;
                     localStorage.clear();
-                    sessionStorage.setItem('ionSignedOut', '1');
                     location.reload();
                 }
             }
