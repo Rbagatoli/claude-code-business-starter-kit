@@ -926,6 +926,9 @@ footer {
 .banking-tab-content section.fleet-grid {
     gap: 16px;
 }
+.banking-tab-content .miner-cards-grid {
+    gap: 16px !important;
+}
 
 /* ===== TIME RANGE SELECTOR ===== */
 .time-range-selector {
