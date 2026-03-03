@@ -3890,6 +3890,13 @@ initNav('banking');
     await loadAndRefreshWallet();
     startAutoRefresh();
 
+    // Re-init widget drag handles for Wallet tab after DOM is ready
+    if (typeof window.initBankingTabWidgets === 'function') {
+        setTimeout(function() {
+            window.initBankingTabWidgets();
+        }, 150);
+    }
+
     // Income (payouts) init
     checkAndLogDailySnapshot();
     await syncAllPoolPayouts();
