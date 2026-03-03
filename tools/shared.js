@@ -178,8 +178,10 @@ function initNav(activePage) {
                 syncBtn.title = 'Sign in to sync across devices';
                 syncBtn.className = 'ion-nav-sync-btn';
                 SyncEngine.stopAll();
-                localStorage.clear();
-                location.reload();
+                if (localStorage.length > 0) {
+                    localStorage.clear();
+                    location.reload();
+                }
             }
         });
 
