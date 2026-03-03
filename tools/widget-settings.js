@@ -112,7 +112,11 @@
         for (var i = 0; i < widgets.length; i++) {
             var w = widgets[i];
             var label = w.querySelector('.section-label') || w.querySelector('h3');
-            if (!label || label.querySelector('.widget-drag-handle')) continue;
+            if (!label) continue;
+
+            // Skip if handle already exists AND events are attached
+            var existingHandle = label.querySelector('.widget-drag-handle');
+            if (existingHandle && w.hasAttribute('data-drag-inited')) continue;
 
             var handle = document.createElement('span');
             handle.className = 'widget-drag-handle';
@@ -218,6 +222,9 @@
                     }
                 });
             })(w);
+
+            // Mark as initialized
+            w.setAttribute('data-drag-inited', 'true');
         }
     }
 
@@ -318,8 +325,19 @@
     if (page === 'banking') {
         window.initBankingTabWidgets = function() {
             // Re-run initialization for the newly visible tab
+            // First, rebuild DEFAULT_ORDER and config for new tab's widgets
             var newSections = getWidgetContainer().querySelectorAll('.widget-section[data-widget]');
             if (newSections.length > 0) {
+                var tabOrder = [];
+                for (var s = 0; s < newSections.length; s++) {
+                    var key = newSections[s].dataset.widget;
+                    if (DEFAULT_ORDER.indexOf(key) < 0) DEFAULT_ORDER.push(key);
+                    tabOrder.push(key);
+                }
+                // Ensure config has these widgets
+                for (var t = 0; t < tabOrder.length; t++) {
+                    if (config.order.indexOf(tabOrder[t]) < 0) config.order.push(tabOrder[t]);
+                }
                 addDragHandles();
                 applyLayout();
                 applyLock();
