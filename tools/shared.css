@@ -868,6 +868,40 @@ footer {
 }
 .stat-total .stat-value { font-size: 16px; font-weight: 700; }
 
+/* ===== BANKING TAB BAR ===== */
+.banking-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.banking-tab {
+    flex: 1;
+    padding: 12px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #888;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    text-align: center;
+}
+.banking-tab:hover {
+    color: #ccc;
+}
+.banking-tab.active {
+    color: #f7931a;
+    border-bottom-color: #f7931a;
+}
+
 /* ===== TIME RANGE SELECTOR ===== */
 .time-range-selector {
     display: flex;

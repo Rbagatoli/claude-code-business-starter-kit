@@ -41,28 +41,16 @@
             page: 'map.html'
         },
         {
-            title: 'Payouts',
-            body: 'Track your mining earnings and payout history. See what you\'ve earned and when it arrived.',
+            title: 'Banking',
+            body: 'Your unified financial hub. Wallet, mining income tracking, and accounting — all in one place with tabbed navigation.',
             target: null,
-            page: 'payouts.html'
+            page: 'banking.html'
         },
         {
             title: 'Network Data',
             body: 'Live Bitcoin price, network difficulty, and hashrate charts. Stay on top of the metrics that affect your mining profitability.',
             target: null,
             page: 'charts.html'
-        },
-        {
-            title: 'Wallet',
-            body: 'Watch-only wallet monitoring. Track your BTC balances and transactions without exposing private keys.',
-            target: null,
-            page: 'wallet.html'
-        },
-        {
-            title: 'Accounting',
-            body: 'Financial summaries and tax reporting tools. Keep your mining operation\'s books in order.',
-            target: null,
-            page: 'accounting.html'
         }
     ];
 
