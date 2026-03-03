@@ -1,6 +1,6 @@
 // Ion Mining Group — Strike API Proxy (Cloudflare Worker)
-// Multi-user auth with session tokens, per-user PIN, TOTP, caps, rate limits.
-// API key stored as Worker secret, never exposed to browser.
+// Per-user auth with session tokens, per-user PIN, TOTP, caps, rate limits.
+// Each user connects their own Strike API key. Owner key used as fallback.
 
 var STRIKE_BASE = 'https://api.strike.me';
 var ALLOWED_ORIGINS = [
@@ -9,7 +9,7 @@ var ALLOWED_ORIGINS = [
     'http://127.0.0.1'
 ];
 
-// Defaults for new admin users
+// Defaults for new users
 var DEFAULT_MAX_SEND_USD = 1000;
 var DEFAULT_MAX_SENDS_PER_HOUR = 5;
 
@@ -28,7 +28,7 @@ function corsHeaders(origin) {
     return {
         'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-Pin, X-Dashboard-TOTP',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-TOTP',
         'Content-Type': 'application/json'
     };
 }
@@ -111,26 +111,17 @@ async function strikePatch(endpoint, body, apiKey) {
     return res.json();
 }
 
+// ===== PER-USER STRIKE KEY =====
+
+function getUserApiKey(user, env) {
+    return user.strikeApiKey || env.STRIKE_API_KEY || '';
+}
+
 // ===== AUTH: SESSION-BASED =====
 
 async function checkSession(request, env, origin) {
     var authHeader = request.headers.get('Authorization') || '';
     if (!authHeader.startsWith('Bearer sess_')) {
-        // Legacy PIN fallback (migration support)
-        var pin = request.headers.get('X-Dashboard-Pin') || '';
-        var expectedPin = env.DASHBOARD_PIN || '';
-        if (expectedPin && pin === expectedPin) {
-            return {
-                user: {
-                    id: 'legacy',
-                    username: 'admin',
-                    role: 'admin',
-                    maxSendUsd: parseFloat(env.MAX_SEND_USD) || DEFAULT_MAX_SEND_USD,
-                    maxSendsPerHour: DEFAULT_MAX_SENDS_PER_HOUR,
-                    totpSecret: env.TOTP_SECRET || ''
-                }
-            };
-        }
         return { error: jsonResponse({ error: 'Authentication required', loginRequired: true }, 401, origin) };
     }
 
@@ -194,11 +185,7 @@ async function verifyTOTP(token, secret) {
 }
 
 async function checkTOTP(request, env, user, origin) {
-    // Get secret from user record; for legacy user, check KV fallback
     var secret = user.totpSecret || '';
-    if (!secret && user.id === 'legacy' && env.SETTINGS) {
-        secret = await env.SETTINGS.get('totp_secret') || '';
-    }
     if (!secret) return null; // 2FA not configured
 
     // Per-user brute-force check
@@ -247,7 +234,7 @@ function checkAmountCap(body, user, origin) {
     if (maxUsd === 0) {
         return jsonResponse({
             error: 'Send not permitted',
-            message: 'Your account does not have send permissions. Ask an admin to set your send limit.'
+            message: 'Your send limit is set to $0. Go to Account Settings to set your send limit.'
         }, 403, origin);
     }
     if (body && body.amount && body.amount.amount) {
@@ -295,7 +282,6 @@ async function handleRegister(request, env, origin) {
     var body = await request.json().catch(function() { return {}; });
     var username = (body.username || '').trim().toLowerCase();
     var pin = body.pin || '';
-    var existingPin = body.existingPin || '';
 
     // Validate username
     if (!username || username.length < 3 || username.length > 20 || !/^[a-z0-9_]+$/.test(username)) {
@@ -313,21 +299,6 @@ async function handleRegister(request, env, origin) {
         return jsonResponse({ error: 'Username already taken' }, 409, origin);
     }
 
-    // Check if this is the first user (admin)
-    var userList = await env.SETTINGS.list({ prefix: 'user:', limit: 1 });
-    var isFirstUser = !userList.keys || userList.keys.length === 0;
-
-    // First user must provide existing DASHBOARD_PIN as proof of ownership
-    if (isFirstUser && env.DASHBOARD_PIN) {
-        if (!existingPin || existingPin !== env.DASHBOARD_PIN) {
-            return jsonResponse({
-                error: 'Admin verification required',
-                message: 'First account requires your existing dashboard PIN to verify ownership.',
-                requireExistingPin: true
-            }, 403, origin);
-        }
-    }
-
     var userId = generateId('u_');
     var pinHash = await hashPin(pin);
 
@@ -336,25 +307,12 @@ async function handleRegister(request, env, origin) {
         username: username,
         pinHash: pinHash,
         totpSecret: '',
-        role: isFirstUser ? 'admin' : 'user',
-        maxSendUsd: isFirstUser ? DEFAULT_MAX_SEND_USD : 0,
+        strikeApiKey: '',
+        maxSendUsd: DEFAULT_MAX_SEND_USD,
         maxSendsPerHour: DEFAULT_MAX_SENDS_PER_HOUR,
         createdAt: new Date().toISOString(),
         disabled: false
     };
-
-    // If first user and there's an existing global TOTP secret, migrate it
-    if (isFirstUser) {
-        var globalTotp = env.TOTP_SECRET || '';
-        if (!globalTotp && env.SETTINGS) {
-            globalTotp = await env.SETTINGS.get('totp_secret') || '';
-        }
-        if (globalTotp) {
-            userRecord.totpSecret = globalTotp;
-            // Clean up global key
-            await env.SETTINGS.delete('totp_secret');
-        }
-    }
 
     // Write user record and username index
     await env.SETTINGS.put('user:' + userId, JSON.stringify(userRecord));
@@ -363,8 +321,7 @@ async function handleRegister(request, env, origin) {
     return jsonResponse({
         ok: true,
         userId: userId,
-        role: userRecord.role,
-        message: isFirstUser ? 'Admin account created! You can now log in.' : 'Account created! An admin must grant you send permissions.'
+        message: 'Account created! Log in and connect your Strike account to get started.'
     }, 201, origin);
 }
 
@@ -406,13 +363,17 @@ async function handleLogin(request, env, origin) {
         createdAt: Date.now()
     }), { expirationTtl: 86400 }); // 24h
 
+    // Determine if Strike is connected (own key OR owner fallback)
+    var hasStrike = !!(user.strikeApiKey || env.STRIKE_API_KEY);
+
     return jsonResponse({
         ok: true,
         token: token,
         user: {
             id: user.id,
             username: user.username,
-            role: user.role,
+            strikeConnected: hasStrike,
+            hasOwnKey: !!user.strikeApiKey,
             maxSendUsd: user.maxSendUsd,
             maxSendsPerHour: user.maxSendsPerHour,
             has2FA: !!user.totpSecret
@@ -433,10 +394,12 @@ async function handleMe(request, env, origin) {
     var auth = await checkSession(request, env, origin);
     if (auth.error) return auth.error;
     var user = auth.user;
+    var hasStrike = !!(user.strikeApiKey || env.STRIKE_API_KEY);
     return jsonResponse({
         id: user.id,
         username: user.username,
-        role: user.role,
+        strikeConnected: hasStrike,
+        hasOwnKey: !!user.strikeApiKey,
         maxSendUsd: user.maxSendUsd,
         maxSendsPerHour: user.maxSendsPerHour,
         has2FA: !!user.totpSecret,
@@ -448,19 +411,6 @@ async function handleSetupTotp(request, env, origin) {
     var auth = await checkSession(request, env, origin);
     if (auth.error) return auth.error;
     var user = auth.user;
-
-    if (user.id === 'legacy') {
-        // Legacy user: use old global KV method
-        var body2 = await request.json().catch(function() { return {}; });
-        var newSecret2 = (body2.secret || '').replace(/[^A-Z2-7]/gi, '').toUpperCase();
-        var verifyCode2 = (body2.code || '').replace(/\s/g, '');
-        if (!newSecret2 || newSecret2.length < 16) return jsonResponse({ error: 'Invalid secret' }, 400, origin);
-        if (!verifyCode2 || verifyCode2.length !== 6) return jsonResponse({ error: 'Verification required' }, 400, origin);
-        var valid2 = await verifyTOTP(verifyCode2, newSecret2);
-        if (!valid2) return jsonResponse({ error: 'Verification failed' }, 403, origin);
-        await env.SETTINGS.put('totp_secret', newSecret2);
-        return jsonResponse({ ok: true, message: '2FA activated!' }, 200, origin);
-    }
 
     var body = await request.json().catch(function() { return {}; });
     var newSecret = (body.secret || '').replace(/[^A-Z2-7]/gi, '').toUpperCase();
@@ -485,86 +435,97 @@ async function handleSetupTotp(request, env, origin) {
     return jsonResponse({ ok: true, message: '2FA activated! All future sends will require an authenticator code.' }, 200, origin);
 }
 
-// ===== ADMIN ROUTE HANDLERS =====
+// ===== STRIKE CONNECTION HANDLERS =====
 
-async function handleAdminListUsers(request, env, origin) {
+async function handleConnectStrike(request, env, origin) {
     var auth = await checkSession(request, env, origin);
     if (auth.error) return auth.error;
-    if (auth.user.role !== 'admin') return jsonResponse({ error: 'Admin access required' }, 403, origin);
-
-    var keys = await env.SETTINGS.list({ prefix: 'user:' });
-    var users = [];
-    for (var i = 0; i < keys.keys.length; i++) {
-        var record = await env.SETTINGS.get(keys.keys[i].name, 'json');
-        if (record) {
-            users.push({
-                id: record.id,
-                username: record.username,
-                role: record.role,
-                maxSendUsd: record.maxSendUsd,
-                maxSendsPerHour: record.maxSendsPerHour,
-                has2FA: !!record.totpSecret,
-                disabled: record.disabled,
-                createdAt: record.createdAt
-            });
-        }
-    }
-
-    return jsonResponse({ users: users }, 200, origin);
-}
-
-async function handleAdminUpdateUser(request, env, origin, targetUserId) {
-    var auth = await checkSession(request, env, origin);
-    if (auth.error) return auth.error;
-    if (auth.user.role !== 'admin') return jsonResponse({ error: 'Admin access required' }, 403, origin);
-
-    var target = await env.SETTINGS.get('user:' + targetUserId, 'json');
-    if (!target) return jsonResponse({ error: 'User not found' }, 404, origin);
+    var user = auth.user;
 
     var body = await request.json().catch(function() { return {}; });
+    var apiKey = (body.apiKey || '').trim();
 
-    // Updatable fields
-    if (typeof body.maxSendUsd === 'number') target.maxSendUsd = body.maxSendUsd;
-    if (typeof body.maxSendsPerHour === 'number') target.maxSendsPerHour = body.maxSendsPerHour;
-    if (typeof body.disabled === 'boolean') target.disabled = body.disabled;
-    if (body.role === 'admin' || body.role === 'user') target.role = body.role;
+    if (!apiKey) {
+        return jsonResponse({ error: 'API key required' }, 400, origin);
+    }
 
-    await env.SETTINGS.put('user:' + targetUserId, JSON.stringify(target));
+    // Validate the key by making a test call
+    try {
+        await strikeGet('/v1/balances', apiKey);
+    } catch (e) {
+        return jsonResponse({
+            error: 'Invalid API key',
+            message: 'Could not connect to Strike with this API key. Make sure the key is correct and has the right permissions.'
+        }, 400, origin);
+    }
+
+    // Store the key in user record
+    user.strikeApiKey = apiKey;
+    await env.SETTINGS.put('user:' + user.id, JSON.stringify(user));
 
     return jsonResponse({
         ok: true,
-        user: {
-            id: target.id,
-            username: target.username,
-            role: target.role,
-            maxSendUsd: target.maxSendUsd,
-            maxSendsPerHour: target.maxSendsPerHour,
-            disabled: target.disabled
-        }
+        strikeConnected: true,
+        hasOwnKey: true,
+        message: 'Strike account connected successfully!'
     }, 200, origin);
 }
 
-async function handleAdminDeleteUser(request, env, origin, targetUserId) {
+async function handleDisconnectStrike(request, env, origin) {
     var auth = await checkSession(request, env, origin);
     if (auth.error) return auth.error;
-    if (auth.user.role !== 'admin') return jsonResponse({ error: 'Admin access required' }, 403, origin);
+    var user = auth.user;
 
-    // Can't delete yourself
-    if (auth.user.id === targetUserId) return jsonResponse({ error: 'Cannot delete your own account' }, 400, origin);
+    user.strikeApiKey = '';
+    await env.SETTINGS.put('user:' + user.id, JSON.stringify(user));
 
-    var target = await env.SETTINGS.get('user:' + targetUserId, 'json');
-    if (!target) return jsonResponse({ error: 'User not found' }, 404, origin);
+    var hasStrike = !!env.STRIKE_API_KEY;
+    return jsonResponse({
+        ok: true,
+        strikeConnected: hasStrike,
+        hasOwnKey: false,
+        message: 'Strike API key removed.'
+    }, 200, origin);
+}
 
-    // Delete user record and username index
-    await env.SETTINGS.delete('user:' + targetUserId);
-    await env.SETTINGS.delete('username:' + target.username);
+async function handleStrikeStatus(request, env, origin) {
+    var auth = await checkSession(request, env, origin);
+    if (auth.error) return auth.error;
+    var user = auth.user;
 
-    return jsonResponse({ ok: true, deleted: targetUserId }, 200, origin);
+    return jsonResponse({
+        strikeConnected: !!(user.strikeApiKey || env.STRIKE_API_KEY),
+        hasOwnKey: !!user.strikeApiKey
+    }, 200, origin);
+}
+
+async function handleUpdateSettings(request, env, origin) {
+    var auth = await checkSession(request, env, origin);
+    if (auth.error) return auth.error;
+    var user = auth.user;
+
+    var body = await request.json().catch(function() { return {}; });
+
+    if (typeof body.maxSendUsd === 'number' && body.maxSendUsd >= 0 && body.maxSendUsd <= 100000) {
+        user.maxSendUsd = body.maxSendUsd;
+    }
+    if (typeof body.maxSendsPerHour === 'number' && body.maxSendsPerHour >= 1 && body.maxSendsPerHour <= 100) {
+        user.maxSendsPerHour = body.maxSendsPerHour;
+    }
+
+    await env.SETTINGS.put('user:' + user.id, JSON.stringify(user));
+
+    return jsonResponse({
+        ok: true,
+        maxSendUsd: user.maxSendUsd,
+        maxSendsPerHour: user.maxSendsPerHour,
+        message: 'Settings updated.'
+    }, 200, origin);
 }
 
 // ===== ROUTE DEFINITIONS =====
 
-// Tier 1: Open — no auth needed
+// Tier 1: Open — no auth needed (uses owner's key)
 var OPEN_ROUTES = {
     '/rates': { method: 'GET', endpoint: '/v1/rates/ticker' },
     '/ping':  { method: 'GET', endpoint: '/v1/balances' }
@@ -600,11 +561,6 @@ export default {
         var url = new URL(request.url);
         var path = url.pathname;
 
-        var apiKey = env.STRIKE_API_KEY;
-        if (!apiKey) {
-            return jsonResponse({ error: 'Strike API key not configured' }, 500, origin);
-        }
-
         try {
             // ===== AUTH ROUTES (no session required) =====
             if (path === '/auth/register' && request.method === 'POST') {
@@ -623,29 +579,29 @@ export default {
                 return await handleSetupTotp(request, env, origin);
             }
 
-            // ===== ADMIN ROUTES =====
-            if (path === '/admin/users' && request.method === 'GET') {
-                return await handleAdminListUsers(request, env, origin);
+            // ===== STRIKE CONNECTION ROUTES (session required) =====
+            if (path === '/auth/connect-strike' && request.method === 'POST') {
+                return await handleConnectStrike(request, env, origin);
             }
-            var adminUserMatch = path.match(/^\/admin\/users\/(.+)$/);
-            if (adminUserMatch) {
-                if (request.method === 'PATCH') {
-                    return await handleAdminUpdateUser(request, env, origin, adminUserMatch[1]);
-                }
-                if (request.method === 'DELETE') {
-                    return await handleAdminDeleteUser(request, env, origin, adminUserMatch[1]);
-                }
+            if (path === '/auth/disconnect-strike' && request.method === 'POST') {
+                return await handleDisconnectStrike(request, env, origin);
             }
-
-            // Legacy 2FA setup route (redirects to new one)
-            if (path === '/admin/setup-totp' && request.method === 'POST') {
-                return await handleSetupTotp(request, env, origin);
+            if (path === '/auth/strike-status' && request.method === 'GET') {
+                return await handleStrikeStatus(request, env, origin);
+            }
+            if (path === '/auth/settings' && request.method === 'PATCH') {
+                return await handleUpdateSettings(request, env, origin);
             }
 
-            // ===== TIER 1: Open routes =====
+            // ===== TIER 1: Open routes (use owner's key) =====
             if (OPEN_ROUTES[path]) {
+                var ownerKey = env.STRIKE_API_KEY;
+                if (!ownerKey) {
+                    return jsonResponse({ error: 'Strike API key not configured' }, 500, origin);
+                }
+
                 var route = OPEN_ROUTES[path];
-                var data = await strikeGet(route.endpoint, apiKey);
+                var data = await strikeGet(route.endpoint, ownerKey);
 
                 if (path === '/ping') {
                     return jsonResponse({ ok: true, balances: data }, 200, origin);
@@ -654,17 +610,26 @@ export default {
                 return jsonResponse(data, 200, origin);
             }
 
-            // ===== TIER 2: Session-gated read routes =====
+            // ===== TIER 2: Session-gated read routes (per-user key) =====
             if (SESSION_ROUTES[path]) {
                 var auth1 = await checkSession(request, env, origin);
                 if (auth1.error) return auth1.error;
 
+                var userKey1 = getUserApiKey(auth1.user, env);
+                if (!userKey1) {
+                    return jsonResponse({
+                        error: 'Strike not connected',
+                        strikeNotConnected: true,
+                        message: 'Connect your Strike account to view your wallet.'
+                    }, 403, origin);
+                }
+
                 var sessRoute = SESSION_ROUTES[path];
-                var sessData = await strikeGet(sessRoute.endpoint, apiKey);
+                var sessData = await strikeGet(sessRoute.endpoint, userKey1);
                 return jsonResponse(sessData, 200, origin);
             }
 
-            // ===== TIER 3: Gated routes =====
+            // ===== TIER 3: Gated routes (per-user key) =====
             var isGatedRoute = GATED_ROUTES[path];
             var isExchangeExec = path.match(/^\/exchange\/execute\/(.+)$/);
             var isSendExec = path.match(/^\/send\/execute\/(.+)$/);
@@ -675,10 +640,19 @@ export default {
                 if (auth2.error) return auth2.error;
                 var user = auth2.user;
 
+                var userKey2 = getUserApiKey(user, env);
+                if (!userKey2) {
+                    return jsonResponse({
+                        error: 'Strike not connected',
+                        strikeNotConnected: true,
+                        message: 'Connect your Strike account to use this feature.'
+                    }, 403, origin);
+                }
+
                 // Send status (GET)
                 if (isSendStatus) {
                     var paymentId = isSendStatus[1];
-                    var statusData = await strikeGet('/v1/payments/' + paymentId, apiKey);
+                    var statusData = await strikeGet('/v1/payments/' + paymentId, userKey2);
                     return jsonResponse(statusData, 200, origin);
                 }
 
@@ -695,7 +669,7 @@ export default {
                     if (totpErr1) return totpErr1;
 
                     var exchQuoteId = isExchangeExec[1];
-                    var exchData = await strikePost('/v1/currency-exchange-quotes/' + exchQuoteId + '/execute', body, apiKey);
+                    var exchData = await strikePost('/v1/currency-exchange-quotes/' + exchQuoteId + '/execute', body, userKey2);
                     return jsonResponse(exchData, 200, origin);
                 }
 
@@ -708,7 +682,7 @@ export default {
                     if (rateErr) return rateErr;
 
                     var sendQuoteId = isSendExec[1];
-                    var sendData = await strikePatch('/v1/payment-quotes/' + sendQuoteId + '/execute', body, apiKey);
+                    var sendData = await strikePatch('/v1/payment-quotes/' + sendQuoteId + '/execute', body, userKey2);
                     await recordSend(env, user);
                     return jsonResponse(sendData, 200, origin);
                 }
@@ -721,7 +695,7 @@ export default {
 
                 // Standard gated routes (POST)
                 var gatedRoute = GATED_ROUTES[path];
-                var gatedData = await strikePost(gatedRoute.endpoint, body, apiKey);
+                var gatedData = await strikePost(gatedRoute.endpoint, body, userKey2);
                 return jsonResponse(gatedData, 200, origin);
             }
 

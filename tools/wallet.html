@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=146">
+    <link rel="stylesheet" href="./shared.css?v=147">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -41,7 +41,8 @@
         <div style="display:flex; gap:8px;">
             <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
             <button class="btn btn-secondary" id="btnSetup2FA" style="display:none;">Setup 2FA</button>
-            <button class="btn btn-secondary" id="btnManageUsers" style="display:none;">Users</button>
+            <button class="btn btn-secondary" id="btnConnectStrikeKey" style="display:none;">Connect Key</button>
+            <button class="btn btn-secondary" id="btnAccountSettings" style="display:none;">Settings</button>
         </div>
     </div>
 
@@ -51,17 +52,30 @@
             <div style="font-size:13px;">
                 <span style="color:#888;">Logged in as</span>
                 <strong id="authUsername" style="color:#f7931a; margin:0 4px;"></strong>
-                <span id="authRole" style="font-size:11px;"></span>
             </div>
             <button class="btn btn-secondary" id="btnLogout" style="padding:4px 12px; font-size:11px;">Logout</button>
+        </div>
+    </div>
+
+    <!-- ===== CONNECT YOUR STRIKE ACCOUNT PROMPT ===== -->
+    <div id="connectStrikePrompt" style="display:none;">
+        <div class="card" style="padding:24px; margin-bottom:16px; border-color:rgba(247,147,26,0.3); background:rgba(247,147,26,0.04);">
+            <h4 style="margin:0 0 8px; color:#f7931a;">&#9889; Connect Your Strike Account</h4>
+            <p style="font-size:13px; color:#aaa; margin:0 0 16px;">To view your balances and send BTC, connect your Strike API key. It takes about 30 seconds.</p>
+            <div style="font-size:13px; color:#ccc; margin-bottom:16px; line-height:1.8;">
+                <div style="margin-bottom:6px;"><strong style="color:#f7931a;">1.</strong> Go to <a href="https://dashboard.strike.me/developer" target="_blank" rel="noopener" style="color:#f7931a;">dashboard.strike.me/developer</a></div>
+                <div style="margin-bottom:6px;"><strong style="color:#f7931a;">2.</strong> Create an API key (enable <em>Balances</em> and <em>Payments</em> permissions)</div>
+                <div><strong style="color:#f7931a;">3.</strong> Paste it below</div>
+            </div>
+            <button class="btn btn-primary" id="btnConnectStrikeFromPrompt" style="width:100%;">Connect Strike API Key</button>
         </div>
     </div>
 
     <!-- ===== LOGIN / REGISTER PANEL (shown when Strike connected but not logged in) ===== -->
     <div id="loginPanel" style="display:none;">
         <div class="card" style="padding:20px; margin-bottom:16px;">
-            <h4 style="margin:0 0 4px; color:#f7931a;">Sign In to Strike Wallet</h4>
-            <p style="font-size:12px; color:#888; margin:0 0 16px;">Log in to view balances, send BTC, and manage your account.</p>
+            <h4 style="margin:0 0 4px; color:#f7931a;">Sign In</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 16px;">Log in to view balances, send BTC, and manage your wallet.</p>
 
             <!-- Login Form -->
             <div id="loginForm">
@@ -100,13 +114,6 @@
                     <div class="input-wrapper">
                         <input type="password" id="registerPinConfirm" placeholder="Re-enter PIN" autocomplete="new-password">
                     </div>
-                </div>
-                <div class="input-group" id="existingPinGroup" style="display:none; margin-bottom:10px;">
-                    <label>Existing Dashboard PIN <span style="color:#f7931a; font-size:11px;">(admin verification)</span></label>
-                    <div class="input-wrapper">
-                        <input type="password" id="registerExistingPin" placeholder="Your current dashboard PIN" autocomplete="off">
-                    </div>
-                    <div style="font-size:11px; color:#888; margin-top:4px;">First account requires your existing dashboard PIN to verify ownership.</div>
                 </div>
                 <button class="btn btn-primary" id="btnRegister" style="width:100%; margin-bottom:8px;">Create Account</button>
                 <div id="registerResult" style="font-size:12px; min-height:18px;"></div>
@@ -150,16 +157,54 @@
         </div>
     </div>
 
-    <!-- ===== ADMIN: MANAGE USERS PANEL ===== -->
-    <div class="slide-panel" id="adminUsersPanel">
+    <!-- ===== STRIKE API KEY PANEL ===== -->
+    <div class="slide-panel" id="strikeApiKeyPanel">
         <div class="panel-inner">
-            <h4>Manage Users</h4>
-            <p style="font-size:12px; color:#888; margin:0 0 12px;">Set send caps, enable/disable accounts, and manage access.</p>
-            <div id="adminUsersList" style="max-height:60vh; overflow-y:auto;">
-                <div style="text-align:center; padding:20px; color:#888;">Loading...</div>
+            <h4>Connect Strike API Key</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 12px;">Paste your API key from <a href="https://dashboard.strike.me/developer" target="_blank" rel="noopener" style="color:#f7931a;">Strike Developer Dashboard</a>. Your key is stored securely and never shown again.</p>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>API Key</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="strikeApiKeyInput" placeholder="Paste your Strike API key" autocomplete="off">
+                    </div>
+                </div>
             </div>
             <div class="panel-actions">
-                <button class="btn btn-secondary" id="cancelAdmin">Close</button>
+                <button class="btn btn-secondary" id="cancelStrikeKey">Cancel</button>
+                <button class="btn btn-primary" id="saveStrikeKey">Connect</button>
+            </div>
+            <div id="strikeKeyResult" style="margin-top:10px; font-size:12px;"></div>
+        </div>
+    </div>
+
+    <!-- ===== ACCOUNT SETTINGS PANEL ===== -->
+    <div class="slide-panel" id="accountSettingsPanel">
+        <div class="panel-inner">
+            <h4>Account Settings</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 12px;">Manage your send limits and Strike connection.</p>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Max Send per Transaction (USD)</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="settingsMaxSend" placeholder="1000" step="1" min="0" max="100000">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Max Sends per Hour</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="settingsSendsPerHour" placeholder="5" step="1" min="1" max="100">
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelAccountSettings">Cancel</button>
+                <button class="btn btn-primary" id="saveAccountSettings">Save Settings</button>
+            </div>
+            <div id="settingsResult" style="margin-top:10px; font-size:12px;"></div>
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.06);">
+                <button class="btn btn-secondary" id="btnDisconnectStrikeKey" style="width:100%; color:#ef4444; border-color:rgba(239,68,68,0.3);">Disconnect Strike API Key</button>
+                <div style="font-size:11px; color:#666; margin-top:6px; text-align:center;">You can reconnect anytime with a new key.</div>
             </div>
         </div>
     </div>
@@ -167,7 +212,7 @@
     <!-- ===== STRIKE CONNECT PANEL ===== -->
     <div class="slide-panel" id="strikeConnectPanel">
         <div class="panel-inner">
-            <h4>Connect Strike Account</h4>
+            <h4>Connect Strike Proxy</h4>
             <p style="font-size:12px; color:#888; margin:0 0 12px;">Enter your Strike proxy worker URL. Deploy the worker from <code style="color:#f7931a;">tools/worker-strike/</code> with your API key as a secret.</p>
             <div class="panel-form-grid">
                 <div class="input-group">
@@ -230,7 +275,7 @@
         <div class="panel-inner">
             <h4>Send BTC</h4>
             <div style="margin-bottom:12px; padding:10px 14px; background:rgba(247,147,26,0.08); border:1px solid rgba(247,147,26,0.25); border-radius:8px; font-size:12px; color:#f7931a;">
-                Session authenticated. 2FA required for sends. Max per-user limits apply.
+                Session authenticated. 2FA required for sends if enabled. Per-account limits apply.
             </div>
 
             <!-- Step 1: Send Form -->
@@ -375,15 +420,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=146"></script>
-<script src="./sync.js?v=146"></script>
-<script src="./auth-ui.js?v=146"></script>
-<script src="./profile-panel.js?v=146"></script>
-<script src="./shared.js?v=146"></script>
-<script src="./fleet-data.js?v=146"></script>
-<script src="./wallet.js?v=146"></script>
-<script src="./widget-settings.js?v=146"></script>
-<script src="./alerts.js?v=146"></script>
-<script src="./onboarding.js?v=146"></script>
+<script src="./firebase-config.js?v=147"></script>
+<script src="./sync.js?v=147"></script>
+<script src="./auth-ui.js?v=147"></script>
+<script src="./profile-panel.js?v=147"></script>
+<script src="./shared.js?v=147"></script>
+<script src="./fleet-data.js?v=147"></script>
+<script src="./wallet.js?v=147"></script>
+<script src="./widget-settings.js?v=147"></script>
+<script src="./alerts.js?v=147"></script>
+<script src="./onboarding.js?v=147"></script>
 </body>
 </html>

@@ -35,16 +35,16 @@ var StrikeAuth = (function() {
         localStorage.removeItem(USER_KEY);
     }
 
-    function isAdmin() {
+    function hasStrike() {
         var u = getUser();
-        return u && u.role === 'admin';
+        return u && u.strikeConnected;
     }
 
     return {
         getToken: getToken,
         getUser: getUser,
         isLoggedIn: isLoggedIn,
-        isAdmin: isAdmin,
+        hasStrike: hasStrike,
         saveSession: saveSession,
         clearSession: clearSession
     };
@@ -58,12 +58,18 @@ var StrikeAuth = (function() {
     loadStrikeSettings();
 
     if (strikeConnected && StrikeAuth.isLoggedIn()) {
-        showAuthenticatedUI();
-        await loadAndRefreshWallet();
-        startAutoRefresh();
+        if (StrikeAuth.hasStrike()) {
+            showAuthenticatedUI();
+            await loadAndRefreshWallet();
+            startAutoRefresh();
+        } else {
+            showAuthenticatedUI();
+            showConnectStrikePrompt();
+            await loadAndRefreshWallet();
+            startAutoRefresh();
+        }
     } else if (strikeConnected) {
         showLoginUI();
-        // Still load on-chain data
         await loadAndRefreshWallet();
         startAutoRefresh();
     } else {
@@ -174,7 +180,14 @@ var StrikeAPI = (function() {
                 headers: authHeaders()
             });
             if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
-            if (res.status === 403) return { error: 'Access denied' };
+            if (res.status === 403) {
+                var errData = await res.json().catch(function() { return {}; });
+                if (errData.strikeNotConnected) {
+                    showConnectStrikePrompt();
+                    return { error: 'Strike not connected', strikeNotConnected: true };
+                }
+                return { error: errData.error || 'Access denied' };
+            }
             if (!res.ok) return { error: 'HTTP ' + res.status };
             return await res.json();
         } catch(e) {
@@ -193,7 +206,13 @@ var StrikeAPI = (function() {
             });
             if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
             var data = await res.json();
-            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired, requireExistingPin: data.requireExistingPin };
+            if (!res.ok) {
+                if (data.strikeNotConnected) {
+                    showConnectStrikePrompt();
+                    return { error: 'Strike not connected', strikeNotConnected: true };
+                }
+                return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
+            }
             return data;
         } catch(e) {
             return { error: e.message || 'Network error' };
@@ -213,24 +232,13 @@ var StrikeAPI = (function() {
             });
             if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
             var data = await res.json();
-            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
-            return data;
-        } catch(e) {
-            return { error: e.message || 'Network error' };
-        }
-    }
-
-    async function apiDelete(route) {
-        var proxy = getProxyUrl();
-        if (!proxy) return { error: 'No proxy URL configured' };
-        try {
-            var res = await fetch(proxy.replace(/\/$/, '') + route, {
-                method: 'DELETE',
-                headers: authHeaders()
-            });
-            if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
-            var data = await res.json();
-            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
+            if (!res.ok) {
+                if (data.strikeNotConnected) {
+                    showConnectStrikePrompt();
+                    return { error: 'Strike not connected', strikeNotConnected: true };
+                }
+                return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
+            }
             return data;
         } catch(e) {
             return { error: e.message || 'Network error' };
@@ -270,16 +278,14 @@ var StrikeAPI = (function() {
         }
     }
 
-    async function register(username, pin, existingPin) {
+    async function register(username, pin) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
-            var body = { username: username, pin: pin };
-            if (existingPin) body.existingPin = existingPin;
             var res = await fetch(proxy.replace(/\/$/, '') + '/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify({ username: username, pin: pin })
             });
             var data = await res.json();
             return data;
@@ -321,10 +327,10 @@ var StrikeAPI = (function() {
 
     async function getSendStatus(paymentId) { return await apiFetch('/send/status/' + paymentId); }
 
-    // Admin
-    async function getUsers() { return await apiFetch('/admin/users'); }
-    async function updateUser(userId, updates) { return await apiPatch('/admin/users/' + userId, updates); }
-    async function deleteUser(userId) { return await apiDelete('/admin/users/' + userId); }
+    // Strike connection
+    async function connectStrike(apiKey) { return await apiPost('/auth/connect-strike', { apiKey: apiKey }); }
+    async function disconnectStrikeAccount() { return await apiPost('/auth/disconnect-strike', {}); }
+    async function updateSettings(settings) { return await apiPatch('/auth/settings', settings); }
 
     return {
         getProxyUrl: getProxyUrl,
@@ -343,9 +349,9 @@ var StrikeAPI = (function() {
         register: register,
         logout: logout,
         apiPost: apiPost,
-        getUsers: getUsers,
-        updateUser: updateUser,
-        deleteUser: deleteUser
+        connectStrike: connectStrike,
+        disconnectStrikeAccount: disconnectStrikeAccount,
+        updateSettings: updateSettings
     };
 })();
 
@@ -355,10 +361,10 @@ function showLoginUI() {
     if (panel) panel.style.display = '';
     var authBar = document.getElementById('userAuthBar');
     if (authBar) authBar.style.display = 'none';
-    // Hide send/2FA buttons and Strike data until logged in
+    hideConnectStrikePrompt();
     updateSendButton();
     update2FAButton();
-    updateAdminButton();
+    updateAccountButtons();
 }
 
 function showAuthenticatedUI() {
@@ -372,20 +378,33 @@ function showAuthenticatedUI() {
         if (nameEl && user) {
             nameEl.textContent = user.username;
         }
-        var roleEl = document.getElementById('authRole');
-        if (roleEl && user) {
-            roleEl.textContent = user.role === 'admin' ? 'Admin' : 'User';
-            roleEl.style.color = user.role === 'admin' ? '#f7931a' : '#888';
-        }
     }
     updateSendButton();
     update2FAButton();
-    updateAdminButton();
+    updateAccountButtons();
 }
 
-function updateAdminButton() {
-    var btn = document.getElementById('btnManageUsers');
-    if (btn) btn.style.display = (strikeConnected && StrikeAuth.isLoggedIn() && StrikeAuth.isAdmin()) ? '' : 'none';
+function updateAccountButtons() {
+    var settingsBtn = document.getElementById('btnAccountSettings');
+    var connectBtn = document.getElementById('btnConnectStrikeKey');
+    var loggedIn = strikeConnected && StrikeAuth.isLoggedIn();
+    if (settingsBtn) settingsBtn.style.display = loggedIn ? '' : 'none';
+    if (connectBtn) {
+        var user = StrikeAuth.getUser();
+        // Show connect button only if user doesn't have their own key
+        connectBtn.style.display = (loggedIn && user && !user.hasOwnKey) ? '' : 'none';
+    }
+}
+
+// ===== CONNECT STRIKE PROMPT =====
+function showConnectStrikePrompt() {
+    var prompt = document.getElementById('connectStrikePrompt');
+    if (prompt) prompt.style.display = '';
+}
+
+function hideConnectStrikePrompt() {
+    var prompt = document.getElementById('connectStrikePrompt');
+    if (prompt) prompt.style.display = 'none';
 }
 
 // ===== STRIKE SETTINGS =====
@@ -398,7 +417,7 @@ function loadStrikeSettings() {
     }
     updateSendButton();
     update2FAButton();
-    updateAdminButton();
+    updateAccountButtons();
 }
 
 function updateStrikeStatus(label) {
@@ -415,7 +434,7 @@ function updateStrikeStatus(label) {
 // ===== STRIKE DATA FETCH =====
 async function fetchStrikeData() {
     if (!strikeConnected) return;
-    if (!StrikeAuth.isLoggedIn()) return; // Need session for balance data
+    if (!StrikeAuth.isLoggedIn()) return;
 
     var balResult = await StrikeAPI.getBalances();
     if (balResult && !balResult.error) {
@@ -425,7 +444,9 @@ async function fetchStrikeData() {
         settings.strike.lastSync = new Date().toISOString();
         FleetData.saveSettings(settings);
     } else if (balResult && balResult.loginRequired) {
-        return; // Session expired, login UI already shown
+        return;
+    } else if (balResult && balResult.strikeNotConnected) {
+        return; // Prompt already shown
     } else {
         console.warn('[Wallet] Strike balance fetch error:', balResult.error);
     }
@@ -840,7 +861,6 @@ window.addEventListener('beforeunload', function() {
     var registerForm = document.getElementById('registerForm');
     var loginResult = document.getElementById('loginResult');
     var registerResult = document.getElementById('registerResult');
-    var existingPinGroup = document.getElementById('existingPinGroup');
 
     if (loginBtn) {
         loginBtn.addEventListener('click', async function() {
@@ -858,7 +878,12 @@ window.addEventListener('beforeunload', function() {
                 loginResult.innerHTML = '<span style="color:#4ade80;">Welcome, ' + escapeHtml(data.user.username) + '!</span>';
                 setTimeout(function() {
                     showAuthenticatedUI();
-                    loadAndRefreshWallet();
+                    if (data.user.strikeConnected) {
+                        hideConnectStrikePrompt();
+                        loadAndRefreshWallet();
+                    } else {
+                        showConnectStrikePrompt();
+                    }
                 }, 500);
             } else {
                 loginResult.innerHTML = '<span style="color:#f55;">' + (data.error || 'Login failed') + '</span>';
@@ -871,8 +896,6 @@ window.addEventListener('beforeunload', function() {
             var username = document.getElementById('registerUsername').value.trim();
             var pin = document.getElementById('registerPin').value;
             var pinConfirm = document.getElementById('registerPinConfirm').value;
-            var existingPin = '';
-            if (existingPinGroup) existingPin = document.getElementById('registerExistingPin').value;
 
             if (!username || !pin) { registerResult.innerHTML = '<span style="color:#f55;">Enter username and PIN</span>'; return; }
             if (pin !== pinConfirm) { registerResult.innerHTML = '<span style="color:#f55;">PINs do not match</span>'; return; }
@@ -881,11 +904,11 @@ window.addEventListener('beforeunload', function() {
             registerResult.innerHTML = '<span style="color:#888;">Creating account...</span>';
             registerBtn.disabled = true;
 
-            var data = await StrikeAPI.register(username, pin, existingPin || undefined);
+            var data = await StrikeAPI.register(username, pin);
             registerBtn.disabled = false;
 
             if (data.ok) {
-                registerResult.innerHTML = '<span style="color:#4ade80;">' + (data.message || 'Account created!') + ' You can now log in.</span>';
+                registerResult.innerHTML = '<span style="color:#4ade80;">' + (data.message || 'Account created!') + '</span>';
                 // Switch to login view
                 setTimeout(function() {
                     if (loginForm) loginForm.style.display = '';
@@ -893,10 +916,6 @@ window.addEventListener('beforeunload', function() {
                     document.getElementById('loginUsername').value = username;
                 }, 1500);
             } else {
-                // If admin verification needed, show existing PIN field
-                if (data.requireExistingPin && existingPinGroup) {
-                    existingPinGroup.style.display = '';
-                }
                 registerResult.innerHTML = '<span style="color:#f55;">' + (data.error || data.message || 'Registration failed') + '</span>';
             }
         });
@@ -917,15 +936,28 @@ window.addEventListener('beforeunload', function() {
         });
     }
 
-    // Logout
+    // Logout — fully clears all state
     var logoutBtn = document.getElementById('btnLogout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function() {
             await StrikeAPI.logout();
+            // Clear all in-memory data
             strikeBalances = null;
             strikeTransactions = [];
+            activeSendQuote = null;
+            totpEnabled = false;
+            clearQuoteExpiry();
+            // Close all open slide panels
+            var panels = document.querySelectorAll('.slide-panel.open');
+            for (var i = 0; i < panels.length; i++) {
+                panels[i].classList.remove('open');
+            }
+            // Hide connect prompt
+            hideConnectStrikePrompt();
+            // Reset UI
             showLoginUI();
             renderWallet();
+            renderTransactionHistory();
         });
     }
 })();
@@ -1032,7 +1064,7 @@ document.getElementById('saveStrike').addEventListener('click', async function()
     updateStrikeStatus('Connected');
     updateSendButton();
     update2FAButton();
-    updateAdminButton();
+    updateAccountButtons();
     document.getElementById('strikeConnectPanel').classList.remove('open');
 
     // Show login UI if not logged in
@@ -1055,7 +1087,8 @@ function disconnectStrike() {
     updateStrikeStatus(null);
     updateSendButton();
     update2FAButton();
-    updateAdminButton();
+    updateAccountButtons();
+    hideConnectStrikePrompt();
     var loginPanel = document.getElementById('loginPanel');
     if (loginPanel) loginPanel.style.display = 'none';
     var authBar = document.getElementById('userAuthBar');
@@ -1396,108 +1429,137 @@ document.getElementById('btnSave2FAToWorker').addEventListener('click', async fu
     }
 });
 
-// ===== ADMIN: MANAGE USERS =====
-document.getElementById('btnManageUsers').addEventListener('click', function() {
-    document.getElementById('adminUsersPanel').classList.toggle('open');
-    loadAdminUsers();
-});
+// ===== STRIKE API KEY PANEL =====
+(function() {
+    var connectBtn = document.getElementById('btnConnectStrikeKey');
+    var promptConnectBtn = document.getElementById('btnConnectStrikeFromPrompt');
 
-document.getElementById('cancelAdmin').addEventListener('click', function() {
-    document.getElementById('adminUsersPanel').classList.remove('open');
-});
-
-async function loadAdminUsers() {
-    var container = document.getElementById('adminUsersList');
-    container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Loading users...</div>';
-
-    var data = await StrikeAPI.getUsers();
-    if (!data || data.error) {
-        container.innerHTML = '<div style="color:#f55; padding:12px;">' + (data.error || 'Failed to load users') + '</div>';
-        return;
+    function openStrikeKeyPanel() {
+        document.getElementById('strikeApiKeyInput').value = '';
+        document.getElementById('strikeKeyResult').innerHTML = '';
+        document.getElementById('strikeApiKeyPanel').classList.add('open');
     }
 
-    var users = data.users || [];
-    if (users.length === 0) {
-        container.innerHTML = '<div style="color:#888; padding:12px;">No users found</div>';
-        return;
-    }
+    if (connectBtn) connectBtn.addEventListener('click', openStrikeKeyPanel);
+    if (promptConnectBtn) promptConnectBtn.addEventListener('click', openStrikeKeyPanel);
 
-    var html = '';
-    for (var i = 0; i < users.length; i++) {
-        var u = users[i];
-        var roleBadge = u.role === 'admin'
-            ? '<span style="color:#f7931a; font-size:11px; background:rgba(247,147,26,0.15); padding:2px 6px; border-radius:4px;">Admin</span>'
-            : '<span style="color:#888; font-size:11px; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">User</span>';
-        var statusBadge = u.disabled
-            ? '<span style="color:#ef4444; font-size:11px;">Disabled</span>'
-            : '<span style="color:#4ade80; font-size:11px;">Active</span>';
-        var twofaBadge = u.has2FA
-            ? '<span style="color:#4ade80; font-size:11px;">2FA On</span>'
-            : '<span style="color:#888; font-size:11px;">No 2FA</span>';
-
-        html += '<div class="admin-user-row" data-user-id="' + u.id + '" style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.06);">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
-                '<div><strong style="color:#fff;">' + escapeHtml(u.username) + '</strong> ' + roleBadge + '</div>' +
-                '<div style="display:flex; gap:8px; align-items:center;">' + statusBadge + ' ' + twofaBadge + '</div>' +
-            '</div>' +
-            '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
-                '<div class="input-group" style="margin:0; flex:1; min-width:100px;">' +
-                    '<label style="font-size:10px;">Max Send $</label>' +
-                    '<input type="number" class="admin-cap-input" data-uid="' + u.id + '" value="' + (u.maxSendUsd || 0) + '" style="padding:4px 8px; font-size:12px; width:100%;">' +
-                '</div>' +
-                '<div class="input-group" style="margin:0; flex:1; min-width:80px;">' +
-                    '<label style="font-size:10px;">Sends/hr</label>' +
-                    '<input type="number" class="admin-rate-input" data-uid="' + u.id + '" value="' + (u.maxSendsPerHour || 5) + '" style="padding:4px 8px; font-size:12px; width:100%;">' +
-                '</div>' +
-                '<button class="btn btn-secondary admin-save-btn" data-uid="' + u.id + '" style="padding:4px 12px; font-size:11px;">Save</button>' +
-                '<button class="btn btn-secondary admin-toggle-btn" data-uid="' + u.id + '" data-disabled="' + (u.disabled ? 'true' : 'false') + '" style="padding:4px 12px; font-size:11px; color:' + (u.disabled ? '#4ade80' : '#ef4444') + ';">' + (u.disabled ? 'Enable' : 'Disable') + '</button>' +
-                (u.role !== 'admin' ? '<button class="btn btn-secondary admin-delete-btn" data-uid="' + u.id + '" style="padding:4px 12px; font-size:11px; color:#ef4444;">Delete</button>' : '') +
-            '</div>' +
-        '</div>';
-    }
-
-    container.innerHTML = html;
-
-    // Save caps handler
-    var saveBtns = container.querySelectorAll('.admin-save-btn');
-    for (var s = 0; s < saveBtns.length; s++) {
-        saveBtns[s].addEventListener('click', function() {
-            var uid = this.getAttribute('data-uid');
-            var capInput = container.querySelector('.admin-cap-input[data-uid="' + uid + '"]');
-            var rateInput = container.querySelector('.admin-rate-input[data-uid="' + uid + '"]');
-            var cap = parseFloat(capInput.value) || 0;
-            var rate = parseInt(rateInput.value) || 5;
-            StrikeAPI.updateUser(uid, { maxSendUsd: cap, maxSendsPerHour: rate }).then(function(res) {
-                if (res.ok) loadAdminUsers();
-                else alert(res.error || 'Failed to update');
-            });
+    var cancelBtn = document.getElementById('cancelStrikeKey');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            document.getElementById('strikeApiKeyPanel').classList.remove('open');
         });
     }
 
-    // Toggle disable handler
-    var toggleBtns = container.querySelectorAll('.admin-toggle-btn');
-    for (var t = 0; t < toggleBtns.length; t++) {
-        toggleBtns[t].addEventListener('click', function() {
-            var uid = this.getAttribute('data-uid');
-            var isDisabled = this.getAttribute('data-disabled') === 'true';
-            StrikeAPI.updateUser(uid, { disabled: !isDisabled }).then(function(res) {
-                if (res.ok) loadAdminUsers();
-                else alert(res.error || 'Failed to update');
-            });
-        });
-    }
+    var saveBtn = document.getElementById('saveStrikeKey');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async function() {
+            var apiKey = document.getElementById('strikeApiKeyInput').value.trim();
+            var resultEl = document.getElementById('strikeKeyResult');
 
-    // Delete handler
-    var deleteBtns = container.querySelectorAll('.admin-delete-btn');
-    for (var d = 0; d < deleteBtns.length; d++) {
-        deleteBtns[d].addEventListener('click', function() {
-            var uid = this.getAttribute('data-uid');
-            if (confirm('Delete this user? This cannot be undone.')) {
-                StrikeAPI.deleteUser(uid).then(function(res) {
-                    if (res.ok) loadAdminUsers();
-                    else alert(res.error || 'Failed to delete');
-                });
+            if (!apiKey) { resultEl.innerHTML = '<span style="color:#f55;">Enter your Strike API key</span>'; return; }
+
+            resultEl.innerHTML = '<span style="color:#888;">Connecting to Strike...</span>';
+            saveBtn.disabled = true;
+
+            var data = await StrikeAPI.connectStrike(apiKey);
+            saveBtn.disabled = false;
+
+            if (data && data.ok) {
+                resultEl.innerHTML = '<span style="color:#4ade80;">Strike account connected!</span>';
+                // Update local user
+                var user = StrikeAuth.getUser();
+                if (user) {
+                    user.strikeConnected = true;
+                    user.hasOwnKey = true;
+                    StrikeAuth.saveSession(StrikeAuth.getToken(), user);
+                }
+                hideConnectStrikePrompt();
+                updateAccountButtons();
+                setTimeout(function() {
+                    document.getElementById('strikeApiKeyPanel').classList.remove('open');
+                    loadAndRefreshWallet();
+                }, 1000);
+            } else {
+                resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || 'Failed to connect') + '</span>';
             }
         });
     }
-}
+})();
+
+// ===== ACCOUNT SETTINGS PANEL =====
+(function() {
+    var settingsBtn = document.getElementById('btnAccountSettings');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', function() {
+            var user = StrikeAuth.getUser();
+            if (user) {
+                document.getElementById('settingsMaxSend').value = user.maxSendUsd || 1000;
+                document.getElementById('settingsSendsPerHour').value = user.maxSendsPerHour || 5;
+            }
+            document.getElementById('settingsResult').innerHTML = '';
+            document.getElementById('accountSettingsPanel').classList.add('open');
+        });
+    }
+
+    var cancelBtn = document.getElementById('cancelAccountSettings');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            document.getElementById('accountSettingsPanel').classList.remove('open');
+        });
+    }
+
+    var saveBtn = document.getElementById('saveAccountSettings');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async function() {
+            var maxSend = parseFloat(document.getElementById('settingsMaxSend').value) || 0;
+            var sendsPerHour = parseInt(document.getElementById('settingsSendsPerHour').value) || 5;
+            var resultEl = document.getElementById('settingsResult');
+
+            resultEl.innerHTML = '<span style="color:#888;">Saving...</span>';
+            saveBtn.disabled = true;
+
+            var data = await StrikeAPI.updateSettings({ maxSendUsd: maxSend, maxSendsPerHour: sendsPerHour });
+            saveBtn.disabled = false;
+
+            if (data && data.ok) {
+                resultEl.innerHTML = '<span style="color:#4ade80;">Settings saved!</span>';
+                // Update local user
+                var user = StrikeAuth.getUser();
+                if (user) {
+                    user.maxSendUsd = data.maxSendUsd;
+                    user.maxSendsPerHour = data.maxSendsPerHour;
+                    StrikeAuth.saveSession(StrikeAuth.getToken(), user);
+                }
+            } else {
+                resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || 'Failed to save') + '</span>';
+            }
+        });
+    }
+
+    var disconnectBtn = document.getElementById('btnDisconnectStrikeKey');
+    if (disconnectBtn) {
+        disconnectBtn.addEventListener('click', async function() {
+            if (!confirm('Disconnect your Strike API key? You can reconnect anytime.')) return;
+
+            var data = await StrikeAPI.disconnectStrikeAccount();
+            if (data && data.ok) {
+                // Update local user
+                var user = StrikeAuth.getUser();
+                if (user) {
+                    user.strikeConnected = data.strikeConnected;
+                    user.hasOwnKey = false;
+                    StrikeAuth.saveSession(StrikeAuth.getToken(), user);
+                }
+                strikeBalances = null;
+                strikeTransactions = [];
+                updateAccountButtons();
+                document.getElementById('accountSettingsPanel').classList.remove('open');
+                if (!data.strikeConnected) {
+                    showConnectStrikePrompt();
+                }
+                renderWallet();
+                renderTransactionHistory();
+            }
+        });
+    }
+})();
