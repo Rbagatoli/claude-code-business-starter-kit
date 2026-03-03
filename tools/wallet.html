@@ -484,28 +484,27 @@
 <script src="./fleet-data.js?v=170"></script>
 <script src="./wallet.js?v=170"></script>
 <script>
-// Auto-generate share link when invoice is created (polling — no MutationObserver)
+// Auto-generate share link when invoice is created — fallback if wallet.js didn't handle it
 (function() {
     var _done = false;
     var _seen = 0;
+    var _retries = 0;
 
     setInterval(function() {
         var result = document.getElementById('invoiceResult');
 
-        // Reset when invoice area is hidden (panel closed or new invoice)
         if (!result || result.style.display === 'none') {
             _done = false;
             _seen = 0;
+            _retries = 0;
             return;
         }
 
-        if (_done) return;
+        if (_done || _retries >= 2) return;
 
-        // Invoice is visible — check if bolt11 is present
         var bolt11El = document.getElementById('lnInvoiceText');
         if (!bolt11El || !bolt11El.textContent || bolt11El.textContent.length < 20) return;
 
-        // Check if wallet.js already generated the share link
         var shareUrl = document.getElementById('shareUrlText');
         var shareLink = document.getElementById('invoiceShareLink');
         if (shareUrl && shareUrl.textContent && shareUrl.textContent.length > 10) {
@@ -514,30 +513,32 @@
             return;
         }
 
-        // Wait 3 seconds after invoice appears to let wallet.js try first
         if (!_seen) { _seen = Date.now(); return; }
-        if (Date.now() - _seen < 3000) return;
+        var wait = _retries === 0 ? 3000 : 15000;
+        if (Date.now() - _seen < wait) return;
 
-        // wallet.js didn't generate it — do it from here
         if (typeof StrikeAPI === 'undefined' || !StrikeAPI.shareInvoice) return;
-        _done = true;
+        _retries++;
+        _seen = Date.now();
 
         var amt = document.getElementById('receiveAmount').value.trim();
         var cur = document.getElementById('receiveCurrency').value;
         var desc = document.getElementById('receiveDescription').value.trim();
+        var statusEl = document.getElementById('invoiceStatus');
 
         StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' }).then(function(data) {
             if (data && data.shareId) {
                 var url = StrikeAPI.getProxyUrl().replace(/\/$/, '') + '/pay?id=' + data.shareId;
                 if (shareUrl) shareUrl.textContent = url;
                 if (shareLink) shareLink.style.display = '';
-            } else {
-                _done = false;
+                _done = true;
+            } else if (statusEl) {
+                statusEl.innerHTML = '<span style="color:#f55;">' + (data && data.error || 'Share link failed') + '</span>';
             }
-        }).catch(function() {
-            _done = false;
+        }).catch(function(e) {
+            if (statusEl) statusEl.innerHTML = '<span style="color:#f55;">Share error: ' + e.message + '</span>';
         });
-    }, 1000);
+    }, 2000);
 })();
 </script>
 <script src="./widget-settings.js?v=170"></script>
