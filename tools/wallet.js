@@ -8,13 +8,68 @@ var strikeTransactions = [];
 
 initNav('wallet');
 
+// ===== STRIKE AUTH MODULE =====
+var StrikeAuth = (function() {
+    var SESSION_KEY = 'ionStrikeSession';
+    var USER_KEY = 'ionStrikeUser';
+
+    function getToken() {
+        return localStorage.getItem(SESSION_KEY) || '';
+    }
+
+    function getUser() {
+        try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch(e) { return null; }
+    }
+
+    function isLoggedIn() {
+        return !!getToken();
+    }
+
+    function saveSession(token, user) {
+        localStorage.setItem(SESSION_KEY, token);
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+
+    function clearSession() {
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(USER_KEY);
+    }
+
+    function isAdmin() {
+        var u = getUser();
+        return u && u.role === 'admin';
+    }
+
+    return {
+        getToken: getToken,
+        getUser: getUser,
+        isLoggedIn: isLoggedIn,
+        isAdmin: isAdmin,
+        saveSession: saveSession,
+        clearSession: clearSession
+    };
+})();
+
+// ===== INIT =====
 (async function() {
     var data = await fetchLiveMarketData();
     liveBtcPrice = data.price || 96000;
     window.onCurrencyChange = function() { liveBtcPrice = window.liveBtcPrice || liveBtcPrice; renderWallet(); };
     loadStrikeSettings();
-    await loadAndRefreshWallet();
-    startAutoRefresh();
+
+    if (strikeConnected && StrikeAuth.isLoggedIn()) {
+        showAuthenticatedUI();
+        await loadAndRefreshWallet();
+        startAutoRefresh();
+    } else if (strikeConnected) {
+        showLoginUI();
+        // Still load on-chain data
+        await loadAndRefreshWallet();
+        startAutoRefresh();
+    } else {
+        await loadAndRefreshWallet();
+        startAutoRefresh();
+    }
 })();
 
 // Listen for sync engine wallet updates (cross-device)
@@ -95,11 +150,30 @@ var StrikeAPI = (function() {
         return (settings.strike && settings.strike.proxyUrl) || '';
     }
 
+    function authHeaders() {
+        var hdrs = { 'Content-Type': 'application/json' };
+        var token = StrikeAuth.getToken();
+        if (token) hdrs['Authorization'] = 'Bearer ' + token;
+        return hdrs;
+    }
+
+    function handleAuthError(res) {
+        if (res.status === 401) {
+            StrikeAuth.clearSession();
+            showLoginUI();
+            return true;
+        }
+        return false;
+    }
+
     async function apiFetch(route) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
-            var res = await fetch(proxy.replace(/\/$/, '') + route);
+            var res = await fetch(proxy.replace(/\/$/, '') + route, {
+                headers: authHeaders()
+            });
+            if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
             if (res.status === 403) return { error: 'Access denied' };
             if (!res.ok) return { error: 'HTTP ' + res.status };
             return await res.json();
@@ -108,68 +182,36 @@ var StrikeAPI = (function() {
         }
     }
 
-    async function getBalances() {
-        return await apiFetch('/balances');
-    }
-
-    async function getDeposits() {
-        return await apiFetch('/deposits');
-    }
-
-    async function getPayouts() {
-        return await apiFetch('/payouts');
-    }
-
-    async function getReceives() {
-        return await apiFetch('/receives');
-    }
-
-    async function getInvoices() {
-        return await apiFetch('/invoices');
-    }
-
-    async function testConnection() {
-        var proxy = getProxyUrl();
-        if (!proxy) return { error: 'No proxy URL configured' };
-        try {
-            var res = await fetch(proxy.replace(/\/$/, '') + '/ping');
-            if (!res.ok) return { error: 'HTTP ' + res.status };
-            var data = await res.json();
-            if (data.ok) return data.balances || data;
-            return { error: data.error || 'Unknown error' };
-        } catch(e) {
-            return { error: e.message || 'Network error' };
-        }
-    }
-
-    async function apiPostWithPin(route, body, pin) {
+    async function apiPost(route, body) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
             var res = await fetch(proxy.replace(/\/$/, '') + route, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Dashboard-Pin': pin },
+                headers: authHeaders(),
                 body: JSON.stringify(body)
             });
+            if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
             var data = await res.json();
-            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
+            if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired, requireExistingPin: data.requireExistingPin };
             return data;
         } catch(e) {
             return { error: e.message || 'Network error' };
         }
     }
 
-    async function apiPatchWithPin(route, body, pin, totpCode) {
+    async function apiPatch(route, body, totpCode) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
-            var hdrs = { 'Content-Type': 'application/json', 'X-Dashboard-Pin': pin };
+            var hdrs = authHeaders();
             if (totpCode) hdrs['X-Dashboard-TOTP'] = totpCode;
             var res = await fetch(proxy.replace(/\/$/, '') + route, {
                 method: 'PATCH',
                 headers: hdrs,
                 body: JSON.stringify(body || {})
             });
+            if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
             var data = await res.json();
             if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
             return data;
@@ -178,13 +220,15 @@ var StrikeAPI = (function() {
         }
     }
 
-    async function apiGetWithPin(route, pin) {
+    async function apiDelete(route) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
             var res = await fetch(proxy.replace(/\/$/, '') + route, {
-                headers: { 'X-Dashboard-Pin': pin }
+                method: 'DELETE',
+                headers: authHeaders()
             });
+            if (handleAuthError(res)) return { error: 'Session expired', loginRequired: true };
             var data = await res.json();
             if (!res.ok) return { error: data.error || data.message || 'HTTP ' + res.status };
             return data;
@@ -193,27 +237,97 @@ var StrikeAPI = (function() {
         }
     }
 
-    async function sendQuoteLightning(body, pin) {
-        return await apiPostWithPin('/send/quote/lightning', body, pin);
+    // Public no-auth fetch (for testing connection before login)
+    async function apiPublicFetch(route) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var res = await fetch(proxy.replace(/\/$/, '') + route);
+            if (!res.ok) return { error: 'HTTP ' + res.status };
+            return await res.json();
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
     }
 
-    async function sendQuoteOnchain(body, pin) {
-        return await apiPostWithPin('/send/quote/onchain', body, pin);
+    // Auth calls
+    async function login(username, pin) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var res = await fetch(proxy.replace(/\/$/, '') + '/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, pin: pin })
+            });
+            var data = await res.json();
+            if (data.ok && data.token) {
+                StrikeAuth.saveSession(data.token, data.user);
+            }
+            return data;
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
     }
 
-    async function getOnchainTiers(body, pin) {
-        return await apiPostWithPin('/send/onchain-tiers', body, pin);
+    async function register(username, pin, existingPin) {
+        var proxy = getProxyUrl();
+        if (!proxy) return { error: 'No proxy URL configured' };
+        try {
+            var body = { username: username, pin: pin };
+            if (existingPin) body.existingPin = existingPin;
+            var res = await fetch(proxy.replace(/\/$/, '') + '/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            var data = await res.json();
+            return data;
+        } catch(e) {
+            return { error: e.message || 'Network error' };
+        }
     }
 
-    async function executeSend(quoteId, pin, totpCode) {
-        return await apiPatchWithPin('/send/execute/' + quoteId, {}, pin, totpCode);
+    async function logout() {
+        var proxy = getProxyUrl();
+        if (proxy) {
+            try {
+                await fetch(proxy.replace(/\/$/, '') + '/auth/logout', {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+            } catch(e) {}
+        }
+        StrikeAuth.clearSession();
     }
 
-    async function getSendStatus(paymentId, pin) {
-        return await apiGetWithPin('/send/status/' + paymentId, pin);
+    async function getBalances() { return await apiFetch('/balances'); }
+    async function getDeposits() { return await apiFetch('/deposits'); }
+    async function getPayouts() { return await apiFetch('/payouts'); }
+    async function getReceives() { return await apiFetch('/receives'); }
+    async function getInvoices() { return await apiFetch('/invoices'); }
+
+    async function testConnection() {
+        return await apiPublicFetch('/ping');
     }
+
+    async function sendQuoteLightning(body) { return await apiPost('/send/quote/lightning', body); }
+    async function sendQuoteOnchain(body) { return await apiPost('/send/quote/onchain', body); }
+    async function getOnchainTiers(body) { return await apiPost('/send/onchain-tiers', body); }
+
+    async function executeSend(quoteId, totpCode) {
+        return await apiPatch('/send/execute/' + quoteId, {}, totpCode);
+    }
+
+    async function getSendStatus(paymentId) { return await apiFetch('/send/status/' + paymentId); }
+
+    // Admin
+    async function getUsers() { return await apiFetch('/admin/users'); }
+    async function updateUser(userId, updates) { return await apiPatch('/admin/users/' + userId, updates); }
+    async function deleteUser(userId) { return await apiDelete('/admin/users/' + userId); }
 
     return {
+        getProxyUrl: getProxyUrl,
         getBalances: getBalances,
         getDeposits: getDeposits,
         getPayouts: getPayouts,
@@ -225,9 +339,54 @@ var StrikeAPI = (function() {
         getOnchainTiers: getOnchainTiers,
         executeSend: executeSend,
         getSendStatus: getSendStatus,
-        apiPostWithPin: apiPostWithPin
+        login: login,
+        register: register,
+        logout: logout,
+        apiPost: apiPost,
+        getUsers: getUsers,
+        updateUser: updateUser,
+        deleteUser: deleteUser
     };
 })();
+
+// ===== LOGIN / AUTH UI =====
+function showLoginUI() {
+    var panel = document.getElementById('loginPanel');
+    if (panel) panel.style.display = '';
+    var authBar = document.getElementById('userAuthBar');
+    if (authBar) authBar.style.display = 'none';
+    // Hide send/2FA buttons and Strike data until logged in
+    updateSendButton();
+    update2FAButton();
+    updateAdminButton();
+}
+
+function showAuthenticatedUI() {
+    var panel = document.getElementById('loginPanel');
+    if (panel) panel.style.display = 'none';
+    var authBar = document.getElementById('userAuthBar');
+    if (authBar) {
+        authBar.style.display = '';
+        var user = StrikeAuth.getUser();
+        var nameEl = document.getElementById('authUsername');
+        if (nameEl && user) {
+            nameEl.textContent = user.username;
+        }
+        var roleEl = document.getElementById('authRole');
+        if (roleEl && user) {
+            roleEl.textContent = user.role === 'admin' ? 'Admin' : 'User';
+            roleEl.style.color = user.role === 'admin' ? '#f7931a' : '#888';
+        }
+    }
+    updateSendButton();
+    update2FAButton();
+    updateAdminButton();
+}
+
+function updateAdminButton() {
+    var btn = document.getElementById('btnManageUsers');
+    if (btn) btn.style.display = (strikeConnected && StrikeAuth.isLoggedIn() && StrikeAuth.isAdmin()) ? '' : 'none';
+}
 
 // ===== STRIKE SETTINGS =====
 function loadStrikeSettings() {
@@ -239,6 +398,7 @@ function loadStrikeSettings() {
     }
     updateSendButton();
     update2FAButton();
+    updateAdminButton();
 }
 
 function updateStrikeStatus(label) {
@@ -255,21 +415,21 @@ function updateStrikeStatus(label) {
 // ===== STRIKE DATA FETCH =====
 async function fetchStrikeData() {
     if (!strikeConnected) return;
+    if (!StrikeAuth.isLoggedIn()) return; // Need session for balance data
 
-    // Fetch balances
     var balResult = await StrikeAPI.getBalances();
     if (balResult && !balResult.error) {
         strikeBalances = balResult;
-        // Save last sync time
         var settings = FleetData.getSettings();
         if (!settings.strike) settings.strike = {};
         settings.strike.lastSync = new Date().toISOString();
         FleetData.saveSettings(settings);
+    } else if (balResult && balResult.loginRequired) {
+        return; // Session expired, login UI already shown
     } else {
         console.warn('[Wallet] Strike balance fetch error:', balResult.error);
     }
 
-    // Fetch transactions (deposits + payouts + receives)
     var strikeTxs = [];
     try {
         var [deposits, payouts, receives] = await Promise.all([
@@ -278,7 +438,6 @@ async function fetchStrikeData() {
             StrikeAPI.getReceives()
         ]);
 
-        // Process deposits (incoming)
         if (deposits && !deposits.error && Array.isArray(deposits.items || deposits)) {
             var depItems = deposits.items || deposits;
             for (var d = 0; d < depItems.length; d++) {
@@ -294,7 +453,6 @@ async function fetchStrikeData() {
             }
         }
 
-        // Process payouts (outgoing)
         if (payouts && !payouts.error && Array.isArray(payouts.items || payouts)) {
             var payItems = payouts.items || payouts;
             for (var p = 0; p < payItems.length; p++) {
@@ -310,7 +468,6 @@ async function fetchStrikeData() {
             }
         }
 
-        // Process receives (incoming Lightning/on-chain)
         if (receives && !receives.error && Array.isArray(receives.items || receives)) {
             var recItems = receives.items || receives;
             for (var r = 0; r < recItems.length; r++) {
@@ -334,12 +491,10 @@ async function fetchStrikeData() {
 
 function parseStrikeAmount(amountObj) {
     if (!amountObj) return 0;
-    // Strike returns {amount: "0.001", currency: "BTC"} or similar
     if (typeof amountObj === 'object') {
         var val = parseFloat(amountObj.amount) || 0;
         var cur = (amountObj.currency || '').toUpperCase();
         if (cur === 'BTC') return val;
-        // If USD, convert to BTC
         if (cur === 'USD' && liveBtcPrice > 0) return val / liveBtcPrice;
         return val;
     }
@@ -403,7 +558,6 @@ async function fetchAddressTxs(address) {
 async function loadAndRefreshWallet() {
     var data = WalletData.getData();
 
-    // Fetch Strike data if connected
     if (strikeConnected) {
         await fetchStrikeData();
     }
@@ -414,7 +568,6 @@ async function loadAndRefreshWallet() {
         return;
     }
 
-    // Fetch on-chain address data
     if (data.addresses.length > 0) {
         var promises = [];
         for (var i = 0; i < data.addresses.length; i++) {
@@ -444,7 +597,6 @@ function renderWallet() {
         totalTxCount += data.addresses[i].lastTxCount;
     }
 
-    // Add Strike BTC balance
     if (strikeConnected && strikeBalances) {
         totalBTC += getStrikeBtcBalance();
         totalTxCount += strikeTransactions.length;
@@ -469,7 +621,6 @@ function renderAddressCards(data) {
     var container = document.getElementById('addressCardsGrid');
     var html = '';
 
-    // Strike balance card (shown first if connected)
     if (strikeConnected && strikeBalances) {
         var strikeBtc = getStrikeBtcBalance();
         var strikeUsd = getStrikeUsdBalance();
@@ -495,7 +646,6 @@ function renderAddressCards(data) {
         '</div>';
     }
 
-    // On-chain address cards
     if (data.addresses.length === 0 && !html) {
         container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No addresses added yet</p><div class="hint">Click "+ Add Address" or connect Strike to start monitoring</div></div>';
         return;
@@ -555,7 +705,6 @@ async function renderTransactionHistory() {
 
     var allTxs = [];
 
-    // On-chain transactions
     for (var i = 0; i < data.addresses.length; i++) {
         var addr = data.addresses[i];
         var txs = await fetchAddressTxs(addr.address);
@@ -591,7 +740,6 @@ async function renderTransactionHistory() {
         }
     }
 
-    // Strike transactions
     for (var s = 0; s < strikeTransactions.length; s++) {
         var st = strikeTransactions[s];
         allTxs.push({
@@ -619,7 +767,6 @@ async function renderTransactionHistory() {
         var changeColor = t.change >= 0 ? '#4ade80' : '#ef4444';
         var changePrefix = t.change >= 0 ? '+' : '';
 
-        // Source badge
         var sourceBadge;
         if (t.type === 'strike') {
             sourceBadge = '<span class="strike-source-badge">' + escapeHtml(t.sourceLabel) + '</span>';
@@ -627,7 +774,6 @@ async function renderTransactionHistory() {
             sourceBadge = '<span class="onchain-source-badge">' + escapeHtml(t.sourceLabel) + '</span>';
         }
 
-        // Type/TX column
         var typeCol;
         if (t.type === 'strike') {
             typeCol = '<span style="font-size:11px; color:#888;">' + (t.strikeType || 'Transfer') + '</span>';
@@ -636,7 +782,6 @@ async function renderTransactionHistory() {
             typeCol = '<a href="https://mempool.space/tx/' + t.txid + '" target="_blank" rel="noopener" style="color:#f7931a; text-decoration:none; font-family:monospace; font-size:11px;" title="' + t.txid + '">' + txShort + '</a>';
         }
 
-        // Status
         var statusText, statusColor;
         if (t.type === 'strike') {
             var st2 = (t.strikeStatus || '').toUpperCase();
@@ -686,6 +831,105 @@ window.addEventListener('beforeunload', function() {
     if (refreshInterval) clearInterval(refreshInterval);
 });
 
+// ===== LOGIN PANEL HANDLERS =====
+(function() {
+    var loginBtn = document.getElementById('btnLogin');
+    var registerBtn = document.getElementById('btnRegister');
+    var toggleLink = document.getElementById('loginToggleLink');
+    var loginForm = document.getElementById('loginForm');
+    var registerForm = document.getElementById('registerForm');
+    var loginResult = document.getElementById('loginResult');
+    var registerResult = document.getElementById('registerResult');
+    var existingPinGroup = document.getElementById('existingPinGroup');
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', async function() {
+            var username = document.getElementById('loginUsername').value.trim();
+            var pin = document.getElementById('loginPin').value;
+            if (!username || !pin) { loginResult.innerHTML = '<span style="color:#f55;">Enter username and PIN</span>'; return; }
+
+            loginResult.innerHTML = '<span style="color:#888;">Logging in...</span>';
+            loginBtn.disabled = true;
+
+            var data = await StrikeAPI.login(username, pin);
+            loginBtn.disabled = false;
+
+            if (data.ok) {
+                loginResult.innerHTML = '<span style="color:#4ade80;">Welcome, ' + escapeHtml(data.user.username) + '!</span>';
+                setTimeout(function() {
+                    showAuthenticatedUI();
+                    loadAndRefreshWallet();
+                }, 500);
+            } else {
+                loginResult.innerHTML = '<span style="color:#f55;">' + (data.error || 'Login failed') + '</span>';
+            }
+        });
+    }
+
+    if (registerBtn) {
+        registerBtn.addEventListener('click', async function() {
+            var username = document.getElementById('registerUsername').value.trim();
+            var pin = document.getElementById('registerPin').value;
+            var pinConfirm = document.getElementById('registerPinConfirm').value;
+            var existingPin = '';
+            if (existingPinGroup) existingPin = document.getElementById('registerExistingPin').value;
+
+            if (!username || !pin) { registerResult.innerHTML = '<span style="color:#f55;">Enter username and PIN</span>'; return; }
+            if (pin !== pinConfirm) { registerResult.innerHTML = '<span style="color:#f55;">PINs do not match</span>'; return; }
+            if (pin.length < 4) { registerResult.innerHTML = '<span style="color:#f55;">PIN must be at least 4 characters</span>'; return; }
+
+            registerResult.innerHTML = '<span style="color:#888;">Creating account...</span>';
+            registerBtn.disabled = true;
+
+            var data = await StrikeAPI.register(username, pin, existingPin || undefined);
+            registerBtn.disabled = false;
+
+            if (data.ok) {
+                registerResult.innerHTML = '<span style="color:#4ade80;">' + (data.message || 'Account created!') + ' You can now log in.</span>';
+                // Switch to login view
+                setTimeout(function() {
+                    if (loginForm) loginForm.style.display = '';
+                    if (registerForm) registerForm.style.display = 'none';
+                    document.getElementById('loginUsername').value = username;
+                }, 1500);
+            } else {
+                // If admin verification needed, show existing PIN field
+                if (data.requireExistingPin && existingPinGroup) {
+                    existingPinGroup.style.display = '';
+                }
+                registerResult.innerHTML = '<span style="color:#f55;">' + (data.error || data.message || 'Registration failed') + '</span>';
+            }
+        });
+    }
+
+    if (toggleLink) {
+        toggleLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (registerForm && registerForm.style.display === 'none') {
+                if (loginForm) loginForm.style.display = 'none';
+                registerForm.style.display = '';
+                toggleLink.textContent = 'Back to Login';
+            } else {
+                if (loginForm) loginForm.style.display = '';
+                if (registerForm) registerForm.style.display = 'none';
+                toggleLink.textContent = 'Create Account';
+            }
+        });
+    }
+
+    // Logout
+    var logoutBtn = document.getElementById('btnLogout');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function() {
+            await StrikeAPI.logout();
+            strikeBalances = null;
+            strikeTransactions = [];
+            showLoginUI();
+            renderWallet();
+        });
+    }
+})();
+
 // ===== ADDRESS PANEL HANDLERS =====
 var addAddressPanel = document.getElementById('addAddressPanel');
 
@@ -710,7 +954,6 @@ document.getElementById('saveAddress').addEventListener('click', async function(
         return;
     }
 
-    // Check for duplicates
     var data = WalletData.getData();
     for (var i = 0; i < data.addresses.length; i++) {
         if (data.addresses[i].address === address) {
@@ -749,7 +992,6 @@ document.getElementById('testStrike').addEventListener('click', async function()
 
     result.innerHTML = '<span style="color:#888;">Testing connection...</span>';
 
-    // Temporarily set URL to test
     var settings = FleetData.getSettings();
     if (!settings.strike) settings.strike = {};
     var oldUrl = settings.strike.proxyUrl;
@@ -758,7 +1000,6 @@ document.getElementById('testStrike').addEventListener('click', async function()
 
     var data = await StrikeAPI.testConnection();
 
-    // Restore old URL if test only
     settings.strike.proxyUrl = oldUrl;
     FleetData.saveSettings(settings);
 
@@ -780,21 +1021,27 @@ document.getElementById('saveStrike').addEventListener('click', async function()
     var settings = FleetData.getSettings();
 
     if (!url) {
-        // Disconnect
         disconnectStrike();
         document.getElementById('strikeConnectPanel').classList.remove('open');
         return;
     }
 
-    // Save and connect
     settings.strike = { proxyUrl: url, enabled: true, lastSync: null };
     FleetData.saveSettings(settings);
     strikeConnected = true;
     updateStrikeStatus('Connected');
     updateSendButton();
     update2FAButton();
+    updateAdminButton();
     document.getElementById('strikeConnectPanel').classList.remove('open');
-    await loadAndRefreshWallet();
+
+    // Show login UI if not logged in
+    if (!StrikeAuth.isLoggedIn()) {
+        showLoginUI();
+    } else {
+        showAuthenticatedUI();
+        await loadAndRefreshWallet();
+    }
 });
 
 function disconnectStrike() {
@@ -804,27 +1051,30 @@ function disconnectStrike() {
     strikeConnected = false;
     strikeBalances = null;
     strikeTransactions = [];
+    StrikeAuth.clearSession();
     updateStrikeStatus(null);
     updateSendButton();
     update2FAButton();
+    updateAdminButton();
+    var loginPanel = document.getElementById('loginPanel');
+    if (loginPanel) loginPanel.style.display = 'none';
+    var authBar = document.getElementById('userAuthBar');
+    if (authBar) authBar.style.display = 'none';
     renderWallet();
     renderTransactionHistory();
 }
-// Make available globally for inline onclick
 window.disconnectStrike = disconnectStrike;
 
 // ===== SEND BTC PANEL =====
 var activeSendQuote = null;
 var quoteExpiryInterval = null;
-var totpEnabled = false; // Detected when worker returns totpRequired flag
+var totpEnabled = false;
 
-// Show send button only when Strike is connected
 function updateSendButton() {
     var btn = document.getElementById('btnSendBtc');
-    if (btn) btn.style.display = strikeConnected ? '' : 'none';
+    if (btn) btn.style.display = (strikeConnected && StrikeAuth.isLoggedIn()) ? '' : 'none';
 }
 
-// Show/hide TOTP input based on whether 2FA is enabled
 function updateTotpVisibility() {
     var grp = document.getElementById('totpGroup');
     if (grp) grp.style.display = totpEnabled ? '' : 'none';
@@ -834,12 +1084,15 @@ document.getElementById('btnSendBtc').addEventListener('click', function() {
     document.getElementById('sendStep1').style.display = '';
     document.getElementById('sendStep2').style.display = 'none';
     document.getElementById('sendResult').innerHTML = '';
-    document.getElementById('sendPin').value = '';
-    document.getElementById('sendPinConfirm').value = '';
     document.getElementById('sendTotpCode').value = '';
     document.getElementById('sendDest').value = '';
     document.getElementById('sendAmount').value = '';
     activeSendQuote = null;
+    // Check if user has 2FA enabled
+    var user = StrikeAuth.getUser();
+    if (user && user.has2FA) {
+        totpEnabled = true;
+    }
     updateSendTypeUI();
     updateTotpVisibility();
     document.getElementById('sendBtcPanel').classList.toggle('open');
@@ -908,21 +1161,19 @@ function updateSendTypeUI() {
 })();
 
 async function loadOnchainTiers() {
-    var pin = document.getElementById('sendPin').value;
     var tierSelect = document.getElementById('sendTier');
     tierSelect.innerHTML = '<option value="">Loading tiers...</option>';
 
     var addr = document.getElementById('sendDest').value.trim();
     var amt = document.getElementById('sendAmount').value.trim();
     var cur = document.getElementById('sendCurrency').value;
-    if (!addr || !amt || !pin) {
-        tierSelect.innerHTML = '<option value="">Enter address, amount & PIN first</option>';
+    if (!addr || !amt) {
+        tierSelect.innerHTML = '<option value="">Enter address & amount first</option>';
         return;
     }
 
     var body = { btcAddress: addr, amount: { amount: amt, currency: cur } };
-    var data = await StrikeAPI.getOnchainTiers(body, pin);
-    // Handle both array response and object with nested array (e.g. {items: [...]})
+    var data = await StrikeAPI.getOnchainTiers(body);
     var tiers = Array.isArray(data) ? data : (data && data.items ? data.items : (data && data.tiers ? data.tiers : null));
     if (tiers && tiers.length > 0) {
         tierSelect.innerHTML = '';
@@ -946,12 +1197,10 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
     var dest = document.getElementById('sendDest').value.trim();
     var amt = document.getElementById('sendAmount').value.trim();
     var cur = document.getElementById('sendCurrency').value;
-    var pin = document.getElementById('sendPin').value;
     var result = document.getElementById('sendResult');
 
     if (!dest) { result.innerHTML = '<span style="color:#f55;">Enter a destination</span>'; return; }
     if (!amt) { result.innerHTML = '<span style="color:#f55;">Enter an amount</span>'; return; }
-    if (!pin) { result.innerHTML = '<span style="color:#f55;">Enter your PIN</span>'; return; }
 
     result.innerHTML = '<span style="color:#888;">Getting quote...</span>';
 
@@ -961,7 +1210,7 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
             lnInvoice: dest,
             sourceCurrency: cur,
             amount: { amount: amt, currency: cur }
-        }, pin);
+        });
     } else {
         var tierSelect = document.getElementById('sendTier');
         var tier = tierSelect.value;
@@ -980,7 +1229,7 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
             amount: { amount: amt, currency: cur, feePolicy: 'EXCLUSIVE' }
         };
         body.onchainTierId = tier;
-        quoteData = await StrikeAPI.sendQuoteOnchain(body, pin);
+        quoteData = await StrikeAPI.sendQuoteOnchain(body);
     }
 
     if (quoteData && !quoteData.error && quoteData.paymentQuoteId) {
@@ -995,7 +1244,6 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
 function showQuoteConfirmation(quote, type, dest) {
     document.getElementById('sendStep1').style.display = 'none';
     document.getElementById('sendStep2').style.display = '';
-    document.getElementById('sendPinConfirm').value = '';
 
     var totalAmt = quote.totalAmount ? quote.totalAmount.amount + ' ' + quote.totalAmount.currency : '?';
     var totalFee = quote.totalFee ? quote.totalFee.amount + ' ' + quote.totalFee.currency : '0';
@@ -1011,7 +1259,6 @@ function showQuoteConfirmation(quote, type, dest) {
 
     document.getElementById('quoteDetails').innerHTML = html;
 
-    // Expiry countdown
     clearQuoteExpiry();
     if (quote.validUntil) {
         var expiry = new Date(quote.validUntil).getTime();
@@ -1029,16 +1276,13 @@ function clearQuoteExpiry() {
 
 // Confirm & Send
 document.getElementById('btnConfirmSend').addEventListener('click', async function() {
-    var pin = document.getElementById('sendPinConfirm').value;
     var totpCode = (document.getElementById('sendTotpCode').value || '').replace(/\s/g, '');
     var result = document.getElementById('sendResult');
-    if (!pin) { result.innerHTML = '<span style="color:#f55;">Enter your PIN to confirm</span>'; return; }
     if (totpEnabled && (!totpCode || totpCode.length !== 6)) {
         result.innerHTML = '<span style="color:#f55;">Enter the 6-digit code from Google Authenticator</span>'; return;
     }
     if (!activeSendQuote || !activeSendQuote.paymentQuoteId) { result.innerHTML = '<span style="color:#f55;">No active quote</span>'; return; }
 
-    // Check if quote expired
     if (activeSendQuote.validUntil && new Date(activeSendQuote.validUntil).getTime() < Date.now()) {
         result.innerHTML = '<span style="color:#f55;">Quote expired. Go back and get a new one.</span>';
         return;
@@ -1047,10 +1291,9 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
     result.innerHTML = '<span style="color:#f7931a;">Sending...</span>';
     document.getElementById('btnConfirmSend').disabled = true;
 
-    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, pin, totpCode || undefined);
+    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, totpCode || undefined);
 
     document.getElementById('btnConfirmSend').disabled = false;
-    document.getElementById('sendPinConfirm').value = '';
     document.getElementById('sendTotpCode').value = '';
     clearQuoteExpiry();
 
@@ -1058,14 +1301,12 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
         var state = sendResult.state || 'COMPLETED';
         result.innerHTML = '<span style="color:#4ade80;">Payment ' + state + '!</span>';
         activeSendQuote = null;
-        // Refresh balances after send
         setTimeout(function() {
             document.getElementById('sendBtcPanel').classList.remove('open');
             window.scrollTo(0, 0);
             loadAndRefreshWallet();
         }, 2000);
     } else {
-        // If worker says TOTP is required, auto-show the TOTP field
         if (sendResult.totpRequired) {
             totpEnabled = true;
             updateTotpVisibility();
@@ -1089,7 +1330,7 @@ function generateBase32Secret(len) {
 
 function update2FAButton() {
     var btn = document.getElementById('btnSetup2FA');
-    if (btn) btn.style.display = strikeConnected ? '' : 'none';
+    if (btn) btn.style.display = (strikeConnected && StrikeAuth.isLoggedIn()) ? '' : 'none';
 }
 
 document.getElementById('btnSetup2FA').addEventListener('click', function() {
@@ -1104,20 +1345,19 @@ document.getElementById('cancel2FA').addEventListener('click', function() {
 
 document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     var secret = generateBase32Secret(16);
-    var otpauthUri = 'otpauth://totp/IonMining:dashboard?secret=' + secret + '&issuer=IonMining';
+    var user = StrikeAuth.getUser();
+    var label = user ? user.username : 'dashboard';
+    var otpauthUri = 'otpauth://totp/IonMining:' + label + '?secret=' + secret + '&issuer=IonMining';
 
     document.getElementById('twofa-secret-display').textContent = secret;
     document.getElementById('twofa-setup-content').style.display = 'none';
     document.getElementById('twofa-setup-result').style.display = '';
 
-    // QR code via API
     var qrEl = document.getElementById('twofa-qr');
     qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' + encodeURIComponent(otpauthUri);
 
-    // Store secret for the save action
     window._pending2FASecret = secret;
 
-    // Reset verification UI
     var verifyInput = document.getElementById('twofa-verify-code');
     var saveBtn = document.getElementById('btnSave2FAToWorker');
     var resultEl = document.getElementById('twofa-save-result');
@@ -1129,17 +1369,15 @@ document.getElementById('btnGenerate2FA').addEventListener('click', function() {
 document.getElementById('btnSave2FAToWorker').addEventListener('click', async function() {
     var secret = window._pending2FASecret;
     var code = (document.getElementById('twofa-verify-code').value || '').replace(/\s/g, '');
-    var pin = document.getElementById('twofa-save-pin').value;
     var resultEl = document.getElementById('twofa-save-result');
 
     if (!secret) { resultEl.innerHTML = '<span style="color:#f55;">Generate a secret first.</span>'; return; }
     if (!code || code.length !== 6) { resultEl.innerHTML = '<span style="color:#f55;">Enter the 6-digit code from your authenticator.</span>'; return; }
-    if (!pin) { resultEl.innerHTML = '<span style="color:#f55;">Enter your dashboard PIN.</span>'; return; }
 
     resultEl.innerHTML = '<span style="color:#888;">Saving...</span>';
     this.disabled = true;
 
-    var data = await StrikeAPI.apiPostWithPin('/admin/setup-totp', { secret: secret, code: code }, pin);
+    var data = await StrikeAPI.apiPost('/auth/setup-totp', { secret: secret, code: code });
 
     this.disabled = false;
     if (data && data.ok) {
@@ -1147,7 +1385,119 @@ document.getElementById('btnSave2FAToWorker').addEventListener('click', async fu
         totpEnabled = true;
         updateTotpVisibility();
         window._pending2FASecret = null;
+        // Update local user record
+        var user = StrikeAuth.getUser();
+        if (user) {
+            user.has2FA = true;
+            StrikeAuth.saveSession(StrikeAuth.getToken(), user);
+        }
     } else {
         resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || data.message || 'Failed to save') + '</span>';
     }
 });
+
+// ===== ADMIN: MANAGE USERS =====
+document.getElementById('btnManageUsers').addEventListener('click', function() {
+    document.getElementById('adminUsersPanel').classList.toggle('open');
+    loadAdminUsers();
+});
+
+document.getElementById('cancelAdmin').addEventListener('click', function() {
+    document.getElementById('adminUsersPanel').classList.remove('open');
+});
+
+async function loadAdminUsers() {
+    var container = document.getElementById('adminUsersList');
+    container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Loading users...</div>';
+
+    var data = await StrikeAPI.getUsers();
+    if (!data || data.error) {
+        container.innerHTML = '<div style="color:#f55; padding:12px;">' + (data.error || 'Failed to load users') + '</div>';
+        return;
+    }
+
+    var users = data.users || [];
+    if (users.length === 0) {
+        container.innerHTML = '<div style="color:#888; padding:12px;">No users found</div>';
+        return;
+    }
+
+    var html = '';
+    for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        var roleBadge = u.role === 'admin'
+            ? '<span style="color:#f7931a; font-size:11px; background:rgba(247,147,26,0.15); padding:2px 6px; border-radius:4px;">Admin</span>'
+            : '<span style="color:#888; font-size:11px; background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">User</span>';
+        var statusBadge = u.disabled
+            ? '<span style="color:#ef4444; font-size:11px;">Disabled</span>'
+            : '<span style="color:#4ade80; font-size:11px;">Active</span>';
+        var twofaBadge = u.has2FA
+            ? '<span style="color:#4ade80; font-size:11px;">2FA On</span>'
+            : '<span style="color:#888; font-size:11px;">No 2FA</span>';
+
+        html += '<div class="admin-user-row" data-user-id="' + u.id + '" style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.06);">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+                '<div><strong style="color:#fff;">' + escapeHtml(u.username) + '</strong> ' + roleBadge + '</div>' +
+                '<div style="display:flex; gap:8px; align-items:center;">' + statusBadge + ' ' + twofaBadge + '</div>' +
+            '</div>' +
+            '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
+                '<div class="input-group" style="margin:0; flex:1; min-width:100px;">' +
+                    '<label style="font-size:10px;">Max Send $</label>' +
+                    '<input type="number" class="admin-cap-input" data-uid="' + u.id + '" value="' + (u.maxSendUsd || 0) + '" style="padding:4px 8px; font-size:12px; width:100%;">' +
+                '</div>' +
+                '<div class="input-group" style="margin:0; flex:1; min-width:80px;">' +
+                    '<label style="font-size:10px;">Sends/hr</label>' +
+                    '<input type="number" class="admin-rate-input" data-uid="' + u.id + '" value="' + (u.maxSendsPerHour || 5) + '" style="padding:4px 8px; font-size:12px; width:100%;">' +
+                '</div>' +
+                '<button class="btn btn-secondary admin-save-btn" data-uid="' + u.id + '" style="padding:4px 12px; font-size:11px;">Save</button>' +
+                '<button class="btn btn-secondary admin-toggle-btn" data-uid="' + u.id + '" data-disabled="' + (u.disabled ? 'true' : 'false') + '" style="padding:4px 12px; font-size:11px; color:' + (u.disabled ? '#4ade80' : '#ef4444') + ';">' + (u.disabled ? 'Enable' : 'Disable') + '</button>' +
+                (u.role !== 'admin' ? '<button class="btn btn-secondary admin-delete-btn" data-uid="' + u.id + '" style="padding:4px 12px; font-size:11px; color:#ef4444;">Delete</button>' : '') +
+            '</div>' +
+        '</div>';
+    }
+
+    container.innerHTML = html;
+
+    // Save caps handler
+    var saveBtns = container.querySelectorAll('.admin-save-btn');
+    for (var s = 0; s < saveBtns.length; s++) {
+        saveBtns[s].addEventListener('click', function() {
+            var uid = this.getAttribute('data-uid');
+            var capInput = container.querySelector('.admin-cap-input[data-uid="' + uid + '"]');
+            var rateInput = container.querySelector('.admin-rate-input[data-uid="' + uid + '"]');
+            var cap = parseFloat(capInput.value) || 0;
+            var rate = parseInt(rateInput.value) || 5;
+            StrikeAPI.updateUser(uid, { maxSendUsd: cap, maxSendsPerHour: rate }).then(function(res) {
+                if (res.ok) loadAdminUsers();
+                else alert(res.error || 'Failed to update');
+            });
+        });
+    }
+
+    // Toggle disable handler
+    var toggleBtns = container.querySelectorAll('.admin-toggle-btn');
+    for (var t = 0; t < toggleBtns.length; t++) {
+        toggleBtns[t].addEventListener('click', function() {
+            var uid = this.getAttribute('data-uid');
+            var isDisabled = this.getAttribute('data-disabled') === 'true';
+            StrikeAPI.updateUser(uid, { disabled: !isDisabled }).then(function(res) {
+                if (res.ok) loadAdminUsers();
+                else alert(res.error || 'Failed to update');
+            });
+        });
+    }
+
+    // Delete handler
+    var deleteBtns = container.querySelectorAll('.admin-delete-btn');
+    for (var d = 0; d < deleteBtns.length; d++) {
+        deleteBtns[d].addEventListener('click', function() {
+            var uid = this.getAttribute('data-uid');
+            if (confirm('Delete this user? This cannot be undone.')) {
+                StrikeAPI.deleteUser(uid).then(function(res) {
+                    if (res.ok) loadAdminUsers();
+                    else alert(res.error || 'Failed to delete');
+                });
+            }
+        });
+    }
+}

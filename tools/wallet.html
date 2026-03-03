@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=145">
+    <link rel="stylesheet" href="./shared.css?v=146">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -41,6 +41,80 @@
         <div style="display:flex; gap:8px;">
             <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
             <button class="btn btn-secondary" id="btnSetup2FA" style="display:none;">Setup 2FA</button>
+            <button class="btn btn-secondary" id="btnManageUsers" style="display:none;">Users</button>
+        </div>
+    </div>
+
+    <!-- ===== USER AUTH BAR (shown when logged in) ===== -->
+    <div id="userAuthBar" style="display:none; padding:8px 16px; margin-bottom:8px; background:rgba(247,147,26,0.06); border:1px solid rgba(247,147,26,0.15); border-radius:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:13px;">
+                <span style="color:#888;">Logged in as</span>
+                <strong id="authUsername" style="color:#f7931a; margin:0 4px;"></strong>
+                <span id="authRole" style="font-size:11px;"></span>
+            </div>
+            <button class="btn btn-secondary" id="btnLogout" style="padding:4px 12px; font-size:11px;">Logout</button>
+        </div>
+    </div>
+
+    <!-- ===== LOGIN / REGISTER PANEL (shown when Strike connected but not logged in) ===== -->
+    <div id="loginPanel" style="display:none;">
+        <div class="card" style="padding:20px; margin-bottom:16px;">
+            <h4 style="margin:0 0 4px; color:#f7931a;">Sign In to Strike Wallet</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 16px;">Log in to view balances, send BTC, and manage your account.</p>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="input-group" style="margin-bottom:10px;">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username" autocapitalize="none">
+                    </div>
+                </div>
+                <div class="input-group" style="margin-bottom:12px;">
+                    <label>PIN</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="loginPin" placeholder="Enter your PIN" autocomplete="current-password">
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btnLogin" style="width:100%; margin-bottom:8px;">Log In</button>
+                <div id="loginResult" style="font-size:12px; min-height:18px;"></div>
+            </div>
+
+            <!-- Register Form (hidden by default) -->
+            <div id="registerForm" style="display:none;">
+                <div class="input-group" style="margin-bottom:10px;">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="registerUsername" placeholder="Choose a username (3-20 chars)" autocomplete="username" autocapitalize="none">
+                    </div>
+                </div>
+                <div class="input-group" style="margin-bottom:10px;">
+                    <label>PIN</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="registerPin" placeholder="Choose a PIN (4+ chars)" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="input-group" style="margin-bottom:10px;">
+                    <label>Confirm PIN</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="registerPinConfirm" placeholder="Re-enter PIN" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="input-group" id="existingPinGroup" style="display:none; margin-bottom:10px;">
+                    <label>Existing Dashboard PIN <span style="color:#f7931a; font-size:11px;">(admin verification)</span></label>
+                    <div class="input-wrapper">
+                        <input type="password" id="registerExistingPin" placeholder="Your current dashboard PIN" autocomplete="off">
+                    </div>
+                    <div style="font-size:11px; color:#888; margin-top:4px;">First account requires your existing dashboard PIN to verify ownership.</div>
+                </div>
+                <button class="btn btn-primary" id="btnRegister" style="width:100%; margin-bottom:8px;">Create Account</button>
+                <div id="registerResult" style="font-size:12px; min-height:18px;"></div>
+            </div>
+
+            <div style="text-align:center; margin-top:8px;">
+                <a href="#" id="loginToggleLink" style="color:#f7931a; font-size:12px; text-decoration:none;">Create Account</a>
+            </div>
         </div>
     </div>
 
@@ -59,7 +133,7 @@
                 <div style="font-size:12px; color:#aaa; margin-bottom:8px;">Or enter this key manually in your authenticator app:</div>
                 <div style="background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:8px; font-family:monospace; font-size:14px; letter-spacing:2px; word-break:break-all; text-align:center; color:#f7931a; margin-bottom:12px;" id="twofa-secret-display"></div>
                 <div style="font-size:12px; color:#4ade80; margin-bottom:8px; padding:10px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.25); border-radius:8px;">
-                    <strong>Verify & Activate:</strong> Enter the code from your authenticator app and your dashboard PIN to activate 2FA.
+                    <strong>Verify & Activate:</strong> Enter the code from your authenticator app to activate 2FA on your account.
                 </div>
                 <div class="input-group" style="margin-bottom:8px;">
                     <label>Authenticator Code</label>
@@ -67,17 +141,25 @@
                         <input type="text" id="twofa-verify-code" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing:4px; font-size:16px; text-align:center;">
                     </div>
                 </div>
-                <div class="input-group" style="margin-bottom:8px;">
-                    <label>Dashboard PIN</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="twofa-save-pin" placeholder="Your dashboard PIN" autocomplete="off">
-                    </div>
-                </div>
-                <button class="btn btn-primary" id="btnSave2FAToWorker" style="width:100%; margin-bottom:8px;">Save 2FA to Worker</button>
+                <button class="btn btn-primary" id="btnSave2FAToWorker" style="width:100%; margin-bottom:8px;">Activate 2FA</button>
                 <div id="twofa-save-result" style="font-size:12px; min-height:18px;"></div>
             </div>
             <div class="panel-actions">
                 <button class="btn btn-secondary" id="cancel2FA">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ADMIN: MANAGE USERS PANEL ===== -->
+    <div class="slide-panel" id="adminUsersPanel">
+        <div class="panel-inner">
+            <h4>Manage Users</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 12px;">Set send caps, enable/disable accounts, and manage access.</p>
+            <div id="adminUsersList" style="max-height:60vh; overflow-y:auto;">
+                <div style="text-align:center; padding:20px; color:#888;">Loading...</div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelAdmin">Close</button>
             </div>
         </div>
     </div>
@@ -148,7 +230,7 @@
         <div class="panel-inner">
             <h4>Send BTC</h4>
             <div style="margin-bottom:12px; padding:10px 14px; background:rgba(247,147,26,0.08); border:1px solid rgba(247,147,26,0.25); border-radius:8px; font-size:12px; color:#f7931a;">
-                PIN + 2FA required for every send. Max $1,000/tx. 5 sends/hour.
+                Session authenticated. 2FA required for sends. Max per-user limits apply.
             </div>
 
             <!-- Step 1: Send Form -->
@@ -192,12 +274,6 @@
                             </select>
                         </div>
                     </div>
-                    <div class="input-group">
-                        <label>Dashboard PIN</label>
-                        <div class="input-wrapper">
-                            <input type="password" id="sendPin" placeholder="Enter your PIN" autocomplete="off">
-                        </div>
-                    </div>
                 </div>
                 <div class="panel-actions">
                     <button class="btn btn-secondary" id="cancelSend">Cancel</button>
@@ -211,12 +287,6 @@
                     <div style="font-size:13px; color:#aaa; margin-bottom:8px;">Quote Details</div>
                     <div id="quoteDetails" style="font-size:13px; line-height:1.8;"></div>
                     <div id="quoteExpiry" style="font-size:11px; color:#f7931a; margin-top:8px;"></div>
-                </div>
-                <div class="input-group">
-                    <label>Confirm PIN to Send</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="sendPinConfirm" placeholder="Re-enter PIN" autocomplete="off">
-                    </div>
                 </div>
                 <div class="input-group" id="totpGroup" style="display:none;">
                     <label>Authenticator Code</label>
@@ -305,15 +375,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=145"></script>
-<script src="./sync.js?v=145"></script>
-<script src="./auth-ui.js?v=145"></script>
-<script src="./profile-panel.js?v=145"></script>
-<script src="./shared.js?v=145"></script>
-<script src="./fleet-data.js?v=145"></script>
-<script src="./wallet.js?v=145"></script>
-<script src="./widget-settings.js?v=145"></script>
-<script src="./alerts.js?v=145"></script>
-<script src="./onboarding.js?v=145"></script>
+<script src="./firebase-config.js?v=146"></script>
+<script src="./sync.js?v=146"></script>
+<script src="./auth-ui.js?v=146"></script>
+<script src="./profile-panel.js?v=146"></script>
+<script src="./shared.js?v=146"></script>
+<script src="./fleet-data.js?v=146"></script>
+<script src="./wallet.js?v=146"></script>
+<script src="./widget-settings.js?v=146"></script>
+<script src="./alerts.js?v=146"></script>
+<script src="./onboarding.js?v=146"></script>
 </body>
 </html>
