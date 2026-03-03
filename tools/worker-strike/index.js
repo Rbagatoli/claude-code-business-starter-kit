@@ -642,6 +642,55 @@ async function handleUpdateSettings(request, env, origin) {
     }, 200, origin);
 }
 
+// ===== ON-CHAIN DEPOSIT ADDRESS =====
+
+async function handleReceiveOnchain(request, env, origin) {
+    var auth = await checkSession(request, env, origin);
+    if (auth.error) return auth.error;
+    var user = auth.user;
+
+    var userKey = getUserApiKey(user, env);
+    if (!userKey) {
+        return jsonResponse({ error: 'Strike not connected', message: 'Connect your Strike account to get a deposit address.' }, 403, origin);
+    }
+
+    // Check KV cache (7-day TTL)
+    var cacheKey = 'onchain-addr:' + user.id;
+    try {
+        var cached = await env.SETTINGS.get(cacheKey, 'json');
+        if (cached && cached.address) {
+            return jsonResponse({ ok: true, address: cached.address, cached: true }, 200, origin);
+        }
+    } catch(e) {}
+
+    // Create receive request with on-chain address
+    var data = await strikePost('/v1/receive-requests', { onchain: {} }, userKey);
+    if (hasStrikeError(data)) return strikeErrorResponse(data, origin);
+
+    // Extract address — check multiple possible response shapes
+    var onchainAddr = '';
+    if (data.onchainAddress) {
+        onchainAddr = data.onchainAddress;
+    } else if (data.onchain && data.onchain.address) {
+        onchainAddr = data.onchain.address;
+    } else if (data.onchain && data.onchain.uri) {
+        // URI format: bitcoin:ADDRESS?...
+        var match = (data.onchain.uri || '').match(/^bitcoin:([a-zA-Z0-9]+)/);
+        if (match) onchainAddr = match[1];
+    }
+
+    if (!onchainAddr) {
+        return jsonResponse({ error: 'No on-chain address in Strike response', debug: JSON.stringify(data).substring(0, 500) }, 502, origin);
+    }
+
+    // Cache for 7 days
+    try {
+        await env.SETTINGS.put(cacheKey, JSON.stringify({ address: onchainAddr, created: Date.now() }), { expirationTtl: 604800 });
+    } catch(e) {}
+
+    return jsonResponse({ ok: true, address: onchainAddr, cached: false }, 200, origin);
+}
+
 // ===== ROUTE DEFINITIONS =====
 
 // Tier 1: Open — no auth needed (uses owner's key)
@@ -719,6 +768,11 @@ export default {
             }
             if (path === '/auth/settings' && request.method === 'PATCH') {
                 return await handleUpdateSettings(request, env, origin);
+            }
+
+            // ===== ON-CHAIN DEPOSIT ADDRESS =====
+            if (path === '/receive/onchain-address' && request.method === 'POST') {
+                return await handleReceiveOnchain(request, env, origin);
             }
 
             // ===== TIER 1: Open routes (use owner's key) =====

@@ -5,6 +5,7 @@ var refreshInterval = null;
 var strikeConnected = false;
 var strikeBalances = null;
 var strikeTransactions = [];
+var strikeOnchainAddress = null;
 
 initNav('wallet');
 
@@ -374,6 +375,7 @@ var StrikeAPI = (function() {
 
     async function setPin(pin) { return await apiPost('/auth/set-pin', { pin: pin }); }
 
+    async function getOnchainAddress() { return await apiPost('/receive/onchain-address', {}); }
     async function getSendStatus(paymentId) { return await apiFetch('/send/status/' + paymentId); }
 
     // Strike connection
@@ -398,6 +400,7 @@ var StrikeAPI = (function() {
         getInvoice: getInvoice,
         shareInvoice: shareInvoice,
         setPin: setPin,
+        getOnchainAddress: getOnchainAddress,
         getSendStatus: getSendStatus,
         firebaseLogin: firebaseLogin,
         logout: logout,
@@ -1144,6 +1147,8 @@ function disconnectStrike() {
     strikeConnected = false;
     strikeBalances = null;
     strikeTransactions = [];
+    strikeOnchainAddress = null;
+    try { localStorage.removeItem('ionStrikeOnchainAddr'); } catch(e) {}
     StrikeAuth.clearSession();
     updateStrikeStatus(null);
     updateSendButton();
@@ -1708,28 +1713,80 @@ function startInvoicePoll(invoiceId) {
     }, 5000);
 }
 
+// Fetch Strike on-chain deposit address with 2-tier caching
+async function fetchStrikeOnchainAddress() {
+    if (strikeOnchainAddress) return strikeOnchainAddress;
+    try {
+        var cached = JSON.parse(localStorage.getItem('ionStrikeOnchainAddr') || 'null');
+        if (cached && cached.address && cached.ts && (Date.now() - cached.ts < 86400000)) {
+            strikeOnchainAddress = cached.address;
+            return cached.address;
+        }
+    } catch(e) {}
+    try {
+        var data = await StrikeAPI.getOnchainAddress();
+        if (data && data.ok && data.address) {
+            strikeOnchainAddress = data.address;
+            try { localStorage.setItem('ionStrikeOnchainAddr', JSON.stringify({ address: data.address, ts: Date.now() })); } catch(e) {}
+            return data.address;
+        }
+    } catch(e) {}
+    return null;
+}
+
+function updateOnchainBadge(type) {
+    var badge = document.getElementById('onchainAddrBadge');
+    if (!badge) return;
+    if (type === 'strike') {
+        badge.innerHTML = '<span style="font-size:11px; padding:3px 10px; border-radius:6px; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); color:#a78bfa;">Strike Custodial &mdash; funds appear in your Strike balance</span>';
+    } else {
+        badge.innerHTML = '<span style="font-size:11px; padding:3px 10px; border-radius:6px; background:rgba(247,147,26,0.08); border:1px solid rgba(247,147,26,0.25); color:#f7931a;">Self-Custody Address</span>';
+    }
+}
+
 // On-chain receive tab
-function renderOnchainReceiveTab() {
+async function renderOnchainReceiveTab() {
     var container = document.getElementById('onchainReceiveContent');
     var data = WalletData.getData();
+    var isStrikeLoggedIn = strikeConnected && StrikeAuth.isLoggedIn();
 
-    if (data.addresses.length === 0) {
+    // Build unified address list
+    var allAddresses = [];
+    for (var i = 0; i < data.addresses.length; i++) {
+        allAddresses.push({ address: data.addresses[i].address, label: data.addresses[i].label, type: 'manual' });
+    }
+
+    // Fetch Strike on-chain address if connected
+    if (isStrikeLoggedIn) {
+        if (strikeOnchainAddress) {
+            allAddresses.unshift({ address: strikeOnchainAddress, label: 'Strike Wallet', type: 'strike' });
+        } else {
+            container.innerHTML = '<div style="padding:20px; color:#f7931a; font-size:13px;">Fetching Strike deposit address...</div>';
+            var addr = await fetchStrikeOnchainAddress();
+            if (addr) {
+                allAddresses.unshift({ address: addr, label: 'Strike Wallet', type: 'strike' });
+            }
+        }
+    }
+
+    if (allAddresses.length === 0) {
         container.innerHTML = '<div style="padding:20px; color:#888; font-size:13px;">' +
-            'No on-chain addresses added yet.<br><br>' +
+            'No on-chain addresses available.<br><br>' +
             '<button class="btn btn-primary" onclick="document.getElementById(\'btnAddAddress\').click(); document.getElementById(\'receiveBtcPanel\').classList.remove(\'open\');">+ Add Address</button>' +
             '</div>';
         return;
     }
 
-    var html = '';
-    if (data.addresses.length > 1) {
-        html += '<div class="input-group" style="margin-bottom:12px; text-align:left;">' +
-            '<label>Select Address</label><div class="input-wrapper"><select id="receiveAddrSelect">';
-        for (var i = 0; i < data.addresses.length; i++) {
-            html += '<option value="' + data.addresses[i].address + '">' + escapeHtml(data.addresses[i].label) + '</option>';
-        }
-        html += '</select></div></div>';
+    // Always show selector
+    var html = '<div class="input-group" style="margin-bottom:12px; text-align:left;">' +
+        '<label>Select Address</label><div class="input-wrapper"><select id="receiveAddrSelect">';
+    for (var i = 0; i < allAddresses.length; i++) {
+        var a = allAddresses[i];
+        var lbl = a.type === 'strike' ? '\u26a1 ' + escapeHtml(a.label) : escapeHtml(a.label);
+        html += '<option value="' + a.address + '">' + lbl + '</option>';
     }
+    html += '</select></div></div>';
+    html += '<div id="onchainAddrBadge" style="margin-bottom:8px; text-align:center;"></div>';
     html += '<div style="margin:12px 0;"><img id="onchainAddrQR" width="200" height="200" style="border-radius:8px; background:#fff; padding:8px;"></div>';
     html += '<div style="font-size:12px; color:#aaa; margin-bottom:6px;">Bitcoin Address:</div>';
     html += '<div style="position:relative;">' +
@@ -1738,13 +1795,17 @@ function renderOnchainReceiveTab() {
     '</div>';
 
     container.innerHTML = html;
-
-    var selectedAddr = data.addresses[0].address;
-    showOnchainAddress(selectedAddr);
+    showOnchainAddress(allAddresses[0].address);
+    updateOnchainBadge(allAddresses[0].type);
 
     var select = document.getElementById('receiveAddrSelect');
     if (select) {
-        select.addEventListener('change', function() { showOnchainAddress(this.value); });
+        select.addEventListener('change', function() {
+            showOnchainAddress(this.value);
+            for (var j = 0; j < allAddresses.length; j++) {
+                if (allAddresses[j].address === this.value) { updateOnchainBadge(allAddresses[j].type); break; }
+            }
+        });
     }
 
     document.getElementById('btnCopyOnchainAddr').addEventListener('click', function() {
