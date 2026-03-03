@@ -34,7 +34,7 @@ function corsHeaders(origin) {
     return {
         'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-TOTP',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-TOTP, X-Dashboard-Pin',
         'Content-Type': 'application/json'
     };
 }
@@ -64,11 +64,12 @@ async function strikeGet(endpoint, apiKey) {
             'Accept': 'application/json'
         }
     });
+    var data = await res.json().catch(function() { return { error: 'Invalid response from Strike' }; });
     if (!res.ok) {
-        var text = await res.text();
-        throw new Error('Strike API error ' + res.status + ': ' + text);
+        data._strikeStatus = res.status;
+        return data;
     }
-    return res.json();
+    return data;
 }
 
 async function strikePost(endpoint, body, apiKey) {
@@ -81,11 +82,12 @@ async function strikePost(endpoint, body, apiKey) {
         },
         body: JSON.stringify(body)
     });
+    var data = await res.json().catch(function() { return { error: 'Invalid response from Strike' }; });
     if (!res.ok) {
-        var text = await res.text();
-        throw new Error('Strike API error ' + res.status + ': ' + text);
+        data._strikeStatus = res.status;
+        return data;
     }
-    return res.json();
+    return data;
 }
 
 async function strikePatch(endpoint, body, apiKey) {
@@ -98,11 +100,56 @@ async function strikePatch(endpoint, body, apiKey) {
         },
         body: JSON.stringify(body || {})
     });
+    var data = await res.json().catch(function() { return { error: 'Invalid response from Strike' }; });
     if (!res.ok) {
-        var text = await res.text();
-        throw new Error('Strike API error ' + res.status + ': ' + text);
+        data._strikeStatus = res.status;
+        return data;
     }
-    return res.json();
+    return data;
+}
+
+function hasStrikeError(data) {
+    return data && data._strikeStatus;
+}
+
+function strikeErrorResponse(data, origin) {
+    var status = data._strikeStatus;
+    delete data._strikeStatus;
+    return jsonResponse(data, status, origin);
+}
+
+// ===== PIN HASHING =====
+
+async function hashPin(pin) {
+    var encoded = new TextEncoder().encode(pin);
+    var hash = await crypto.subtle.digest('SHA-256', encoded);
+    var arr = new Uint8Array(hash);
+    var hex = '';
+    for (var i = 0; i < arr.length; i++) {
+        hex += ('0' + arr[i].toString(16)).slice(-2);
+    }
+    return hex;
+}
+
+async function checkPin(request, env, user, origin) {
+    if (!user.pinHash) return null; // No PIN set, skip
+    var pin = (request.headers.get('X-Dashboard-Pin') || '').trim();
+    if (!pin) {
+        return jsonResponse({
+            error: 'PIN required',
+            message: 'Enter your 4-digit PIN to authorize this transaction.',
+            pinRequired: true
+        }, 403, origin);
+    }
+    var pinHash = await hashPin(pin);
+    if (pinHash !== user.pinHash) {
+        return jsonResponse({
+            error: 'Invalid PIN',
+            message: 'The PIN you entered is incorrect.',
+            pinRequired: true
+        }, 403, origin);
+    }
+    return null; // PIN OK
 }
 
 // ===== PER-USER STRIKE KEY =====
@@ -425,7 +472,8 @@ async function handleFirebaseLogin(request, env, origin) {
             hasOwnKey: !!user.strikeApiKey,
             maxSendUsd: user.maxSendUsd,
             maxSendsPerHour: user.maxSendsPerHour,
-            has2FA: !!user.totpSecret
+            has2FA: !!user.totpSecret,
+            hasPin: !!user.pinHash
         }
     }, 200, origin);
 }
@@ -452,6 +500,7 @@ async function handleMe(request, env, origin) {
         maxSendUsd: user.maxSendUsd,
         maxSendsPerHour: user.maxSendsPerHour,
         has2FA: !!user.totpSecret,
+        hasPin: !!user.pinHash,
         createdAt: user.createdAt
     }, 200, origin);
 }
@@ -483,6 +532,24 @@ async function handleSetupTotp(request, env, origin) {
     return jsonResponse({ ok: true, message: '2FA activated! All future sends will require an authenticator code.' }, 200, origin);
 }
 
+async function handleSetPin(request, env, origin) {
+    var auth = await checkSession(request, env, origin);
+    if (auth.error) return auth.error;
+    var user = auth.user;
+
+    var body = await request.json().catch(function() { return {}; });
+    var pin = (body.pin || '').trim();
+
+    if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+        return jsonResponse({ error: 'Invalid PIN', message: 'PIN must be 4-6 digits.' }, 400, origin);
+    }
+
+    user.pinHash = await hashPin(pin);
+    await env.SETTINGS.put('user:' + user.id, JSON.stringify(user));
+
+    return jsonResponse({ ok: true, message: 'Send PIN set successfully.' }, 200, origin);
+}
+
 // ===== STRIKE CONNECTION HANDLERS =====
 
 async function handleConnectStrike(request, env, origin) {
@@ -497,9 +564,8 @@ async function handleConnectStrike(request, env, origin) {
         return jsonResponse({ error: 'API key required' }, 400, origin);
     }
 
-    try {
-        await strikeGet('/v1/balances', apiKey);
-    } catch (e) {
+    var testData = await strikeGet('/v1/balances', apiKey);
+    if (hasStrikeError(testData)) {
         return jsonResponse({
             error: 'Invalid API key',
             message: 'Could not connect to Strike with this API key. Make sure the key is correct and has the right permissions.'
@@ -621,6 +687,9 @@ export default {
             if (path === '/auth/setup-totp' && request.method === 'POST') {
                 return await handleSetupTotp(request, env, origin);
             }
+            if (path === '/auth/set-pin' && request.method === 'POST') {
+                return await handleSetPin(request, env, origin);
+            }
 
             // ===== STRIKE CONNECTION ROUTES (session required) =====
             if (path === '/auth/connect-strike' && request.method === 'POST') {
@@ -645,6 +714,7 @@ export default {
 
                 var route = OPEN_ROUTES[path];
                 var data = await strikeGet(route.endpoint, ownerKey);
+                if (hasStrikeError(data)) return strikeErrorResponse(data, origin);
 
                 if (path === '/ping') {
                     return jsonResponse({ ok: true, balances: data }, 200, origin);
@@ -669,6 +739,7 @@ export default {
 
                 var sessRoute = SESSION_ROUTES[path];
                 var sessData = await strikeGet(sessRoute.endpoint, userKey1);
+                if (hasStrikeError(sessData)) return strikeErrorResponse(sessData, origin);
                 return jsonResponse(sessData, 200, origin);
             }
 
@@ -696,6 +767,7 @@ export default {
                 if (isSendStatus) {
                     var paymentId = isSendStatus[1];
                     var statusData = await strikeGet('/v1/payments/' + paymentId, userKey2);
+                    if (hasStrikeError(statusData)) return strikeErrorResponse(statusData, origin);
                     return jsonResponse(statusData, 200, origin);
                 }
 
@@ -713,11 +785,15 @@ export default {
 
                     var exchQuoteId = isExchangeExec[1];
                     var exchData = await strikePost('/v1/currency-exchange-quotes/' + exchQuoteId + '/execute', body, userKey2);
+                    if (hasStrikeError(exchData)) return strikeErrorResponse(exchData, origin);
                     return jsonResponse(exchData, 200, origin);
                 }
 
-                // Send execute (PATCH) — requires TOTP + rate limit
+                // Send execute (PATCH) — requires PIN + TOTP + rate limit
                 if (isSendExec) {
+                    var pinErr = await checkPin(request, env, user, origin);
+                    if (pinErr) return pinErr;
+
                     var totpErr2 = await checkTOTP(request, env, user, origin);
                     if (totpErr2) return totpErr2;
 
@@ -726,6 +802,7 @@ export default {
 
                     var sendQuoteId = isSendExec[1];
                     var sendData = await strikePatch('/v1/payment-quotes/' + sendQuoteId + '/execute', body, userKey2);
+                    if (hasStrikeError(sendData)) return strikeErrorResponse(sendData, origin);
                     await recordSend(env, user);
                     return jsonResponse(sendData, 200, origin);
                 }
@@ -739,6 +816,7 @@ export default {
                 // Standard gated routes (POST)
                 var gatedRoute = GATED_ROUTES[path];
                 var gatedData = await strikePost(gatedRoute.endpoint, body, userKey2);
+                if (hasStrikeError(gatedData)) return strikeErrorResponse(gatedData, origin);
                 return jsonResponse(gatedData, 200, origin);
             }
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=155">
+    <link rel="stylesheet" href="./shared.css?v=157">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -131,6 +131,26 @@
                 <button class="btn btn-primary" id="saveStrikeKey">Connect</button>
             </div>
             <div id="strikeKeyResult" style="margin-top:10px; font-size:12px;"></div>
+            <!-- PIN Creation (shown after successful Strike connect) -->
+            <div id="strikeKeyPinSection" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size:13px; color:#4ade80; margin-bottom:10px; padding:10px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.25); border-radius:8px;">
+                    <strong>Create a Send PIN</strong> — This PIN will be required every time you send BTC, adding an extra layer of security.
+                </div>
+                <div class="input-group">
+                    <label>4-Digit PIN</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="newPinInput" placeholder="Enter PIN" maxlength="6" inputmode="numeric" style="letter-spacing:6px; font-size:16px; text-align:center;">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Confirm PIN</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="confirmPinInput" placeholder="Confirm PIN" maxlength="6" inputmode="numeric" style="letter-spacing:6px; font-size:16px; text-align:center;">
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btnSavePin" style="width:100%;">Save PIN</button>
+                <div id="pinSaveResult" style="margin-top:8px; font-size:12px;"></div>
+            </div>
         </div>
     </div>
 
@@ -290,6 +310,13 @@
                     <div id="quoteDetails" style="font-size:13px; line-height:1.8;"></div>
                     <div id="quoteExpiry" style="font-size:11px; color:#f7931a; margin-top:8px;"></div>
                 </div>
+                <div class="input-group" id="pinGroup" style="display:none;">
+                    <label>Send PIN</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="sendPinCode" placeholder="4-digit PIN" maxlength="6" inputmode="numeric" style="letter-spacing:6px; font-size:18px; text-align:center;">
+                    </div>
+                    <div style="font-size:11px; color:#888; margin-top:4px;">Enter your send PIN</div>
+                </div>
                 <div class="input-group" id="totpGroup" style="display:none;">
                     <label>Authenticator Code</label>
                     <div class="input-wrapper">
@@ -378,15 +405,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=155"></script>
-<script src="./sync.js?v=155"></script>
-<script src="./auth-ui.js?v=155"></script>
-<script src="./profile-panel.js?v=155"></script>
-<script src="./shared.js?v=155"></script>
-<script src="./fleet-data.js?v=155"></script>
-<script src="./wallet.js?v=155"></script>
-<script src="./widget-settings.js?v=155"></script>
-<script src="./alerts.js?v=155"></script>
-<script src="./onboarding.js?v=155"></script>
+<script src="./firebase-config.js?v=157"></script>
+<script src="./sync.js?v=157"></script>
+<script src="./auth-ui.js?v=157"></script>
+<script src="./profile-panel.js?v=157"></script>
+<script src="./shared.js?v=157"></script>
+<script src="./fleet-data.js?v=157"></script>
+<script src="./wallet.js?v=157"></script>
+<script src="./widget-settings.js?v=157"></script>
+<script src="./alerts.js?v=157"></script>
+<script src="./onboarding.js?v=157"></script>
 </body>
 </html>

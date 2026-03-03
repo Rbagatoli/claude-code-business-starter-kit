@@ -273,12 +273,13 @@ var StrikeAPI = (function() {
         }
     }
 
-    async function apiPatch(route, body, totpCode) {
+    async function apiPatch(route, body, totpCode, pinCode) {
         var proxy = getProxyUrl();
         if (!proxy) return { error: 'No proxy URL configured' };
         try {
             var hdrs = authHeaders();
             if (totpCode) hdrs['X-Dashboard-TOTP'] = totpCode;
+            if (pinCode) hdrs['X-Dashboard-Pin'] = pinCode;
             var res = await fetch(proxy.replace(/\/$/, '') + route, {
                 method: 'PATCH',
                 headers: hdrs,
@@ -291,7 +292,7 @@ var StrikeAPI = (function() {
                     showConnectStrikePrompt();
                     return { error: 'Strike not connected', strikeNotConnected: true };
                 }
-                return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
+                return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired, pinRequired: data.pinRequired };
             }
             return data;
         } catch(e) {
@@ -359,9 +360,11 @@ var StrikeAPI = (function() {
     async function sendQuoteOnchain(body) { return await apiPost('/send/quote/onchain', body); }
     async function getOnchainTiers(body) { return await apiPost('/send/onchain-tiers', body); }
 
-    async function executeSend(quoteId, totpCode) {
-        return await apiPatch('/send/execute/' + quoteId, {}, totpCode);
+    async function executeSend(quoteId, totpCode, pinCode) {
+        return await apiPatch('/send/execute/' + quoteId, {}, totpCode, pinCode);
     }
+
+    async function setPin(pin) { return await apiPost('/auth/set-pin', { pin: pin }); }
 
     async function getSendStatus(paymentId) { return await apiFetch('/send/status/' + paymentId); }
 
@@ -382,6 +385,7 @@ var StrikeAPI = (function() {
         sendQuoteOnchain: sendQuoteOnchain,
         getOnchainTiers: getOnchainTiers,
         executeSend: executeSend,
+        setPin: setPin,
         getSendStatus: getSendStatus,
         firebaseLogin: firebaseLogin,
         logout: logout,
@@ -1073,6 +1077,7 @@ window.disconnectStrike = disconnectStrike;
 var activeSendQuote = null;
 var quoteExpiryInterval = null;
 var totpEnabled = false;
+var pinEnabled = false;
 
 function updateSendButton() {
     var btn = document.getElementById('btnSendBtc');
@@ -1084,21 +1089,31 @@ function updateTotpVisibility() {
     if (grp) grp.style.display = totpEnabled ? '' : 'none';
 }
 
+function updatePinVisibility() {
+    var grp = document.getElementById('pinGroup');
+    if (grp) grp.style.display = pinEnabled ? '' : 'none';
+}
+
 document.getElementById('btnSendBtc').addEventListener('click', function() {
     document.getElementById('sendStep1').style.display = '';
     document.getElementById('sendStep2').style.display = 'none';
     document.getElementById('sendResult').innerHTML = '';
     document.getElementById('sendTotpCode').value = '';
+    document.getElementById('sendPinCode').value = '';
     document.getElementById('sendDest').value = '';
     document.getElementById('sendAmount').value = '';
     activeSendQuote = null;
-    // Check if user has 2FA enabled
+    // Check if user has 2FA and/or PIN enabled
     var user = StrikeAuth.getUser();
     if (user && user.has2FA) {
         totpEnabled = true;
     }
+    if (user && user.hasPin) {
+        pinEnabled = true;
+    }
     updateSendTypeUI();
     updateTotpVisibility();
+    updatePinVisibility();
     document.getElementById('sendBtcPanel').classList.toggle('open');
 });
 
@@ -1164,6 +1179,21 @@ function updateSendTypeUI() {
     if (currencySelect) currencySelect.addEventListener('change', updateConversion);
 })();
 
+// Auto-load on-chain fee tiers when address + amount are both filled
+(function() {
+    var addrInput = document.getElementById('sendDest');
+    var amtInput = document.getElementById('sendAmount');
+    function tryLoadTiers() {
+        if (document.getElementById('sendType').value !== 'onchain') return;
+        if (addrInput.value.trim() && amtInput.value.trim()) {
+            loadOnchainTiers();
+        }
+    }
+    if (addrInput) addrInput.addEventListener('blur', tryLoadTiers);
+    if (amtInput) amtInput.addEventListener('blur', tryLoadTiers);
+    if (amtInput) amtInput.addEventListener('change', tryLoadTiers);
+})();
+
 async function loadOnchainTiers() {
     var tierSelect = document.getElementById('sendTier');
     tierSelect.innerHTML = '<option value="">Loading tiers...</option>';
@@ -1222,9 +1252,11 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
             result.innerHTML = '<span style="color:#888;">Loading fee tiers...</span>';
             await loadOnchainTiers();
             tier = tierSelect.value;
-        }
-        if (!tier) {
-            result.innerHTML = '<span style="color:#f55;">Could not load fee tiers</span>';
+            if (tier) {
+                result.innerHTML = '<span style="color:#f90;">Select a fee speed, then tap Get Quote again</span>';
+            } else {
+                result.innerHTML = '<span style="color:#f55;">Could not load fee tiers</span>';
+            }
             return;
         }
         var body = {
@@ -1281,7 +1313,11 @@ function clearQuoteExpiry() {
 // Confirm & Send
 document.getElementById('btnConfirmSend').addEventListener('click', async function() {
     var totpCode = (document.getElementById('sendTotpCode').value || '').replace(/\s/g, '');
+    var pinCode = (document.getElementById('sendPinCode').value || '').replace(/\s/g, '');
     var result = document.getElementById('sendResult');
+    if (pinEnabled && (!pinCode || pinCode.length < 4)) {
+        result.innerHTML = '<span style="color:#f55;">Enter your 4-digit send PIN</span>'; return;
+    }
     if (totpEnabled && (!totpCode || totpCode.length !== 6)) {
         result.innerHTML = '<span style="color:#f55;">Enter the 6-digit code from Google Authenticator</span>'; return;
     }
@@ -1295,10 +1331,11 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
     result.innerHTML = '<span style="color:#f7931a;">Sending...</span>';
     document.getElementById('btnConfirmSend').disabled = true;
 
-    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, totpCode || undefined);
+    var sendResult = await StrikeAPI.executeSend(activeSendQuote.paymentQuoteId, totpCode || undefined, pinCode || undefined);
 
     document.getElementById('btnConfirmSend').disabled = false;
     document.getElementById('sendTotpCode').value = '';
+    document.getElementById('sendPinCode').value = '';
     clearQuoteExpiry();
 
     if (sendResult && !sendResult.error) {
@@ -1314,6 +1351,10 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
         if (sendResult.totpRequired) {
             totpEnabled = true;
             updateTotpVisibility();
+        }
+        if (sendResult.pinRequired) {
+            pinEnabled = true;
+            updatePinVisibility();
         }
         result.innerHTML = '<span style="color:#f55;">' + (sendResult.error || 'Send failed') + '</span>';
     }
@@ -1437,7 +1478,6 @@ document.getElementById('btnSave2FAToWorker').addEventListener('click', async fu
             saveBtn.disabled = false;
 
             if (data && data.ok) {
-                resultEl.innerHTML = '<span style="color:#4ade80;">Strike account connected!</span>';
                 // Update local user
                 var user = StrikeAuth.getUser();
                 if (user) {
@@ -1447,12 +1487,61 @@ document.getElementById('btnSave2FAToWorker').addEventListener('click', async fu
                 }
                 hideConnectStrikePrompt();
                 updateAccountButtons();
+                // Show PIN creation UI
+                var pinSection = document.getElementById('strikeKeyPinSection');
+                if (pinSection && !(user && user.hasPin)) {
+                    resultEl.innerHTML = '<span style="color:#4ade80;">Strike connected! Now create a send PIN below.</span>';
+                    pinSection.style.display = '';
+                } else {
+                    resultEl.innerHTML = '<span style="color:#4ade80;">Strike account connected!</span>';
+                    setTimeout(function() {
+                        document.getElementById('strikeApiKeyPanel').classList.remove('open');
+                        loadAndRefreshWallet();
+                    }, 1000);
+                }
+            } else {
+                resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || 'Failed to connect') + '</span>';
+            }
+        });
+    }
+})();
+
+// ===== PIN SAVE HANDLER =====
+(function() {
+    var pinBtn = document.getElementById('btnSavePin');
+    if (pinBtn) {
+        pinBtn.addEventListener('click', async function() {
+            var pin = (document.getElementById('newPinInput').value || '').trim();
+            var confirm = (document.getElementById('confirmPinInput').value || '').trim();
+            var resultEl = document.getElementById('pinSaveResult');
+
+            if (!pin || pin.length < 4 || !/^\d+$/.test(pin)) {
+                resultEl.innerHTML = '<span style="color:#f55;">PIN must be 4-6 digits.</span>'; return;
+            }
+            if (pin !== confirm) {
+                resultEl.innerHTML = '<span style="color:#f55;">PINs do not match.</span>'; return;
+            }
+
+            resultEl.innerHTML = '<span style="color:#888;">Saving PIN...</span>';
+            pinBtn.disabled = true;
+
+            var data = await StrikeAPI.setPin(pin);
+            pinBtn.disabled = false;
+
+            if (data && data.ok) {
+                resultEl.innerHTML = '<span style="color:#4ade80;">Send PIN saved!</span>';
+                pinEnabled = true;
+                var user = StrikeAuth.getUser();
+                if (user) {
+                    user.hasPin = true;
+                    StrikeAuth.saveSession(StrikeAuth.getToken(), user);
+                }
                 setTimeout(function() {
                     document.getElementById('strikeApiKeyPanel').classList.remove('open');
                     loadAndRefreshWallet();
-                }, 1000);
+                }, 1500);
             } else {
-                resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || 'Failed to connect') + '</span>';
+                resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || data.message || 'Failed to save PIN') + '</span>';
             }
         });
     }
