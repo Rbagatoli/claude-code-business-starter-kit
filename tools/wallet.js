@@ -1217,6 +1217,7 @@ async function loadOnchainTiers() {
             var mins = t.estimatedDeliveryDurationInMin || '?';
             var opt = document.createElement('option');
             opt.value = t.id;
+            opt.setAttribute('data-fee', t.estimatedFee ? t.estimatedFee.amount : '0');
             opt.textContent = t.id.replace('tier_', '') + ' (~' + mins + ' min, fee: ' + fee + ')';
             tierSelect.appendChild(opt);
         }
@@ -1259,10 +1260,14 @@ document.getElementById('btnGetQuote').addEventListener('click', async function(
             }
             return;
         }
+        var selectedOpt = tierSelect.options[tierSelect.selectedIndex];
+        var tierFee = selectedOpt ? parseFloat(selectedOpt.getAttribute('data-fee') || '0') : 0;
+        var amountObj = { amount: amt, currency: cur };
+        if (tierFee > 0) amountObj.feePolicy = 'EXCLUSIVE';
         var body = {
             btcAddress: dest,
             sourceCurrency: cur,
-            amount: { amount: amt, currency: cur }
+            amount: amountObj
         };
         body.onchainTierId = tier;
         quoteData = await StrikeAPI.sendQuoteOnchain(body);
