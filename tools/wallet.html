@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Wallet</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=167">
+    <link rel="stylesheet" href="./shared.css?v=168">
     <script>
     if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
@@ -475,15 +475,82 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=167"></script>
-<script src="./sync.js?v=167"></script>
-<script src="./auth-ui.js?v=167"></script>
-<script src="./profile-panel.js?v=167"></script>
-<script src="./shared.js?v=167"></script>
-<script src="./fleet-data.js?v=167"></script>
-<script src="./wallet.js?v=167"></script>
-<script src="./widget-settings.js?v=167"></script>
-<script src="./alerts.js?v=167"></script>
-<script src="./onboarding.js?v=167"></script>
+<script src="./firebase-config.js?v=168"></script>
+<script src="./sync.js?v=168"></script>
+<script src="./auth-ui.js?v=168"></script>
+<script src="./profile-panel.js?v=168"></script>
+<script src="./shared.js?v=168"></script>
+<script src="./fleet-data.js?v=168"></script>
+<script src="./wallet.js?v=168"></script>
+<script>
+// Inline share link handler — bypasses service worker JS cache
+(function() {
+    var origCreate = document.getElementById('btnCreateInvoice');
+    var shareBtn = document.getElementById('btnShareInvoice');
+    var shareLinkEl = document.getElementById('invoiceShareLink');
+    var shareUrlText = document.getElementById('shareUrlText');
+    var copyShareBtn = document.getElementById('btnCopyShareLink');
+    var statusEl = document.getElementById('invoiceStatus');
+
+    if (!origCreate || !shareBtn) return;
+
+    // Show Share button after invoice is created
+    var obs = new MutationObserver(function() {
+        var result = document.getElementById('invoiceResult');
+        if (result && result.style.display !== 'none') {
+            shareBtn.style.display = '';
+        }
+    });
+    obs.observe(document.getElementById('invoiceResult'), { attributes: true, attributeFilter: ['style'] });
+
+    // Share button click
+    shareBtn.addEventListener('click', async function() {
+        shareBtn.disabled = true;
+        shareBtn.textContent = 'Generating...';
+        try {
+            var amt = document.getElementById('receiveAmount').value.trim();
+            var cur = document.getElementById('receiveCurrency').value;
+            var desc = document.getElementById('receiveDescription').value.trim();
+            var data = await StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' });
+            if (data && data.shareId) {
+                var url = StrikeAPI.getProxyUrl().replace(/\/$/, '') + '/pay?id=' + data.shareId;
+                shareUrlText.textContent = url;
+                shareLinkEl.style.display = '';
+                shareBtn.style.display = 'none';
+            } else {
+                statusEl.innerHTML = '<span style="color:#f55;">' + (data && data.error || 'Share failed') + '</span>';
+                shareBtn.disabled = false;
+                shareBtn.textContent = 'Share Invoice Link';
+            }
+        } catch(e) {
+            statusEl.innerHTML = '<span style="color:#f55;">Error: ' + e.message + '</span>';
+            shareBtn.disabled = false;
+            shareBtn.textContent = 'Share Invoice Link';
+        }
+    });
+
+    // Copy share link
+    if (copyShareBtn) {
+        copyShareBtn.addEventListener('click', function() {
+            var url = shareUrlText.textContent;
+            var btn = this;
+            navigator.clipboard.writeText(url).then(function() {
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+            }).catch(function() {
+                var ta = document.createElement('textarea');
+                ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+                document.body.removeChild(ta);
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+            });
+        });
+    }
+})();
+</script>
+<script src="./widget-settings.js?v=168"></script>
+<script src="./alerts.js?v=168"></script>
+<script src="./onboarding.js?v=168"></script>
 </body>
 </html>
