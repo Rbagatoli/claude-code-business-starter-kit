@@ -153,6 +153,11 @@ function initNav(activePage) {
                 // Start listening for remote changes
                 Object.keys(SyncEngine.SYNC_KEYS).forEach(function(key) {
                     SyncEngine.listen(key, function() {
+                        // Call page-specific refresh handler if registered
+                        if (key === 'wallet' && typeof window.ionWalletSyncRefresh === 'function') {
+                            window.ionWalletSyncRefresh();
+                            return;
+                        }
                         // Show a subtle sync toast — no auto-reload
                         var existing = document.getElementById('syncToast');
                         if (existing) return; // already showing

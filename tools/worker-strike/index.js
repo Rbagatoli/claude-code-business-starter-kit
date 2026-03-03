@@ -13,7 +13,7 @@ var ALLOWED_ORIGINS = [
 // Rate limiter: track execute calls per hour (in-memory, resets on cold start)
 var sendLog = [];
 var MAX_SENDS_PER_HOUR = 5;
-var DEFAULT_MAX_SEND_USD = 500;
+var DEFAULT_MAX_SEND_USD = 1000;
 
 // TOTP brute-force protection (in-memory)
 var totpFailLog = [];
@@ -150,8 +150,11 @@ async function verifyTOTP(token, secret) {
 }
 
 async function checkTOTP(request, env, origin) {
-    // If TOTP_SECRET not configured, 2FA is disabled — skip
+    // If TOTP_SECRET not configured, check KV fallback; if neither, 2FA disabled
     var secret = env.TOTP_SECRET || '';
+    if (!secret && env.SETTINGS) {
+        secret = await env.SETTINGS.get('totp_secret') || '';
+    }
     if (!secret) return null;
 
     // Check brute-force lockout
@@ -276,6 +279,52 @@ export default {
                 return new Response(JSON.stringify(data), {
                     status: 200, headers: corsHeaders(origin)
                 });
+            }
+
+            // ===== ADMIN: Self-service TOTP setup =====
+            if (path === '/admin/setup-totp' && request.method === 'POST') {
+                var pinErr = checkPin(request, env, origin);
+                if (pinErr) return pinErr;
+
+                var setupBody = await request.json().catch(function() { return {}; });
+                var newSecret = (setupBody.secret || '').replace(/[^A-Z2-7]/gi, '').toUpperCase();
+                var verifyCode = (setupBody.code || '').replace(/\s/g, '');
+
+                if (!newSecret || newSecret.length < 16) {
+                    return new Response(JSON.stringify({
+                        error: 'Invalid secret',
+                        message: 'Secret must be at least 16 base32 characters.'
+                    }), { status: 400, headers: corsHeaders(origin) });
+                }
+
+                if (!verifyCode || verifyCode.length !== 6) {
+                    return new Response(JSON.stringify({
+                        error: 'Verification required',
+                        message: 'Enter the 6-digit code from your authenticator app to verify setup.'
+                    }), { status: 400, headers: corsHeaders(origin) });
+                }
+
+                var valid = await verifyTOTP(verifyCode, newSecret);
+                if (!valid) {
+                    return new Response(JSON.stringify({
+                        error: 'Verification failed',
+                        message: 'The code does not match. Make sure you scanned the QR code and enter the current code.'
+                    }), { status: 403, headers: corsHeaders(origin) });
+                }
+
+                if (!env.SETTINGS) {
+                    return new Response(JSON.stringify({
+                        error: 'KV not configured',
+                        message: 'SETTINGS KV namespace is not bound to this worker.'
+                    }), { status: 500, headers: corsHeaders(origin) });
+                }
+
+                await env.SETTINGS.put('totp_secret', newSecret);
+
+                return new Response(JSON.stringify({
+                    ok: true,
+                    message: '2FA activated! All future sends will require an authenticator code.'
+                }), { status: 200, headers: corsHeaders(origin) });
             }
 
             // ===== TIER 2: PIN-gated routes =====

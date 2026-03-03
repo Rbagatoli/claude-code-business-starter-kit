@@ -17,6 +17,11 @@ initNav('wallet');
     startAutoRefresh();
 })();
 
+// Listen for sync engine wallet updates (cross-device)
+window.ionWalletSyncRefresh = function() {
+    loadAndRefreshWallet();
+};
+
 // ===== WALLET DATA MODULE =====
 var WalletData = (function() {
     var KEY = 'ionMiningWallet';
@@ -219,7 +224,8 @@ var StrikeAPI = (function() {
         sendQuoteOnchain: sendQuoteOnchain,
         getOnchainTiers: getOnchainTiers,
         executeSend: executeSend,
-        getSendStatus: getSendStatus
+        getSendStatus: getSendStatus,
+        apiPostWithPin: apiPostWithPin
     };
 })();
 
@@ -874,6 +880,33 @@ function updateSendTypeUI() {
     }
 }
 
+// Real-time USD <-> BTC conversion display in send form
+(function() {
+    var amountInput = document.getElementById('sendAmount');
+    var currencySelect = document.getElementById('sendCurrency');
+    var conversionEl = document.getElementById('sendConversion');
+
+    function updateConversion() {
+        if (!conversionEl) return;
+        var amt = parseFloat(amountInput.value);
+        if (!amt || !isFinite(amt) || amt <= 0 || !liveBtcPrice || liveBtcPrice <= 0) {
+            conversionEl.textContent = '';
+            return;
+        }
+        var cur = currencySelect.value;
+        if (cur === 'USD') {
+            var btcEquiv = amt / liveBtcPrice;
+            conversionEl.textContent = '\u2248 ' + fmtBTC(btcEquiv, 8) + ' BTC';
+        } else {
+            var usdEquiv = amt * liveBtcPrice;
+            conversionEl.textContent = '\u2248 ' + fmtUSD(usdEquiv);
+        }
+    }
+
+    if (amountInput) amountInput.addEventListener('input', updateConversion);
+    if (currencySelect) currencySelect.addEventListener('change', updateConversion);
+})();
+
 async function loadOnchainTiers() {
     var pin = document.getElementById('sendPin').value;
     var tierSelect = document.getElementById('sendTier');
@@ -1077,4 +1110,41 @@ document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     // QR code via API
     var qrEl = document.getElementById('twofa-qr');
     qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' + encodeURIComponent(otpauthUri);
+
+    // Store secret for the save action
+    window._pending2FASecret = secret;
+
+    // Reset verification UI
+    var verifyInput = document.getElementById('twofa-verify-code');
+    var saveBtn = document.getElementById('btnSave2FAToWorker');
+    var resultEl = document.getElementById('twofa-save-result');
+    if (verifyInput) verifyInput.value = '';
+    if (resultEl) resultEl.innerHTML = '';
+    if (saveBtn) saveBtn.disabled = false;
+});
+
+document.getElementById('btnSave2FAToWorker').addEventListener('click', async function() {
+    var secret = window._pending2FASecret;
+    var code = (document.getElementById('twofa-verify-code').value || '').replace(/\s/g, '');
+    var pin = document.getElementById('twofa-save-pin').value;
+    var resultEl = document.getElementById('twofa-save-result');
+
+    if (!secret) { resultEl.innerHTML = '<span style="color:#f55;">Generate a secret first.</span>'; return; }
+    if (!code || code.length !== 6) { resultEl.innerHTML = '<span style="color:#f55;">Enter the 6-digit code from your authenticator.</span>'; return; }
+    if (!pin) { resultEl.innerHTML = '<span style="color:#f55;">Enter your dashboard PIN.</span>'; return; }
+
+    resultEl.innerHTML = '<span style="color:#888;">Saving...</span>';
+    this.disabled = true;
+
+    var data = await StrikeAPI.apiPostWithPin('/admin/setup-totp', { secret: secret, code: code }, pin);
+
+    this.disabled = false;
+    if (data && data.ok) {
+        resultEl.innerHTML = '<span style="color:#4ade80;">2FA activated! All sends now require an authenticator code.</span>';
+        totpEnabled = true;
+        updateTotpVisibility();
+        window._pending2FASecret = null;
+    } else {
+        resultEl.innerHTML = '<span style="color:#f55;">' + (data.error || data.message || 'Failed to save') + '</span>';
+    }
 });

@@ -1,3 +1,7 @@
 name = "ion-strike-proxy"
 main = "index.js"
 compatibility_date = "2024-12-01"
+
+[[kv_namespaces]]
+binding = "SETTINGS"
+id = "54a1a0069d9e45c3add1e9df52fa2f77"
