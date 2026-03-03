@@ -182,7 +182,16 @@ function initNav(activePage) {
                 SyncEngine.stopAll();
                 if (_wasSignedIn) {
                     _wasSignedIn = false;
+                    var preserve = ['sw_clean_v134', 'ionMiningOnboarded', 'ionMiningStep'];
+                    var saved = {};
+                    for (var i = 0; i < preserve.length; i++) {
+                        var val = localStorage.getItem(preserve[i]);
+                        if (val !== null) saved[preserve[i]] = val;
+                    }
                     localStorage.clear();
+                    for (var key in saved) {
+                        localStorage.setItem(key, saved[key]);
+                    }
                     location.reload();
                 }
             }
