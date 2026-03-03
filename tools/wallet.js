@@ -265,7 +265,10 @@ var StrikeAPI = (function() {
                     showConnectStrikePrompt();
                     return { error: 'Strike not connected', strikeNotConnected: true };
                 }
-                return { error: data.error || data.message || 'HTTP ' + res.status, totpRequired: data.totpRequired };
+                var errMsg = data.error || data.message || data.title || '';
+                if (data.data && data.data.validationErrors) errMsg += ' ' + JSON.stringify(data.data.validationErrors);
+                if (!errMsg) errMsg = JSON.stringify(data);
+                return { error: errMsg, totpRequired: data.totpRequired, pinRequired: data.pinRequired };
             }
             return data;
         } catch(e) {
