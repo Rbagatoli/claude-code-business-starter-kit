@@ -1061,6 +1061,7 @@ document.getElementById('btnConfirmSend').addEventListener('click', async functi
         // Refresh balances after send
         setTimeout(function() {
             document.getElementById('sendBtcPanel').classList.remove('open');
+            window.scrollTo(0, 0);
             loadAndRefreshWallet();
         }, 2000);
     } else {
