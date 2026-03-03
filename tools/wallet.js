@@ -1634,23 +1634,29 @@ document.getElementById('btnCreateInvoice').addEventListener('click', async func
 
     // Create shareable invoice link
     var shareLinkEl = document.getElementById('invoiceShareLink');
+    var shareStatusEl = document.getElementById('invoiceStatus');
+    console.log('[v165] Share link code running, shareLinkEl:', !!shareLinkEl);
     if (shareLinkEl) {
         shareLinkEl.style.display = 'none';
-        resultEl.innerHTML = '<span style="color:#888;">Generating share link...</span>';
+        shareStatusEl.innerHTML = '<span style="color:#888;">Generating share link...</span>';
         try {
             var shareData = await StrikeAPI.shareInvoice({ amount: amt, currency: cur, description: desc || 'Payment' });
-            resultEl.innerHTML = '';
+            console.log('[v165] shareInvoice response:', JSON.stringify(shareData));
             if (shareData && shareData.shareId) {
                 var baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
                 var shareUrl = baseUrl + 'pay.html?id=' + shareData.shareId + '&api=' + encodeURIComponent(StrikeAPI.getProxyUrl());
                 document.getElementById('shareUrlText').textContent = shareUrl;
                 shareLinkEl.style.display = '';
+                shareStatusEl.innerHTML = '<span style="color:#4ade80;">Share link ready!</span>';
             } else {
-                resultEl.innerHTML = '<span style="color:#f55;">Share link failed: ' + (shareData && shareData.error || 'Unknown error') + '</span>';
+                shareStatusEl.innerHTML = '<span style="color:#f55;">Share failed: ' + (shareData && shareData.error || JSON.stringify(shareData)) + '</span>';
             }
         } catch(e) {
-            resultEl.innerHTML = '<span style="color:#f55;">Share link error: ' + e.message + '</span>';
+            console.error('[v165] Share link error:', e);
+            shareStatusEl.innerHTML = '<span style="color:#f55;">Share error: ' + e.message + '</span>';
         }
+    } else {
+        console.error('[v165] invoiceShareLink element not found!');
     }
 });
 
