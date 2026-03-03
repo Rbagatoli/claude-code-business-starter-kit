@@ -574,7 +574,8 @@ footer {
     margin-top: 0;
 }
 .slide-panel.open {
-    max-height: 600px;
+    max-height: 1400px;
+    overflow-y: auto;
     opacity: 1;
     margin-top: 16px;
 }
