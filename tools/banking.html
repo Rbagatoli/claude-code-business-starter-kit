@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Banking</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=178">
+    <link rel="stylesheet" href="./shared.css?v=179">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -16,7 +16,7 @@
         });
     }
     </script>
-    <script src="./chart.min.js?v=178"></script>
+    <script src="./chart.min.js?v=179"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -135,42 +135,6 @@
         <button class="btn btn-secondary" id="btnReceiveBtc" style="display:none;">Receive BTC</button>
     </div>
     </div>
-
-    <!-- ===== ADDRESS CARDS ===== -->
-    <div class="widget-section" data-widget="addresses">
-    <div class="section-label">Addresses</div>
-    <div class="miner-cards-grid" id="addressCardsGrid">
-        <div class="empty-state" style="padding:20px;"><p>No addresses added yet</p><div class="hint">Click "+ Add Address" to start monitoring</div></div>
-    </div>
-    </div>
-
-    <!-- ===== TRANSACTION HISTORY ===== -->
-    <div class="widget-section" data-widget="transactions">
-    <div class="card">
-        <h3>Recent Transactions</h3>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Source</th>
-                        <th>To</th>
-                        <th>Amount</th>
-                        <th>Type / TX</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="txHistoryBody">
-                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No addresses added yet</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-    </div>
-
-
-    <!-- ===== Wallet panels ===== -->
     <div class="slide-panel" id="setup2FAPanel">
         <div class="panel-inner">
             <h4>Setup Google Authenticator</h4>
@@ -481,7 +445,39 @@
     </div>
 
 
-    </div><!-- /tabWallet -->
+    <!-- ===== ADDRESS CARDS ===== -->
+    <div class="widget-section" data-widget="addresses">
+    <div class="section-label">Addresses</div>
+    <div class="miner-cards-grid" id="addressCardsGrid">
+        <div class="empty-state" style="padding:20px;"><p>No addresses added yet</p><div class="hint">Click "+ Add Address" to start monitoring</div></div>
+    </div>
+    </div>
+
+    <!-- ===== TRANSACTION HISTORY ===== -->
+    <div class="widget-section" data-widget="transactions">
+    <div class="card">
+        <h3>Recent Transactions</h3>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Source</th>
+                        <th>To</th>
+                        <th>Amount</th>
+                        <th>Type / TX</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="txHistoryBody">
+                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#555;">No addresses added yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+    </div>
+
 
     <!-- ============================================================ -->
     <!-- TAB: INCOME                                                  -->
@@ -716,7 +712,6 @@
         </div>
     </div>
 
-    </div><!-- /tabIncome -->
 
     <!-- ============================================================ -->
     <!-- TAB: ACCOUNTING                                              -->
@@ -984,7 +979,6 @@
         </div>
     </div>
 
-    </div><!-- /tabAccounting -->
 
 </main>
 
@@ -996,15 +990,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=178"></script>
-<script src="./sync.js?v=178"></script>
-<script src="./auth-ui.js?v=178"></script>
-<script src="./profile-panel.js?v=178"></script>
-<script src="./shared.js?v=178"></script>
-<script src="./fleet-data.js?v=178"></script>
-<script src="./banking.js?v=178"></script>
-<script src="./widget-settings.js?v=178"></script>
-<script src="./alerts.js?v=178"></script>
-<script src="./onboarding.js?v=178"></script>
+<script src="./firebase-config.js?v=179"></script>
+<script src="./sync.js?v=179"></script>
+<script src="./auth-ui.js?v=179"></script>
+<script src="./profile-panel.js?v=179"></script>
+<script src="./shared.js?v=179"></script>
+<script src="./fleet-data.js?v=179"></script>
+<script src="./banking.js?v=179"></script>
+<script src="./widget-settings.js?v=179"></script>
+<script src="./alerts.js?v=179"></script>
+<script src="./onboarding.js?v=179"></script>
 </body>
 </html>

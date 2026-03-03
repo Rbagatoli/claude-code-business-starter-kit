@@ -901,6 +901,9 @@ footer {
     color: #f7931a;
     border-bottom-color: #f7931a;
 }
+.banking-tab-content {
+    display: block;
+}
 
 /* ===== TIME RANGE SELECTOR ===== */
 .time-range-selector {
