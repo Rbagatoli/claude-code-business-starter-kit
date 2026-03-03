@@ -3402,6 +3402,7 @@ function renderInvoiceTable() {
         '</tr>';
     }
     tbody.innerHTML = html;
+}
 
 // ===== P&L BAR CHART =====
 function updatePnLChart(pnl) {
@@ -3836,6 +3837,7 @@ function downloadCSVFile(rows, filename) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
 
 
 // Accounting auto-refresh (5 minutes)
