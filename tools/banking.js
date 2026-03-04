@@ -2996,16 +2996,26 @@ async function connectQuickBooks() {
             var authData = await authRes.json();
 
             if (authData && authData.ok) {
+                console.log('[QB] QB worker auth succeeded');
                 StrikeAuth.saveSession(authData.token, authData.user);
                 token = authData.token;
             } else {
+                console.log('[QB] QB worker auth failed, trying Strike fallback:', authData);
                 // Fallback to Strike worker
-                var strikeData = await StrikeAPI.firebaseLogin(idToken);
-                if (strikeData && strikeData.ok) {
-                    StrikeAuth.saveSession(strikeData.token, strikeData.user);
-                    token = strikeData.token;
-                } else {
-                    alert('Authentication failed. Please try signing out and back in.');
+                try {
+                    var strikeData = await StrikeAPI.firebaseLogin(idToken);
+                    console.log('[QB] Strike worker response:', strikeData);
+                    if (strikeData && strikeData.ok) {
+                        StrikeAuth.saveSession(strikeData.token, strikeData.user);
+                        token = strikeData.token;
+                    } else {
+                        console.error('[QB] Strike worker auth failed:', strikeData);
+                        alert('Authentication failed. Please try signing out and back in.');
+                        return;
+                    }
+                } catch (strikeErr) {
+                    console.error('[QB] Strike worker error:', strikeErr);
+                    alert('Authentication failed: ' + strikeErr.message);
                     return;
                 }
             }
