@@ -394,23 +394,28 @@ async function autoLoginWithFirebase() {
         var idToken = await fbUser.getIdToken(true); // force refresh
         var data = null;
 
-        // Try QuickBooks worker first (no Strike dependency needed)
+        // Try Strike worker first (needed for wallet functionality)
         try {
-            var authUrl = 'https://ion-quickbooks.ion-mining.workers.dev';
-            var res = await fetch(authUrl + '/auth/firebase-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken: idToken })
-            });
-            data = await res.json();
-        } catch (qbErr) {
-            console.warn('[Wallet] QB worker auth failed, trying Strike fallback:', qbErr);
+            data = await StrikeAPI.firebaseLogin(idToken);
+            console.log('[Wallet] Strike worker auth:', data && data.ok ? 'success' : 'failed');
+        } catch (strikeErr) {
+            console.warn('[Wallet] Strike worker auth failed:', strikeErr);
         }
 
-        // Fallback to Strike worker if QB worker failed
-        if (!data || !data.ok) {
-            console.log('[Wallet] Falling back to Strike worker for Firebase auth');
-            data = await StrikeAPI.firebaseLogin(idToken);
+        // Also auth with QB worker (if Strike succeeded, this creates parallel session for QB)
+        if (data && data.ok) {
+            try {
+                var authUrl = 'https://ion-quickbooks.ion-mining.workers.dev';
+                var qbRes = await fetch(authUrl + '/auth/firebase-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: idToken })
+                });
+                var qbData = await qbRes.json();
+                console.log('[Wallet] QB worker auth:', qbData && qbData.ok ? 'success' : 'failed');
+            } catch (qbErr) {
+                console.warn('[Wallet] QB worker auth failed (non-critical):', qbErr);
+            }
         }
 
         if (data && data.ok) {
@@ -718,6 +723,15 @@ function clearAllWalletState() {
     activeSendQuote = null;
     totpEnabled = false;
     clearQuoteExpiry();
+
+    // Clear accounting data (QB and Strike)
+    qboConnected = false;
+    qboData = { accounts: [], expenses: [], invoices: [] };
+    acctStrikeConnected = false;
+    strikeAcctData = { deposits: [], payouts: [], receives: [] };
+    acctPeriod = { start: '', end: '' };
+    updateQboStatus(null);  // Clear QB connection UI badge
+
     // Close all open slide panels
     var panels = document.querySelectorAll('.slide-panel.open');
     for (var i = 0; i < panels.length; i++) {
@@ -727,6 +741,7 @@ function clearAllWalletState() {
     showSignInPrompt();
     renderWallet();
     renderTransactionHistory();
+    renderAccounting();  // Clear displayed accounting data
 }
 
 // ===== CONNECT STRIKE PROMPT =====
@@ -2109,13 +2124,17 @@ function showOnchainAddress(address) {
             saveBtn.disabled = false;
 
             if (data && data.ok) {
-                // Update local user
-                var user = StrikeAuth.getUser();
-                if (user) {
-                    user.strikeConnected = true;
-                    user.hasOwnKey = true;
-                    StrikeAuth.saveSession(StrikeAuth.getToken(), user);
-                }
+                // Update local user - create new if doesn't exist
+                var user = StrikeAuth.getUser() || { email: '', maxSendUsd: 1000, maxSendsPerHour: 5 };
+                user.strikeConnected = true;
+                user.hasOwnKey = true;
+                user.hasPin = user.hasPin || false;
+                user.has2FA = user.has2FA || false;
+
+                // Get token from current session or response
+                var token = StrikeAuth.getToken() || data.token || '';
+                StrikeAuth.saveSession(token, user);
+
                 hideConnectStrikePrompt();
                 updateAccountButtons();
                 // Show PIN creation UI — PIN is mandatory, cannot skip
@@ -3221,7 +3240,8 @@ if (typeof StrikeAuth !== 'undefined' && StrikeAuth.isLoggedIn()) {
 function loadStrikeAcctSettings() {
     var settings = FleetData.getSettings();
     if (settings.strike && settings.strike.proxyUrl && settings.strike.enabled) {
-        document.getElementById('strikeProxyUrlAcct').value = settings.strike.proxyUrl;
+        var proxyInput = document.getElementById('strikeProxyUrlAcct');
+        if (proxyInput) proxyInput.value = settings.strike.proxyUrl;
         acctStrikeConnected = true;
         if (StrikeAuth.isLoggedIn()) {
             updateStrikeAcctStatus('Connected & Authenticated');
@@ -3233,6 +3253,7 @@ function loadStrikeAcctSettings() {
 
 function updateStrikeAcctStatus(label) {
     var badge = document.getElementById('strikeStatusBadgeAcct');
+    if (!badge) return;  // Element doesn't exist - accounting tab has no status badge UI
     if (label) {
         badge.textContent = 'Strike: ' + label;
         badge.className = 'status-badge status-connected';
@@ -3243,9 +3264,19 @@ function updateStrikeAcctStatus(label) {
 }
 
 async function fetchStrikeAccountingData() {
-    if (!acctStrikeConnected) return;
+    console.log('[Accounting] Strike data fetch check:', {
+        acctStrikeConnected: acctStrikeConnected,
+        isLoggedIn: StrikeAuth.isLoggedIn(),
+        hasToken: !!StrikeAuth.getToken(),
+        hasUser: !!StrikeAuth.getUser()
+    });
+
+    if (!acctStrikeConnected) {
+        console.warn('[Accounting] Strike accounting not enabled (proxy URL not configured)');
+        return;
+    }
     if (!StrikeAuth.isLoggedIn()) {
-        console.warn('[Accounting] Strike not authenticated, skipping data fetch');
+        console.warn('[Accounting] Strike not authenticated - need to sign in with Google first');
         return;
     }
     try {
