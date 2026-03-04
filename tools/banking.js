@@ -422,9 +422,12 @@ async function autoLoginWithFirebase() {
             StrikeAuth.saveSession(data.token, data.user);
             showAuthenticatedUI();
 
-            // Check if Strike is separately connected
-            if (data.user.strikeConnected || StrikeAuth.hasStrike()) {
+            // Check if Strike is connected with user's own API key
+            if (data.user.strikeConnected && data.user.hasOwnKey) {
                 hideConnectStrikePrompt();
+            } else if (data.user.strikeConnected && !data.user.hasOwnKey) {
+                // User connected via proxy URL but doesn't have own key - show prompt
+                showConnectStrikePrompt();
             } else {
                 showConnectStrikePrompt();
             }
@@ -760,8 +763,9 @@ function loadStrikeSettings() {
     var settings = FleetData.getSettings();
     if (settings.strike && settings.strike.proxyUrl && settings.strike.enabled) {
         document.getElementById('walletStrikeProxyUrl').value = settings.strike.proxyUrl;
-        strikeConnected = true;
-        updateStrikeStatus('Connected');
+        // Don't auto-mark as connected based on proxy URL alone
+        // strikeConnected = true;  // REMOVED - wait for user to connect with API key
+        // updateStrikeStatus('Connected');  // REMOVED
     }
     updateSendButton();
     update2FAButton();

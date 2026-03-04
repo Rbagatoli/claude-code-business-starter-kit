@@ -55,9 +55,9 @@
         });
     }
 
-    function showPanel() {
+    async function showPanel() {
         panelOpen = true;
-        renderUserInfo();
+        await renderUserInfo();
         document.getElementById('profilePanel').classList.add('open');
         document.getElementById('profileBackdrop').classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -70,9 +70,18 @@
         document.body.style.overflow = '';
     }
 
-    function renderUserInfo() {
+    async function renderUserInfo() {
         var user = IonAuth.getUser();
         if (!user) return;
+
+        // ===== NEW: Reload user from Firebase to get fresh verification status =====
+        try {
+            await user.reload();
+            user = IonAuth.getUser(); // Get refreshed user object
+        } catch (err) {
+            console.warn('[Profile] Failed to reload user:', err);
+        }
+        // ============================================================================
 
         var initial = (user.displayName || user.email || '?').charAt(0).toUpperCase();
         var name = user.displayName || 'No name set';
@@ -225,6 +234,13 @@
 
     // ===== INIT =====
     injectProfilePanel();
+
+    // Auto-refresh profile when user returns to window (e.g., after clicking email verification link)
+    window.addEventListener('focus', function() {
+        if (document.getElementById('profilePanel').classList.contains('open')) {
+            renderUserInfo();
+        }
+    });
 
     // ===== PUBLIC API =====
     window.IonProfile = {

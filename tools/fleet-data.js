@@ -197,6 +197,17 @@ var FleetData = (function() {
         return fleet.miners.length === 0;
     }
 
+    function hasCompletedOnboarding() {
+        var settings = getSettings();
+        return settings.onboardingCompleted === true;
+    }
+
+    function setOnboardingCompleted(completed) {
+        var settings = getSettings();
+        settings.onboardingCompleted = completed;
+        saveSettings(settings);
+    }
+
     return {
         getFleet: getFleet,
         saveFleet: saveFleet,
@@ -208,6 +219,8 @@ var FleetData = (function() {
         getSettings: getSettings,
         saveSettings: saveSettings,
         getMockMiners: getMockMiners,
-        hasMockData: hasMockData
+        hasMockData: hasMockData,
+        hasCompletedOnboarding: hasCompletedOnboarding,
+        setOnboardingCompleted: setOnboardingCompleted
     };
 })();

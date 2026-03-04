@@ -6,8 +6,26 @@
     var ONBOARDED_KEY = 'ionMiningOnboarded';
     var STEP_KEY = 'ionMiningStep';
 
-    // Already completed onboarding
-    if (localStorage.getItem(ONBOARDED_KEY)) return;
+    // ===== NEW: Check Firestore for user-based onboarding status =====
+    var currentUser = (typeof IonAuth !== 'undefined') ? IonAuth.getUser() : null;
+    if (!currentUser) {
+        console.log('[Onboarding] No user signed in, skipping onboarding');
+        return;
+    }
+
+    // Migrate old localStorage to Firestore for this user
+    var localCompleted = localStorage.getItem(ONBOARDED_KEY);
+    if (localCompleted && typeof FleetData !== 'undefined') {
+        FleetData.setOnboardingCompleted(true);
+        console.log('[Onboarding] Migrated localStorage completion to Firestore');
+    }
+
+    // Check if user already completed onboarding
+    if (typeof FleetData !== 'undefined' && FleetData.hasCompletedOnboarding()) {
+        console.log('[Onboarding] User already completed onboarding');
+        return;
+    }
+    // ================================================================
 
     var steps = [
         {
@@ -169,7 +187,10 @@
     }
 
     function finish() {
-        localStorage.setItem(ONBOARDED_KEY, '1');
+        if (typeof FleetData !== 'undefined') {
+            FleetData.setOnboardingCompleted(true);
+        }
+        localStorage.setItem(ONBOARDED_KEY, '1'); // Keep for backward compatibility
         localStorage.removeItem(STEP_KEY);
         // Remove nav highlight
         var tabs = document.querySelectorAll('.ion-nav-tabs a');

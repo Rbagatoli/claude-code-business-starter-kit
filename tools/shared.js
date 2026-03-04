@@ -180,7 +180,7 @@ function initNav(activePage) {
                 SyncEngine.stopAll();
                 if (_wasSignedIn) {
                     _wasSignedIn = false;
-                    var preserve = ['sw_clean_v134', 'ionMiningOnboarded', 'ionMiningStep'];
+                    var preserve = ['sw_clean_v134'];  // Removed onboarding keys - now tracked per user in Firestore
                     var saved = {};
                     for (var i = 0; i < preserve.length; i++) {
                         var val = localStorage.getItem(preserve[i]);
