@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Ion Mining Group</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+            background: #f9fafb;
+        }
+        h1 {
+            color: #111;
+            border-bottom: 3px solid #f7931a;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #222;
+            margin-top: 30px;
+        }
+        .meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Privacy Policy</h1>
+        <p class="meta"><strong>Effective Date:</strong> March 3, 2026</p>
+        <p class="meta"><strong>Company:</strong> Ion Mining Group</p>
+
+        <h2>1. Introduction</h2>
+        <p>Ion Mining Group ("we", "us", "our") respects your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our QuickBooks integration.</p>
+
+        <h2>2. Information We Collect</h2>
+
+        <h3>2.1 QuickBooks Data</h3>
+        <p>When you authorize our application to access your QuickBooks account, we collect:</p>
+        <ul>
+            <li><strong>Account Information:</strong> Bank account names, types, balances, and currencies</li>
+            <li><strong>Transaction Data:</strong> Purchases, bills, expenses, vendors, amounts, and dates</li>
+            <li><strong>Invoice Data:</strong> Customer invoices, amounts, due dates, payment status</li>
+            <li><strong>Company Information:</strong> Company name, QuickBooks realm ID</li>
+        </ul>
+
+        <h3>2.2 Authentication Data</h3>
+        <ul>
+            <li><strong>Firebase Authentication:</strong> Google account email, user ID, authentication tokens</li>
+            <li><strong>OAuth Tokens:</strong> QuickBooks access tokens and refresh tokens (stored server-side)</li>
+            <li><strong>Session Data:</strong> Session tokens, creation timestamps, user associations</li>
+        </ul>
+
+        <h3>2.3 Usage Data</h3>
+        <ul>
+            <li>API request logs (timestamps, endpoints accessed)</li>
+            <li>Error logs for debugging and service improvement</li>
+            <li>Connection status (when you connect/disconnect QuickBooks)</li>
+        </ul>
+
+        <h2>3. How We Use Your Information</h2>
+        <p>We use the collected information to:</p>
+        <ul>
+            <li>Display your QuickBooks accounting data in our dashboard</li>
+            <li>Generate financial reports and profit/loss statements</li>
+            <li>Sync QuickBooks data with your Bitcoin mining operations data</li>
+            <li>Maintain and improve application performance</li>
+            <li>Provide customer support and troubleshooting</li>
+            <li>Ensure security and prevent fraud</li>
+        </ul>
+
+        <h2>4. Data Storage and Security</h2>
+
+        <h3>4.1 Storage Infrastructure</h3>
+        <ul>
+            <li><strong>Cloudflare Workers KV:</strong> OAuth tokens, session data, cached account information</li>
+            <li><strong>Firebase:</strong> User authentication and identity management</li>
+            <li><strong>Browser LocalStorage:</strong> Session tokens, user preferences (client-side only)</li>
+        </ul>
+
+        <h3>4.2 Security Measures</h3>
+        <ul>
+            <li>TLS/HTTPS encryption for all data transmission</li>
+            <li>OAuth 2.0 standard for secure authorization</li>
+            <li>Server-side token storage (tokens never exposed to browser)</li>
+            <li>CSRF protection on all OAuth flows</li>
+            <li>Automatic token refresh with rolling expiration</li>
+            <li>Session tokens with 30-day rolling expiration</li>
+        </ul>
+
+        <h2>5. Data Sharing and Disclosure</h2>
+        <p>We do NOT sell, rent, or trade your personal information or QuickBooks data to third parties.</p>
+
+        <h3>5.1 Third-Party Services</h3>
+        <p>We use the following third-party services:</p>
+        <ul>
+            <li><strong>Intuit QuickBooks:</strong> To retrieve your accounting data (via API)</li>
+            <li><strong>Firebase/Google:</strong> For user authentication</li>
+            <li><strong>Cloudflare:</strong> For secure hosting and data storage</li>
+        </ul>
+
+        <h3>5.2 Legal Requirements</h3>
+        <p>We may disclose your information if required to:</p>
+        <ul>
+            <li>Comply with legal obligations or court orders</li>
+            <li>Protect our rights, property, or safety</li>
+            <li>Prevent fraud or security threats</li>
+        </ul>
+
+        <h2>6. Data Retention</h2>
+        <ul>
+            <li><strong>OAuth Tokens:</strong> Deleted immediately upon disconnection</li>
+            <li><strong>Cached Data:</strong> Retained for up to 24 hours after disconnection</li>
+            <li><strong>Historical Data:</strong> Removed within 30 days of disconnection</li>
+            <li><strong>Session Tokens:</strong> Expire after 30 days of inactivity</li>
+            <li><strong>Access Tokens:</strong> Expire after 1 hour (automatically refreshed)</li>
+        </ul>
+
+        <h2>7. Your Rights and Choices</h2>
+        <p>You have the right to:</p>
+        <ul>
+            <li><strong>Access:</strong> Request a copy of your stored data</li>
+            <li><strong>Deletion:</strong> Request deletion of your data by disconnecting QuickBooks</li>
+            <li><strong>Correction:</strong> Update incorrect data through QuickBooks directly</li>
+            <li><strong>Revocation:</strong> Disconnect at any time via application settings</li>
+            <li><strong>Data Portability:</strong> Export your data in standard formats</li>
+        </ul>
+
+        <h2>8. Cookies and Tracking</h2>
+        <p>We use browser LocalStorage (not cookies) to:</p>
+        <ul>
+            <li>Store session authentication tokens</li>
+            <li>Remember user preferences</li>
+            <li>Cache wallet addresses and settings</li>
+        </ul>
+        <p>We do NOT use tracking cookies or third-party analytics.</p>
+
+        <h2>9. Children's Privacy</h2>
+        <p>Our application is not intended for users under the age of 18. We do not knowingly collect data from children.</p>
+
+        <h2>10. International Data Transfers</h2>
+        <p>Your data may be stored and processed in the United States and other countries where Cloudflare operates data centers. By using our application, you consent to this transfer.</p>
+
+        <h2>11. Changes to This Privacy Policy</h2>
+        <p>We may update this Privacy Policy from time to time. We will notify you of significant changes by updating the "Effective Date" at the top of this policy.</p>
+
+        <h2>12. California Privacy Rights (CCPA)</h2>
+        <p>California residents have additional rights under the California Consumer Privacy Act:</p>
+        <ul>
+            <li>Right to know what personal information is collected</li>
+            <li>Right to delete personal information</li>
+            <li>Right to opt-out of sale (we do not sell personal information)</li>
+            <li>Right to non-discrimination for exercising privacy rights</li>
+        </ul>
+
+        <h2>13. GDPR Compliance</h2>
+        <p>For European Union users, we comply with GDPR requirements:</p>
+        <ul>
+            <li><strong>Legal Basis:</strong> Processing is based on user consent</li>
+            <li><strong>Data Controller:</strong> Ion Mining Group</li>
+            <li><strong>Data Protection Rights:</strong> Access, rectification, erasure, restriction, portability</li>
+            <li><strong>Right to Withdraw Consent:</strong> Disconnect QuickBooks at any time</li>
+        </ul>
+
+        <h2>14. Contact Us</h2>
+        <p>For questions about this Privacy Policy or to exercise your privacy rights:</p>
+        <ul>
+            <li>Use the support interface within the application</li>
+            <li>Email: privacy@ionmininggroup.com (if applicable)</li>
+        </ul>
+
+        <h2>15. Consent</h2>
+        <p>By connecting your QuickBooks account to our application, you consent to the collection, use, and storage of your information as described in this Privacy Policy.</p>
+    </div>
+</body>
+</html>

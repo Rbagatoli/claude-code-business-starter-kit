@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End User License Agreement - Ion Mining Group</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+            background: #f9fafb;
+        }
+        h1 {
+            color: #111;
+            border-bottom: 3px solid #f7931a;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #222;
+            margin-top: 30px;
+        }
+        .meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>End User License Agreement</h1>
+        <p class="meta"><strong>Last Updated:</strong> March 3, 2026</p>
+        <p class="meta"><strong>Company:</strong> Ion Mining Group</p>
+
+        <h2>1. Acceptance of Terms</h2>
+        <p>By connecting your QuickBooks account to Ion Mining Group's accounting integration, you agree to be bound by this End User License Agreement ("Agreement").</p>
+
+        <h2>2. Data Collection</h2>
+        <p>We collect the following QuickBooks data with your authorization:</p>
+        <ul>
+            <li>Account information (bank accounts, credit card accounts)</li>
+            <li>Transaction data (expenses, purchases, bills)</li>
+            <li>Invoice data (customer invoices, payment status)</li>
+            <li>Company information (company name, realm ID)</li>
+        </ul>
+
+        <h2>3. Data Storage</h2>
+        <p>Your QuickBooks data is stored securely using:</p>
+        <ul>
+            <li>Cloudflare Workers KV storage (encrypted at rest)</li>
+            <li>OAuth 2.0 tokens for secure authentication</li>
+            <li>Rolling refresh tokens with 100-day expiration</li>
+        </ul>
+
+        <h2>4. Data Usage</h2>
+        <p>We use your QuickBooks data solely to:</p>
+        <ul>
+            <li>Display accounting information in your dashboard</li>
+            <li>Generate financial reports and analytics</li>
+            <li>Sync with your other business systems</li>
+        </ul>
+        <p>We do NOT sell, rent, or share your data with third parties.</p>
+
+        <h2>5. User Rights</h2>
+        <p>You have the right to:</p>
+        <ul>
+            <li>Disconnect QuickBooks at any time through the application interface</li>
+            <li>Request deletion of your stored data</li>
+            <li>Export your data in standard formats</li>
+            <li>Revoke access through QuickBooks' app management</li>
+        </ul>
+
+        <h2>6. Data Retention</h2>
+        <p>When you disconnect QuickBooks:</p>
+        <ul>
+            <li>Your OAuth tokens are immediately deleted from our systems</li>
+            <li>Cached account data may persist for up to 24 hours</li>
+            <li>Historical transaction data is removed within 30 days</li>
+        </ul>
+
+        <h2>7. Security</h2>
+        <p>We implement industry-standard security measures including:</p>
+        <ul>
+            <li>HTTPS/TLS encryption for all data transmission</li>
+            <li>Server-side token storage (never exposed to browser)</li>
+            <li>CSRF protection for OAuth flows</li>
+            <li>Session-based authentication with 30-day rolling expiration</li>
+        </ul>
+
+        <h2>8. Limitations of Liability</h2>
+        <p>This application is provided "as is" without warranties. We are not liable for:</p>
+        <ul>
+            <li>QuickBooks API downtime or rate limiting</li>
+            <li>Data synchronization delays</li>
+            <li>Changes to QuickBooks' API or policies</li>
+        </ul>
+
+        <h2>9. Changes to Agreement</h2>
+        <p>We may update this Agreement from time to time. Continued use of the application after changes constitutes acceptance of the updated terms.</p>
+
+        <h2>10. Termination</h2>
+        <p>We reserve the right to terminate access to the application for:</p>
+        <ul>
+            <li>Violation of these terms</li>
+            <li>Abuse or misuse of the service</li>
+            <li>Suspected security breaches</li>
+        </ul>
+
+        <h2>11. Contact Information</h2>
+        <p>For questions about this Agreement or data practices, contact us through the application support interface.</p>
+
+        <h2>12. Governing Law</h2>
+        <p>This Agreement is governed by the laws of the United States and the state in which the company is registered.</p>
+    </div>
+</body>
+</html>
