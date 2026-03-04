@@ -1715,15 +1715,21 @@ function update2FAButton() {
     if (btn) btn.style.display = (strikeConnected && StrikeAuth.isLoggedIn()) ? '' : 'none';
 }
 
-document.getElementById('btnSetup2FA').addEventListener('click', function() {
-    document.getElementById('twofa-setup-content').style.display = '';
-    document.getElementById('twofa-setup-result').style.display = 'none';
-    document.getElementById('setup2FAPanel').classList.toggle('open');
-});
+var btn2FA = document.getElementById('btnSetup2FA');
+if (btn2FA) {
+    btn2FA.addEventListener('click', function() {
+        document.getElementById('twofa-setup-content').style.display = '';
+        document.getElementById('twofa-setup-result').style.display = 'none';
+        document.getElementById('setup2FAPanel').classList.toggle('open');
+    });
+}
 
-document.getElementById('cancel2FA').addEventListener('click', function() {
-    document.getElementById('setup2FAPanel').classList.remove('open');
-});
+var cancel2FA = document.getElementById('cancel2FA');
+if (cancel2FA) {
+    cancel2FA.addEventListener('click', function() {
+        document.getElementById('setup2FAPanel').classList.remove('open');
+    });
+}
 
 document.getElementById('btnGenerate2FA').addEventListener('click', function() {
     var secret = generateBase32Secret(16);

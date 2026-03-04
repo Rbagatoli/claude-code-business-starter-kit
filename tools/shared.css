@@ -936,31 +936,11 @@ footer {
     grid-gap: 16px !important; /* Fallback for older browsers */
 }
 
-/* Banking header with nav bar and connection buttons */
-.banking-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    margin-bottom: 24px;
-    padding: 0 16px;
-}
-
-.banking-header .banking-tab-bar {
-    flex: 1;
-    padding: 0;
-    background: none;
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
+/* Banking connections (in header) */
 .banking-connections {
     display: flex;
     gap: 12px;
     align-items: center;
-    padding: 8px 0;
     flex-shrink: 0;
 }
 
