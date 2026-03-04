@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Banking</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=217">
+    <link rel="stylesheet" href="./shared.css?v=218">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -16,7 +16,7 @@
         });
     }
     </script>
-    <script src="./chart.min.js?v=217"></script>
+    <script src="./chart.min.js?v=218"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -912,32 +912,6 @@
 
 
     <!-- ===== Accounting panels ===== -->
-    <div class="slide-panel" id="qboConnectPanel">
-        <div class="panel-inner">
-            <h4>QuickBooks Connection</h4>
-            <p style="font-size:12px; color:#888; margin:0 0 15px;">Connect your QuickBooks company to sync accounting data.</p>
-
-            <div id="qboNotConnected">
-                <button class="btn btn-primary" id="connectQbo" style="width:100%;margin-bottom:10px;">
-                    Connect QuickBooks
-                </button>
-                <p style="color:#888;font-size:11px;margin-top:10px;">
-                    Sign in with Google first (top right) before connecting QuickBooks.
-                </p>
-            </div>
-
-            <div id="qboConnected" style="display:none;">
-                <div style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:8px;padding:12px;margin-bottom:15px;">
-                    <div style="font-size:14px;color:#4ade80;margin-bottom:5px;">✓ Connected</div>
-                    <div style="font-size:12px;color:#888;" id="qboCompanyName">Company Name</div>
-                </div>
-                <button class="btn btn-secondary" id="disconnectQbo" style="width:100%;">Disconnect</button>
-            </div>
-
-            <div id="qboTestResult" style="margin-top:15px;font-size:12px;"></div>
-        </div>
-    </div>
-
     <!-- ===== TAX EXPORT PANEL ===== -->
     <div class="slide-panel" id="taxExportPanel">
         <div class="panel-inner">
@@ -986,6 +960,33 @@
 
     </div><!-- /tabAccounting -->
 
+    <!-- ===== GLOBAL PANELS (accessible from any tab) ===== -->
+    <div class="slide-panel" id="qboConnectPanel">
+        <div class="panel-inner">
+            <h4>QuickBooks Connection</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 15px;">Connect your QuickBooks company to sync accounting data.</p>
+
+            <div id="qboNotConnected">
+                <button class="btn btn-primary" id="connectQbo" style="width:100%;margin-bottom:10px;">
+                    Connect QuickBooks
+                </button>
+                <p style="color:#888;font-size:11px;margin-top:10px;">
+                    Sign in with Google first (top right) before connecting QuickBooks.
+                </p>
+            </div>
+
+            <div id="qboConnected" style="display:none;">
+                <div style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:8px;padding:12px;margin-bottom:15px;">
+                    <div style="font-size:14px;color:#4ade80;margin-bottom:5px;">✓ Connected</div>
+                    <div style="font-size:12px;color:#888;" id="qboCompanyName">Company Name</div>
+                </div>
+                <button class="btn btn-secondary" id="disconnectQbo" style="width:100%;">Disconnect</button>
+            </div>
+
+            <div id="qboTestResult" style="margin-top:15px;font-size:12px;"></div>
+        </div>
+    </div>
+
 </main>
 
 <footer>
@@ -996,15 +997,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=217"></script>
-<script src="./sync.js?v=217"></script>
-<script src="./auth-ui.js?v=217"></script>
-<script src="./profile-panel.js?v=217"></script>
-<script src="./shared.js?v=217"></script>
-<script src="./fleet-data.js?v=217"></script>
-<script src="./widget-settings.js?v=217"></script>
-<script src="./banking.js?v=217"></script>
-<script src="./alerts.js?v=217"></script>
-<script src="./onboarding.js?v=217"></script>
+<script src="./firebase-config.js?v=218"></script>
+<script src="./sync.js?v=218"></script>
+<script src="./auth-ui.js?v=218"></script>
+<script src="./profile-panel.js?v=218"></script>
+<script src="./shared.js?v=218"></script>
+<script src="./fleet-data.js?v=218"></script>
+<script src="./widget-settings.js?v=218"></script>
+<script src="./banking.js?v=218"></script>
+<script src="./alerts.js?v=218"></script>
+<script src="./onboarding.js?v=218"></script>
 </body>
 </html>

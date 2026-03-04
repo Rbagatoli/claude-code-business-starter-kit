@@ -392,15 +392,27 @@ async function autoLoginWithFirebase() {
     // Exchange Firebase ID token for worker session
     try {
         var idToken = await fbUser.getIdToken(true); // force refresh
-        var data = await StrikeAPI.firebaseLogin(idToken);
+
+        // Use QuickBooks worker for Firebase auth (no Strike dependency)
+        var authUrl = 'https://ion-quickbooks.ion-mining.workers.dev';
+        var res = await fetch(authUrl + '/auth/firebase-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken: idToken })
+        });
+        var data = await res.json();
+
         if (data && data.ok) {
             StrikeAuth.saveSession(data.token, data.user);
             showAuthenticatedUI();
-            if (data.user.strikeConnected) {
+
+            // Check if Strike is separately connected
+            if (StrikeAuth.hasStrike()) {
                 hideConnectStrikePrompt();
             } else {
                 showConnectStrikePrompt();
             }
+
             await loadAndRefreshWallet();
             if (acctStrikeConnected) await fetchStrikeAccountingData();
         } else {
@@ -2948,10 +2960,10 @@ function getQboProxyUrl() {
 }
 
 async function connectQuickBooks() {
-    // Requires Strike authentication for worker access
+    // Requires Firebase authentication for worker access
     const token = StrikeAuth.getToken();
     if (!token) {
-        alert('Please connect Strike first before connecting QuickBooks.\n\n1. Sign in with Google (top right)\n2. Click "Connect Strike"\n3. Then connect QuickBooks');
+        alert('Please sign in with Google first (top right corner)');
         return;
     }
 

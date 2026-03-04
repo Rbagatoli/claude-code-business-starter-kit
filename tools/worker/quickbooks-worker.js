@@ -6,6 +6,7 @@
 //   QBO_CLIENT_ID - QuickBooks app client ID
 //   QBO_CLIENT_SECRET - QuickBooks app client secret
 //   QBO_ENVIRONMENT - "production" or "sandbox"
+//   FIREBASE_API_KEY - Firebase Web API Key for token verification
 
 var QBO_TOKEN_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
 
@@ -46,6 +47,16 @@ function generateState() {
         hex += ('0' + arr[i].toString(16)).slice(-2);
     }
     return 'state_' + hex;
+}
+
+function generateSessionToken() {
+    var arr = new Uint8Array(24);
+    crypto.getRandomValues(arr);
+    var hex = '';
+    for (var i = 0; i < arr.length; i++) {
+        hex += ('0' + arr[i].toString(16)).slice(-2);
+    }
+    return 'sess_' + hex;
 }
 
 // ===== SESSION AUTHENTICATION =====
@@ -249,6 +260,73 @@ async function handleQboStatus(request, env, origin) {
     }, 200, origin);
 }
 
+async function handleFirebaseLogin(request, env, origin) {
+    try {
+        var body = await request.json();
+        var idToken = body.idToken;
+
+        if (!idToken) {
+            return jsonResponse({ error: 'idToken required' }, 400, origin);
+        }
+
+        // Verify Firebase ID token with Google
+        var apiKey = env.FIREBASE_API_KEY || 'AIzaSyDummyKeyForDev';
+        var verifyUrl = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key=' + apiKey;
+
+        var verifyRes = await fetch(verifyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken: idToken })
+        });
+
+        if (!verifyRes.ok) {
+            var errorText = await verifyRes.text();
+            return jsonResponse({ error: 'Firebase token verification failed: ' + errorText }, 401, origin);
+        }
+
+        var userData = await verifyRes.json();
+
+        if (!userData.users || !userData.users[0]) {
+            return jsonResponse({ error: 'Invalid Firebase token' }, 401, origin);
+        }
+
+        var user = userData.users[0];
+        var sessionToken = generateSessionToken();
+
+        // Store session in KV (30-day TTL)
+        var sessionData = {
+            userId: user.localId,
+            email: user.email,
+            createdAt: Date.now()
+        };
+        await env.SETTINGS.put('session:' + sessionToken, JSON.stringify(sessionData), { expirationTtl: SESSION_TTL });
+
+        // Store/update user record
+        var userRecord = {
+            id: user.localId,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            photoURL: user.photoUrl || null,
+            disabled: false,
+            lastLogin: new Date().toISOString()
+        };
+        await env.SETTINGS.put('user:' + user.localId, JSON.stringify(userRecord));
+
+        return jsonResponse({
+            ok: true,
+            token: sessionToken,
+            user: {
+                id: user.localId,
+                email: user.email,
+                displayName: userRecord.displayName
+            }
+        }, 200, origin);
+
+    } catch (e) {
+        return jsonResponse({ error: 'Firebase login error: ' + e.message }, 500, origin);
+    }
+}
+
 function getOAuthCallbackHTML(success, companyName) {
     if (success) {
         return '<!DOCTYPE html><html><head><title>QuickBooks Connected</title>' +
@@ -293,18 +371,25 @@ export default {
             return jsonResponse({ ok: true, service: 'QuickBooks OAuth Proxy', environment: env.QBO_ENVIRONMENT || 'not configured' }, 200, origin);
         }
 
-        // OAuth routes
-        if (path === '/auth/qbo/initiate' && request.method === 'POST') {
-            return handleQboInitiate(request, env, origin);
-        }
-        if (path === '/auth/qbo/callback' && request.method === 'GET') {
-            return handleQboCallback(request, env, origin);
-        }
-        if (path === '/auth/qbo/disconnect' && request.method === 'POST') {
-            return handleQboDisconnect(request, env, origin);
-        }
-        if (path === '/auth/qbo/status' && request.method === 'GET') {
-            return handleQboStatus(request, env, origin);
+        // OAuth routes (with error handling)
+        try {
+            if (path === '/auth/firebase-login' && request.method === 'POST') {
+                return await handleFirebaseLogin(request, env, origin);
+            }
+            if (path === '/auth/qbo/initiate' && request.method === 'POST') {
+                return await handleQboInitiate(request, env, origin);
+            }
+            if (path === '/auth/qbo/callback' && request.method === 'GET') {
+                return await handleQboCallback(request, env, origin);
+            }
+            if (path === '/auth/qbo/disconnect' && request.method === 'POST') {
+                return await handleQboDisconnect(request, env, origin);
+            }
+            if (path === '/auth/qbo/status' && request.method === 'GET') {
+                return await handleQboStatus(request, env, origin);
+            }
+        } catch (e) {
+            return jsonResponse({ error: 'OAuth error: ' + e.message }, 500, origin);
         }
 
         // All data routes require GET method
