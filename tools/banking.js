@@ -372,7 +372,8 @@ async function autoLoginWithFirebase() {
     // Already have a valid worker session? Just use it.
     if (StrikeAuth.isLoggedIn()) {
         showAuthenticatedUI();
-        if (StrikeAuth.hasStrike()) {
+        var user = StrikeAuth.getUser();
+        if (user && user.strikeConnected && user.hasOwnKey) {
             hideConnectStrikePrompt();
         } else {
             showConnectStrikePrompt();
@@ -609,6 +610,7 @@ var StrikeAPI = (function() {
     async function getPayouts() { return await apiFetch('/payouts'); }
     async function getReceives() { return await apiFetch('/receives'); }
     async function getInvoices() { return await apiFetch('/invoices'); }
+    async function getPayments() { return await apiFetch('/payments'); }
 
     async function testConnection() {
         return await apiPublicFetch('/ping');
@@ -644,6 +646,7 @@ var StrikeAPI = (function() {
         getPayouts: getPayouts,
         getReceives: getReceives,
         getInvoices: getInvoices,
+        getPayments: getPayments,
         testConnection: testConnection,
         sendQuoteLightning: sendQuoteLightning,
         sendQuoteOnchain: sendQuoteOnchain,
@@ -819,10 +822,11 @@ async function fetchStrikeData() {
 
     var strikeTxs = [];
     try {
-        var [deposits, payouts, receives] = await Promise.all([
+        var [deposits, payouts, receives, payments] = await Promise.all([
             StrikeAPI.getDeposits(),
             StrikeAPI.getPayouts(),
-            StrikeAPI.getReceives()
+            StrikeAPI.getReceives(),
+            StrikeAPI.getPayments()
         ]);
 
         if (deposits && !deposits.error && Array.isArray(deposits.items || deposits)) {
@@ -866,6 +870,32 @@ async function fetchStrikeData() {
                     amount: parseStrikeAmount(rec.amountReceived || rec.amountCredited || rec.amount || rec),
                     status: rec.state || rec.status || 'completed',
                     id: rec.receiveId || rec.id || ''
+                });
+            }
+        }
+
+        // Process payments (Bitcoin sends, Lightning sends)
+        if (payments && !payments.error && Array.isArray(payments.items || payments)) {
+            var payItems = payments.items || payments;
+            for (var pm = 0; pm < payItems.length; pm++) {
+                var payment = payItems[pm];
+
+                // Determine payment type and amount
+                var isOutbound = payment.direction === 'out' || payment.amount < 0;
+                var paymentAmount = parseStrikeAmount(payment.amount || payment.total || payment);
+
+                // Make outbound payments negative
+                if (isOutbound && paymentAmount > 0) {
+                    paymentAmount = -paymentAmount;
+                }
+
+                strikeTxs.push({
+                    source: 'Strike',
+                    sourceType: isOutbound ? 'Send' : 'Payment',
+                    timestamp: new Date(payment.created || payment.completedAt || payment.createdAt).getTime() / 1000,
+                    amount: paymentAmount,
+                    status: (payment.state || payment.status || 'completed').toLowerCase(),
+                    id: payment.paymentId || payment.id || ''
                 });
             }
         }
@@ -3284,10 +3314,11 @@ async function fetchStrikeAccountingData() {
         return;
     }
     try {
-        var [deposits, payouts, receives] = await Promise.all([
+        var [deposits, payouts, receives, payments] = await Promise.all([
             StrikeAPI.getDeposits(),
             StrikeAPI.getPayouts(),
-            StrikeAPI.getReceives()
+            StrikeAPI.getReceives(),
+            StrikeAPI.getPayments()
         ]);
 
         // Extract .items from API response (format: { items: [...] } or just [...])
