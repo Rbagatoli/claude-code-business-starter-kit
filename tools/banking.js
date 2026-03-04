@@ -4242,7 +4242,7 @@ initNav('banking');
 
     // Accounting init
     setPeriod('month');
-    loadQboSettings();
+    checkQboConnectionStatus();  // Check QB connection status instead
     loadStrikeAcctSettings();
     await loadAccountingData();
     await fetchStrikeAccountingData();
