@@ -3032,6 +3032,7 @@ async function disconnectStrike() {
         settings.strike = { proxyUrl: '', enabled: false };
         FleetData.saveSettings(settings);
         strikeConnected = false;
+        acctStrikeConnected = false;  // Clear accounting flag
 
         // Update global UI
         var btnConnect = document.getElementById('btnConnectStrikeGlobal');
@@ -3046,7 +3047,13 @@ async function disconnectStrike() {
         strikeBalances = [];
         strikes = [];
         strikeTransactions = [];
+
+        // Clear Strike accounting data
+        strikeAcctData = { deposits: [], payouts: [], receives: [] };
+
+        // Refresh both tabs
         renderWallet();
+        renderAccounting();
 
         alert('Strike disconnected successfully');
     } catch (err) {
