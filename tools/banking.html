@@ -28,11 +28,39 @@
     <p style="color:#888; font-size:12px;">Wallet, income tracking, and accounting</p>
 </header>
 
-<!-- TAB BAR -->
-<div class="banking-tab-bar" id="bankingTabs">
-    <button class="banking-tab active" data-tab="wallet">Wallet</button>
-    <button class="banking-tab" data-tab="income">Income</button>
-    <button class="banking-tab" data-tab="accounting">Accounting</button>
+<!-- TAB BAR WITH CONNECTION BUTTONS -->
+<div class="banking-header">
+    <div class="banking-tab-bar" id="bankingTabs">
+        <button class="banking-tab active" data-tab="wallet">Wallet</button>
+        <button class="banking-tab" data-tab="income">Income</button>
+        <button class="banking-tab" data-tab="accounting">Accounting</button>
+    </div>
+
+    <div class="banking-connections">
+        <!-- QuickBooks Connection -->
+        <div class="connection-status" id="qbConnectionStatus">
+            <button class="btn-connect" id="btnConnectQbGlobal" style="display:none;">
+                Connect QuickBooks
+            </button>
+            <span class="connected-badge" id="qbConnectedBadge" style="display:none;">
+                <span class="status-indicator connected"></span>
+                <span id="qbConnectedName">QuickBooks</span>
+                <button class="btn-disconnect" id="btnDisconnectQbGlobal">×</button>
+            </span>
+        </div>
+
+        <!-- Strike Connection -->
+        <div class="connection-status" id="strikeConnectionStatus">
+            <button class="btn-connect" id="btnConnectStrikeGlobal" style="display:none;">
+                Connect Strike
+            </button>
+            <span class="connected-badge" id="strikeConnectedBadge" style="display:none;">
+                <span class="status-indicator connected"></span>
+                <span>Strike Connected</span>
+                <button class="btn-disconnect" id="btnDisconnectStrikeGlobal">×</button>
+            </span>
+        </div>
+    </div>
 </div>
 
 <main>
@@ -45,19 +73,6 @@
     <!-- Watch-Only Banner -->
     <div class="card" style="background:rgba(74,222,128,0.08); border-color:rgba(74,222,128,0.25); margin-bottom:16px; padding:12px 16px;">
         <p style="font-size:13px; color:#4ade80; margin:0;">Watch-only wallet &mdash; monitors on-chain balances. No private keys stored.</p>
-    </div>
-
-    <!-- ===== STRIKE CONNECTION STATUS ===== -->
-    <div class="dashboard-actions" style="justify-content: space-between; align-items: center;">
-        <div>
-            <span id="strikeStatusBadge" class="status-badge status-disconnected">Strike: Not Connected</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary" id="btnConnectStrike">Connect Strike</button>
-            <button class="btn btn-secondary" id="btnSetup2FA" style="display:none;">Setup 2FA</button>
-
-            <button class="btn btn-secondary" id="btnAccountSettings" style="display:none;">Settings</button>
-        </div>
     </div>
 
     <!-- ===== USER AUTH BAR (shown when logged in) ===== -->
@@ -274,8 +289,8 @@
         </div>
     </div>
 
-    <!-- ===== WALLET STRIKE CONNECT PANEL (renamed from strikeConnectPanel) ===== -->
-    <div class="slide-panel" id="walletStrikeConnectPanel">
+    <!-- ===== STRIKE CONNECT PANEL (Global) ===== -->
+    <div class="slide-panel" id="strikeConnectPanel">
         <div class="panel-inner">
             <h4>Connect Strike Proxy</h4>
             <p style="font-size:12px; color:#888; margin:0 0 12px;">Enter your Strike proxy worker URL. Deploy the worker from <code style="color:#f7931a;">tools/worker-strike/</code> with your API key as a secret.</p>
@@ -724,17 +739,6 @@
     <div class="banking-tab-content" id="tabAccounting" style="display:none;">
 
     <!-- ===== QBO + STRIKE STATUS ===== -->
-    <div class="dashboard-actions" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <span id="qboStatusBadge" class="status-badge status-disconnected">QuickBooks: Not Connected</span>
-            <span id="strikeStatusBadgeAcct" class="status-badge status-disconnected">Strike: Not Connected</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary" id="btnConnectQbo">Connect QuickBooks</button>
-            <button class="btn btn-secondary" id="btnConnectStrikeAcct">Connect Strike</button>
-        </div>
-    </div>
-
     <!-- ===== PERIOD SELECTOR ===== -->
     <div class="card" style="padding: 10px 14px;">
         <div class="time-range-selector" id="periodSelector" style="margin-bottom: 0;">
@@ -933,28 +937,6 @@
             </div>
 
             <div id="qboTestResult" style="margin-top:15px;font-size:12px;"></div>
-        </div>
-    </div>
-
-    <!-- ===== ACCT STRIKE CONNECT PANEL (renamed from accounting's strikeConnectPanel) ===== -->
-    <div class="slide-panel" id="acctStrikeConnectPanel">
-        <div class="panel-inner">
-            <h4>Connect Strike Account</h4>
-            <p style="font-size:12px; color:#888; margin:0 0 12px;">Enter your Strike proxy worker URL. Deploy the worker from <code style="color:#f7931a;">tools/worker-strike/</code> with your API key as a secret.</p>
-            <div class="panel-form-grid">
-                <div class="input-group">
-                    <label>Strike Proxy URL</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="strikeProxyUrlAcct" placeholder="https://ion-strike-proxy.your-name.workers.dev">
-                    </div>
-                </div>
-            </div>
-            <div class="panel-actions">
-                <button class="btn btn-secondary" id="cancelStrikeAcct">Cancel</button>
-                <button class="btn btn-secondary" id="testStrikeAcct">Test Connection</button>
-                <button class="btn btn-primary" id="saveStrikeAcct">Save</button>
-            </div>
-            <div id="strikeTestResultAcct" style="margin-top:10px; font-size:12px;"></div>
         </div>
     </div>
 

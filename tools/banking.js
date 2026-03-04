@@ -733,11 +733,25 @@ function loadStrikeSettings() {
 function updateStrikeStatus(label) {
     var badge = document.getElementById('strikeStatusBadge');
     if (label) {
-        badge.textContent = 'Strike: ' + label;
-        badge.className = 'status-badge status-connected';
+        if (badge) {
+            badge.textContent = 'Strike: ' + label;
+            badge.className = 'status-badge status-connected';
+        }
+        // Update global nav bar
+        var btnConnect = document.getElementById('btnConnectStrikeGlobal');
+        var badgeConnected = document.getElementById('strikeConnectedBadge');
+        if (btnConnect) btnConnect.style.display = 'none';
+        if (badgeConnected) badgeConnected.style.display = 'flex';
     } else {
-        badge.textContent = 'Strike: Not Connected';
-        badge.className = 'status-badge status-disconnected';
+        if (badge) {
+            badge.textContent = 'Strike: Not Connected';
+            badge.className = 'status-badge status-disconnected';
+        }
+        // Update global nav bar
+        var btnConnect = document.getElementById('btnConnectStrikeGlobal');
+        var badgeConnected = document.getElementById('strikeConnectedBadge');
+        if (btnConnect) btnConnect.style.display = 'block';
+        if (badgeConnected) badgeConnected.style.display = 'none';
     }
 }
 
@@ -1276,11 +1290,11 @@ document.getElementById('btnConnectStrike').addEventListener('click', function()
         document.getElementById('walletStrikeProxyUrl').value = settings.strike.proxyUrl;
     }
     document.getElementById('walletStrikeTestResult').innerHTML = '';
-    document.getElementById('walletStrikeConnectPanel').classList.toggle('open');
+    document.getElementById('strikeConnectPanel').classList.toggle('open');
 });
 
 document.getElementById('cancelWalletStrike').addEventListener('click', function() {
-    document.getElementById('walletStrikeConnectPanel').classList.remove('open');
+    document.getElementById('strikeConnectPanel').classList.remove('open');
 });
 
 document.getElementById('testWalletStrike').addEventListener('click', async function() {
@@ -1320,7 +1334,7 @@ document.getElementById('saveWalletStrike').addEventListener('click', async func
 
     if (!url) {
         disconnectStrike();
-        document.getElementById('walletStrikeConnectPanel').classList.remove('open');
+        document.getElementById('strikeConnectPanel').classList.remove('open');
         return;
     }
 
@@ -1331,7 +1345,7 @@ document.getElementById('saveWalletStrike').addEventListener('click', async func
     updateSendButton();
     update2FAButton();
     updateAccountButtons();
-    document.getElementById('walletStrikeConnectPanel').classList.remove('open');
+    document.getElementById('strikeConnectPanel').classList.remove('open');
 
     // Auto-login with Firebase if signed in
     await autoLoginWithFirebase();
@@ -2918,7 +2932,9 @@ function getQboProxyUrl() {
 }
 
 async function connectQuickBooks() {
-    if (!StrikeAuth.isLoggedIn()) {
+    // Direct token check instead of StrikeAuth.isLoggedIn() to avoid cache issues
+    const token = StrikeAuth.getToken();
+    if (!token) {
         alert('Please sign in with Google first (top right corner)');
         return;
     }
@@ -2986,6 +3002,33 @@ async function disconnectQuickBooks() {
     }
 }
 
+async function disconnectStrike() {
+    if (!confirm('Disconnect Strike? You will need to reconnect to view wallet data.')) {
+        return;
+    }
+
+    try {
+        // Clear Strike session
+        StrikeAuth.clearStrikeSession();
+
+        // Update global UI
+        var btnConnect = document.getElementById('btnConnectStrikeGlobal');
+        var badge = document.getElementById('strikeConnectedBadge');
+        if (btnConnect) btnConnect.style.display = 'block';
+        if (badge) badge.style.display = 'none';
+
+        // Clear Strike wallet data
+        if (typeof clearStrikeWalletData === 'function') {
+            clearStrikeWalletData();
+        }
+
+        alert('Strike disconnected successfully');
+    } catch (err) {
+        console.error('Strike disconnect error:', err);
+        alert('Failed to disconnect Strike: ' + err.message);
+    }
+}
+
 async function checkQboConnectionStatus() {
     if (!StrikeAuth.isLoggedIn()) return;
 
@@ -3020,6 +3063,11 @@ function updateQboStatus(companyName) {
     var connected = document.getElementById('qboConnected');
     var companyNameEl = document.getElementById('qboCompanyName');
 
+    // Update global nav bar badges
+    var btnConnectGlobal = document.getElementById('btnConnectQbGlobal');
+    var badgeConnected = document.getElementById('qbConnectedBadge');
+    var badgeName = document.getElementById('qbConnectedName');
+
     if (companyName) {
         if (badge) {
             badge.textContent = 'QuickBooks: ' + companyName;
@@ -3028,6 +3076,11 @@ function updateQboStatus(companyName) {
         if (notConnected) notConnected.style.display = 'none';
         if (connected) connected.style.display = '';
         if (companyNameEl) companyNameEl.textContent = companyName;
+
+        // Update global nav bar
+        if (btnConnectGlobal) btnConnectGlobal.style.display = 'none';
+        if (badgeConnected) badgeConnected.style.display = 'flex';
+        if (badgeName) badgeName.textContent = companyName;
     } else {
         if (badge) {
             badge.textContent = 'QuickBooks: Not Connected';
@@ -3035,6 +3088,10 @@ function updateQboStatus(companyName) {
         }
         if (notConnected) notConnected.style.display = '';
         if (connected) connected.style.display = 'none';
+
+        // Update global nav bar
+        if (btnConnectGlobal) btnConnectGlobal.style.display = 'block';
+        if (badgeConnected) badgeConnected.style.display = 'none';
     }
 }
 
@@ -4083,6 +4140,36 @@ initNav('banking');
     }
     await loadAndRefreshWallet();
     startAutoRefresh();
+
+    // Wire up global connection buttons in nav bar
+    var btnConnectQbGlobal = document.getElementById('btnConnectQbGlobal');
+    if (btnConnectQbGlobal) {
+        btnConnectQbGlobal.addEventListener('click', function() {
+            document.getElementById('qboConnectPanel').classList.add('open');
+        });
+    }
+
+    var btnConnectStrikeGlobal = document.getElementById('btnConnectStrikeGlobal');
+    if (btnConnectStrikeGlobal) {
+        btnConnectStrikeGlobal.addEventListener('click', function() {
+            var settings = FleetData.getSettings();
+            if (settings.strike && settings.strike.proxyUrl) {
+                document.getElementById('walletStrikeProxyUrl').value = settings.strike.proxyUrl;
+            }
+            document.getElementById('walletStrikeTestResult').innerHTML = '';
+            document.getElementById('strikeConnectPanel').classList.add('open');
+        });
+    }
+
+    var btnDisconnectQbGlobal = document.getElementById('btnDisconnectQbGlobal');
+    if (btnDisconnectQbGlobal) {
+        btnDisconnectQbGlobal.addEventListener('click', disconnectQuickBooks);
+    }
+
+    var btnDisconnectStrikeGlobal = document.getElementById('btnDisconnectStrikeGlobal');
+    if (btnDisconnectStrikeGlobal) {
+        btnDisconnectStrikeGlobal.addEventListener('click', disconnectStrike);
+    }
 
     // Re-init widget drag handles for Wallet tab after DOM is ready
     if (typeof window.initBankingTabWidgets === 'function') {
