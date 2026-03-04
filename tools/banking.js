@@ -1284,14 +1284,18 @@ document.getElementById('btnRefreshBalances').addEventListener('click', function
 });
 
 // ===== STRIKE PANEL HANDLERS =====
-document.getElementById('btnConnectStrike').addEventListener('click', function() {
-    var settings = FleetData.getSettings();
-    if (settings.strike && settings.strike.proxyUrl) {
-        document.getElementById('walletStrikeProxyUrl').value = settings.strike.proxyUrl;
-    }
-    document.getElementById('walletStrikeTestResult').innerHTML = '';
-    document.getElementById('strikeConnectPanel').classList.toggle('open');
-});
+// Old button removed - now using btnConnectStrikeGlobal
+var oldStrikeBtn = document.getElementById('btnConnectStrike');
+if (oldStrikeBtn) {
+    oldStrikeBtn.addEventListener('click', function() {
+        var settings = FleetData.getSettings();
+        if (settings.strike && settings.strike.proxyUrl) {
+            document.getElementById('walletStrikeProxyUrl').value = settings.strike.proxyUrl;
+        }
+        document.getElementById('walletStrikeTestResult').innerHTML = '';
+        document.getElementById('strikeConnectPanel').classList.toggle('open');
+    });
+}
 
 document.getElementById('cancelWalletStrike').addEventListener('click', function() {
     document.getElementById('strikeConnectPanel').classList.remove('open');
@@ -3095,9 +3099,13 @@ function updateQboStatus(companyName) {
     }
 }
 
-document.getElementById('btnConnectQbo').addEventListener('click', function() {
-    document.getElementById('qboConnectPanel').classList.toggle('open');
-});
+// Old button removed - now using btnConnectQbGlobal
+var oldQboBtn = document.getElementById('btnConnectQbo');
+if (oldQboBtn) {
+    oldQboBtn.addEventListener('click', function() {
+        document.getElementById('qboConnectPanel').classList.toggle('open');
+    });
+}
 
 var connectBtn = document.getElementById('connectQbo');
 if (connectBtn) connectBtn.addEventListener('click', connectQuickBooks);
@@ -3177,15 +3185,21 @@ function strikeItemDate(item) {
     return d.substring(0, 10); // YYYY-MM-DD
 }
 
-// Strike panel handlers
-document.getElementById('btnConnectStrikeAcct').addEventListener('click', function() {
-    var settings = FleetData.getSettings();
-    if (settings.strike && settings.strike.proxyUrl) {
-        document.getElementById('strikeProxyUrlAcct').value = settings.strike.proxyUrl;
-    }
-    document.getElementById('strikeTestResultAcct').innerHTML = '';
-    document.getElementById('acctStrikeConnectPanel').classList.toggle('open');
-});
+// Strike panel handlers (old accounting button removed - now using global)
+var oldStrikeAcctBtn = document.getElementById('btnConnectStrikeAcct');
+if (oldStrikeAcctBtn) {
+    oldStrikeAcctBtn.addEventListener('click', function() {
+        var settings = FleetData.getSettings();
+        if (settings.strike && settings.strike.proxyUrl) {
+            var urlInput = document.getElementById('strikeProxyUrlAcct');
+            if (urlInput) urlInput.value = settings.strike.proxyUrl;
+        }
+        var result = document.getElementById('strikeTestResultAcct');
+        if (result) result.innerHTML = '';
+        var panel = document.getElementById('acctStrikeConnectPanel');
+        if (panel) panel.classList.toggle('open');
+    });
+}
 
 document.getElementById('cancelStrikeAcct').addEventListener('click', function() {
     document.getElementById('acctStrikeConnectPanel').classList.remove('open');
