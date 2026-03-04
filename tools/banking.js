@@ -3207,55 +3207,74 @@ if (oldStrikeAcctBtn) {
     });
 }
 
-document.getElementById('cancelStrikeAcct').addEventListener('click', function() {
-    document.getElementById('acctStrikeConnectPanel').classList.remove('open');
-});
+// Old accounting Strike buttons (removed)
+var cancelStrikeAcct = document.getElementById('cancelStrikeAcct');
+if (cancelStrikeAcct) {
+    cancelStrikeAcct.addEventListener('click', function() {
+        var panel = document.getElementById('acctStrikeConnectPanel');
+        if (panel) panel.classList.remove('open');
+    });
+}
 
-document.getElementById('testStrikeAcct').addEventListener('click', async function() {
-    var url = document.getElementById('strikeProxyUrlAcct').value.trim();
-    var result = document.getElementById('strikeTestResultAcct');
-    if (!url) { result.innerHTML = '<span style="color:#f55;">Enter a proxy URL</span>'; return; }
-    result.innerHTML = '<span style="color:#888;">Testing...</span>';
-    var settings = FleetData.getSettings();
-    if (!settings.strike) settings.strike = {};
-    var oldUrl = settings.strike.proxyUrl;
-    settings.strike.proxyUrl = url;
-    FleetData.saveSettings(settings);
-    var data = await strikeApiFetch('/ping');
-    settings.strike.proxyUrl = oldUrl;
-    FleetData.saveSettings(settings);
-    if (data && !data.error && data.ok) {
-        var balances = data.balances || data;
-        var balArr = Array.isArray(balances) ? balances : (balances.items || [balances]);
-        var info = [];
-        for (var i = 0; i < balArr.length; i++) info.push(balArr[i].currency + ': ' + (balArr[i].available || balArr[i].total || balArr[i].amount || '0'));
-        result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
-    } else {
-        result.innerHTML = '<span style="color:#f55;">Failed: ' + ((data && data.error) || 'Unknown') + '</span>';
-    }
-});
+var testStrikeAcct = document.getElementById('testStrikeAcct');
+if (testStrikeAcct) {
+    testStrikeAcct.addEventListener('click', async function() {
+        var urlInput = document.getElementById('strikeProxyUrlAcct');
+        var result = document.getElementById('strikeTestResultAcct');
+        if (!urlInput || !result) return;
 
-document.getElementById('saveStrikeAcct').addEventListener('click', async function() {
-    var url = document.getElementById('strikeProxyUrlAcct').value.trim();
-    var settings = FleetData.getSettings();
-    if (!url) {
-        settings.strike = { proxyUrl: '', enabled: false, lastSync: null };
+        var url = urlInput.value.trim();
+        if (!url) { result.innerHTML = '<span style="color:#f55;">Enter a proxy URL</span>'; return; }
+        result.innerHTML = '<span style="color:#888;">Testing...</span>';
+        var settings = FleetData.getSettings();
+        if (!settings.strike) settings.strike = {};
+        var oldUrl = settings.strike.proxyUrl;
+        settings.strike.proxyUrl = url;
         FleetData.saveSettings(settings);
-        acctStrikeConnected = false;
-        strikeAcctData = { deposits: [], payouts: [], receives: [] };
-        updateStrikeAcctStatus(null);
-        document.getElementById('acctStrikeConnectPanel').classList.remove('open');
+        var data = await strikeApiFetch('/ping');
+        settings.strike.proxyUrl = oldUrl;
+        FleetData.saveSettings(settings);
+        if (data && !data.error && data.ok) {
+            var balances = data.balances || data;
+            var balArr = Array.isArray(balances) ? balances : (balances.items || [balances]);
+            var info = [];
+            for (var i = 0; i < balArr.length; i++) info.push(balArr[i].currency + ': ' + (balArr[i].available || balArr[i].total || balArr[i].amount || '0'));
+            result.innerHTML = '<span style="color:#4ade80;">Connected! Balances: ' + info.join(', ') + '</span>';
+        } else {
+            result.innerHTML = '<span style="color:#f55;">Failed: ' + ((data && data.error) || 'Unknown') + '</span>';
+        }
+    });
+}
+
+var saveStrikeAcct = document.getElementById('saveStrikeAcct');
+if (saveStrikeAcct) {
+    saveStrikeAcct.addEventListener('click', async function() {
+        var urlInput = document.getElementById('strikeProxyUrlAcct');
+        if (!urlInput) return;
+
+        var url = urlInput.value.trim();
+        var settings = FleetData.getSettings();
+        if (!url) {
+            settings.strike = { proxyUrl: '', enabled: false, lastSync: null };
+            FleetData.saveSettings(settings);
+            acctStrikeConnected = false;
+            strikeAcctData = { deposits: [], payouts: [], receives: [] };
+            updateStrikeAcctStatus(null);
+            var panel = document.getElementById('acctStrikeConnectPanel');
+            if (panel) panel.classList.remove('open');
+            renderAccounting();
+            return;
+        }
+        settings.strike = { proxyUrl: url, enabled: true, lastSync: new Date().toISOString() };
+        FleetData.saveSettings(settings);
+        acctStrikeConnected = true;
+        updateStrikeAcctStatus('Connected');
+        var panel = document.getElementById('acctStrikeConnectPanel');
+        if (panel) panel.classList.remove('open');
+        await fetchStrikeAccountingData();
         renderAccounting();
-        return;
-    }
-    settings.strike = { proxyUrl: url, enabled: true, lastSync: new Date().toISOString() };
-    FleetData.saveSettings(settings);
-    acctStrikeConnected = true;
-    updateStrikeAcctStatus('Connected');
-    document.getElementById('acctStrikeConnectPanel').classList.remove('open');
-    await fetchStrikeAccountingData();
-    renderAccounting();
-});
+    });
+}
 
 // ===== DATA LOADING =====
 async function loadAccountingData() {
