@@ -288,6 +288,11 @@ export default {
         var url = new URL(request.url);
         var path = url.pathname;
 
+        // Public ping endpoint (no auth required)
+        if (path === '/ping' && request.method === 'GET') {
+            return jsonResponse({ ok: true, service: 'QuickBooks OAuth Proxy', environment: env.QBO_ENVIRONMENT || 'not configured' }, 200, origin);
+        }
+
         // OAuth routes
         if (path === '/auth/qbo/initiate' && request.method === 'POST') {
             return handleQboInitiate(request, env, origin);
@@ -348,7 +353,7 @@ export default {
             }
 
             // Route handlers
-            if (path === '/ping') {
+            if (path === '/companyinfo') {
                 var info = await qboApiGet('companyinfo/' + realmId);
                 var companyName = info?.CompanyInfo?.CompanyName || 'Connected';
                 return jsonResponse({ ok: true, companyName: companyName }, 200, origin);
