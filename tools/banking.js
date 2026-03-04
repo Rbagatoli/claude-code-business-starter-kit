@@ -2948,10 +2948,10 @@ function getQboProxyUrl() {
 }
 
 async function connectQuickBooks() {
-    // Direct token check instead of StrikeAuth.isLoggedIn() to avoid cache issues
+    // Requires Strike authentication for worker access
     const token = StrikeAuth.getToken();
     if (!token) {
-        alert('Please sign in with Google first (top right corner)');
+        alert('Please connect Strike first before connecting QuickBooks.\n\n1. Sign in with Google (top right)\n2. Click "Connect Strike"\n3. Then connect QuickBooks');
         return;
     }
 
