@@ -392,22 +392,33 @@ async function autoLoginWithFirebase() {
     // Exchange Firebase ID token for worker session
     try {
         var idToken = await fbUser.getIdToken(true); // force refresh
+        var data = null;
 
-        // Use QuickBooks worker for Firebase auth (no Strike dependency)
-        var authUrl = 'https://ion-quickbooks.ion-mining.workers.dev';
-        var res = await fetch(authUrl + '/auth/firebase-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken: idToken })
-        });
-        var data = await res.json();
+        // Try QuickBooks worker first (no Strike dependency needed)
+        try {
+            var authUrl = 'https://ion-quickbooks.ion-mining.workers.dev';
+            var res = await fetch(authUrl + '/auth/firebase-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken: idToken })
+            });
+            data = await res.json();
+        } catch (qbErr) {
+            console.warn('[Wallet] QB worker auth failed, trying Strike fallback:', qbErr);
+        }
+
+        // Fallback to Strike worker if QB worker failed
+        if (!data || !data.ok) {
+            console.log('[Wallet] Falling back to Strike worker for Firebase auth');
+            data = await StrikeAPI.firebaseLogin(idToken);
+        }
 
         if (data && data.ok) {
             StrikeAuth.saveSession(data.token, data.user);
             showAuthenticatedUI();
 
             // Check if Strike is separately connected
-            if (StrikeAuth.hasStrike()) {
+            if (data.user.strikeConnected || StrikeAuth.hasStrike()) {
                 hideConnectStrikePrompt();
             } else {
                 showConnectStrikePrompt();
@@ -2960,15 +2971,52 @@ function getQboProxyUrl() {
 }
 
 async function connectQuickBooks() {
-    // Requires Firebase authentication for worker access
-    const token = StrikeAuth.getToken();
+    var result = document.getElementById('qboTestResult');
+    if (result) result.innerHTML = '<span style="color:#888;">Authenticating...</span>';
+
+    // Check if we have a session token
+    var token = StrikeAuth.getToken();
     if (!token) {
-        alert('Please sign in with Google first (top right corner)');
-        return;
+        // No session - try to create one using Firebase
+        var fbUser = (typeof IonAuth !== 'undefined') ? IonAuth.getUser() : null;
+        if (!fbUser) {
+            alert('Please sign in with Google first (top right corner)');
+            return;
+        }
+
+        try {
+            // Exchange Firebase ID token for session token
+            var idToken = await fbUser.getIdToken(true);
+            var authUrl = 'https://ion-quickbooks.ion-mining.workers.dev';
+            var authRes = await fetch(authUrl + '/auth/firebase-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken: idToken })
+            });
+            var authData = await authRes.json();
+
+            if (authData && authData.ok) {
+                StrikeAuth.saveSession(authData.token, authData.user);
+                token = authData.token;
+            } else {
+                // Fallback to Strike worker
+                var strikeData = await StrikeAPI.firebaseLogin(idToken);
+                if (strikeData && strikeData.ok) {
+                    StrikeAuth.saveSession(strikeData.token, strikeData.user);
+                    token = strikeData.token;
+                } else {
+                    alert('Authentication failed. Please try signing out and back in.');
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error('Auth error:', err);
+            alert('Authentication failed. Please try signing out and back in.');
+            return;
+        }
     }
 
     var proxyUrl = getQboProxyUrl();
-    var result = document.getElementById('qboTestResult');
     if (result) result.innerHTML = '<span style="color:#888;">Starting OAuth...</span>';
 
     try {
