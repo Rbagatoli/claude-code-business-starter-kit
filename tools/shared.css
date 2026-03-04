@@ -520,6 +520,8 @@ footer {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    line-height: 1.2;
+    margin-bottom: 3px;
 }
 .miner-card-stat .stat-value {
     color: #e8e8e8;
@@ -528,6 +530,7 @@ footer {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    line-height: 1.2;
 }
 .status-dot {
     display: inline-block;
@@ -931,6 +934,36 @@ footer {
 #addressCardsGrid {
     gap: 16px !important;
     grid-gap: 16px !important; /* Fallback for older browsers */
+}
+
+/* Prevent addresses widget from overlapping with content below */
+.widget-section[data-widget="addresses"] {
+    position: relative;
+    min-height: fit-content;
+    margin-bottom: 24px; /* Explicit bottom margin as backup to gap */
+}
+
+/* Ensure address cards grid doesn't overflow its container */
+#addressCardsGrid {
+    position: relative;
+    overflow: visible; /* Allow cards to display fully */
+    margin-bottom: 0; /* Let parent widget-section handle spacing */
+}
+
+/* Additional safety: ensure transactions widget respects spacing */
+.widget-section[data-widget="transactions"] {
+    position: relative;
+    margin-top: 24px; /* Explicit top margin as backup */
+    clear: both; /* Prevent float overlap */
+}
+
+/* Make tab content wrappers flex for widget drag & drop ordering */
+#walletContent,
+#incomeContent,
+#accountingContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
 /* ===== TIME RANGE SELECTOR ===== */
@@ -1886,14 +1919,28 @@ main { display: flex; flex-direction: column; }
     header p { font-size: 10px !important; }
 
     /* Miner cards */
-    .miner-cards-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    .miner-cards-grid { gap: 5px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
     .banking-tab-content .miner-cards-grid { gap: 16px !important; }
-    .miner-card { padding: 10px; border-radius: 8px; }
-    .miner-card-header { margin-bottom: 6px; }
-    .miner-card-model { font-size: 13px; }
-    .miner-card-stats { gap: 4px; margin-bottom: 6px; }
-    .miner-card-actions { flex-wrap: wrap; }
-    .miner-card-actions button { font-size: 10px; padding: 5px 6px; }
+    .miner-card { padding: 3px; border-radius: 6px; }
+    .miner-card-header { margin-bottom: 2px; }
+    .miner-card-model { font-size: 11px; line-height: 1.1; }
+    .miner-card-stats { gap: 2px; margin-bottom: 2px; grid-template-columns: repeat(2, 1fr); }
+    .miner-card-stat { padding: 3px; }
+    .miner-card-stat .stat-label { font-size: 7px; margin-bottom: 1px; line-height: 1; }
+    .miner-card-stat .stat-value { font-size: 9px; line-height: 1; margin: 0; }
+    .miner-card-actions { flex-wrap: wrap; gap: 2px; margin-top: 2px; padding-top: 2px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .miner-card-actions button { font-size: 8px; padding: 2px 5px; }
+    .miner-card-group-footer { margin-top: 2px; padding-top: 2px; }
+    .miner-card-badges { gap: 2px; }
+    .miner-card-qty { padding: 2px 5px; font-size: 8px; }
+    .miner-location-badge { font-size: 8px; padding: 2px 5px; }
+
+    /* Fleet metric cards - more compact on mobile */
+    .fleet-grid { gap: 6px; grid-template-columns: repeat(2, 1fr); }
+    .metric-card { padding: 6px; }
+    .metric-card .label { font-size: 9px; margin-bottom: 2px; line-height: 1.1; }
+    .metric-card .value { font-size: 13px; line-height: 1.2; margin: 2px 0; }
+    .metric-card .sub { font-size: 9px; margin-top: 2px; line-height: 1.1; }
 
     /* Inputs */
     .inputs-grid { gap: 8px; }
