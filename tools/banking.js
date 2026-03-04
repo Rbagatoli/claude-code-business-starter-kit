@@ -52,9 +52,21 @@ function switchBankingTab(tabName) {
         initPayoutChart();
         initRevCostChart();
     }
-    if (tabName === 'accounting' && !accountingChartsInited) {
-        accountingChartsInited = true;
-        renderAccounting();
+    if (tabName === 'accounting') {
+        if (!accountingChartsInited) {
+            accountingChartsInited = true;
+        }
+        // Refresh Strike data and re-render when switching to Accounting tab
+        if (acctStrikeConnected && StrikeAuth.isLoggedIn()) {
+            fetchStrikeAccountingData().then(function() {
+                renderAccounting();
+            }).catch(function(e) {
+                console.warn('[Accounting] Refresh on tab switch failed:', e);
+                renderAccounting(); // Still render with existing data
+            });
+        } else {
+            renderAccounting();
+        }
     }
 
     // Re-init widget drag handles for the newly visible tab
@@ -366,6 +378,7 @@ async function autoLoginWithFirebase() {
             showConnectStrikePrompt();
         }
         await loadAndRefreshWallet();
+        if (acctStrikeConnected) await fetchStrikeAccountingData();
         return;
     }
 
@@ -389,6 +402,7 @@ async function autoLoginWithFirebase() {
                 showConnectStrikePrompt();
             }
             await loadAndRefreshWallet();
+            if (acctStrikeConnected) await fetchStrikeAccountingData();
         } else {
             console.warn('[Wallet] Firebase login failed:', data);
             showSignInPrompt(data && data.error ? data.error + (data.message ? ': ' + data.message : '') : 'Login failed');
@@ -405,6 +419,7 @@ async function autoLoginWithFirebase() {
 // Listen for sync engine wallet updates (cross-device)
 window.ionWalletSyncRefresh = function() {
     loadAndRefreshWallet();
+    if (acctStrikeConnected) fetchStrikeAccountingData();
 };
 
 // ===== STRIKE API MODULE (via Cloudflare Worker proxy) =====
@@ -803,6 +818,13 @@ async function fetchStrikeData() {
     }
 
     strikeTransactions = strikeTxs;
+
+    // Also refresh Accounting tab Strike data if connected
+    if (acctStrikeConnected) {
+        fetchStrikeAccountingData().catch(function(e) {
+            console.warn('[Accounting] Auto-refresh failed:', e);
+        });
+    }
 }
 
 function parseStrikeAmount(amountObj) {
@@ -2890,26 +2912,129 @@ document.getElementById('btnApplyCustom').addEventListener('click', function() {
     }
 });
 
-// ===== QBO CONNECTION =====
-function loadQboSettings() {
-    var settings = FleetData.getSettings();
-    if (settings.quickbooks && settings.quickbooks.workerUrl) {
-        document.getElementById('qboWorkerUrl').value = settings.quickbooks.workerUrl;
-        if (settings.quickbooks.enabled) {
-            qboConnected = true;
-            updateQboStatus(settings.quickbooks.companyName || 'Connected');
+// ===== QBO CONNECTION (OAUTH) =====
+function getQboProxyUrl() {
+    return 'https://ion-quickbooks.ion-mining.workers.dev';
+}
+
+async function connectQuickBooks() {
+    if (!StrikeAuth.isLoggedIn()) {
+        alert('Please sign in with Google first (top right corner)');
+        return;
+    }
+
+    var proxyUrl = getQboProxyUrl();
+    var result = document.getElementById('qboTestResult');
+    if (result) result.innerHTML = '<span style="color:#888;">Starting OAuth...</span>';
+
+    try {
+        var initRes = await fetch(proxyUrl + '/auth/qbo/initiate', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + StrikeAuth.getToken(),
+                'Content-Type': 'application/json'
+            }
+        });
+
+        var initData = await initRes.json();
+        if (!initData.authUrl) throw new Error('No auth URL');
+
+        var width = 600, height = 700;
+        var left = (screen.width - width) / 2;
+        var top = (screen.height - height) / 2;
+        var popup = window.open(initData.authUrl, 'QuickBooks OAuth',
+            'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top);
+
+        if (!popup) throw new Error('Popup blocked');
+        if (result) result.innerHTML = '<span style="color:#888;">Authorize in popup...</span>';
+
+        var handler = function(event) {
+            if (event.data && event.data.type === 'qbo-oauth-success') {
+                window.removeEventListener('message', handler);
+                onQuickBooksConnected(event.data.companyName);
+            }
+        };
+        window.addEventListener('message', handler);
+
+        var interval = setInterval(function() {
+            if (popup.closed) {
+                clearInterval(interval);
+                window.removeEventListener('message', handler);
+                checkQboConnectionStatus();
+            }
+        }, 500);
+
+    } catch (e) {
+        if (result) result.innerHTML = '<span style="color:#f55;">Error: ' + e.message + '</span>';
+    }
+}
+
+async function disconnectQuickBooks() {
+    if (!confirm('Disconnect QuickBooks?')) return;
+
+    var proxyUrl = getQboProxyUrl();
+    var res = await fetch(proxyUrl + '/auth/qbo/disconnect', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + StrikeAuth.getToken() }
+    });
+
+    if (res.ok) {
+        qboConnected = false;
+        qboData = { accounts: [], expenses: [], invoices: [] };
+        updateQboStatus(null);
+        renderAccounting();
+    }
+}
+
+async function checkQboConnectionStatus() {
+    if (!StrikeAuth.isLoggedIn()) return;
+
+    var proxyUrl = getQboProxyUrl();
+    var res = await fetch(proxyUrl + '/auth/qbo/status', {
+        headers: { 'Authorization': 'Bearer ' + StrikeAuth.getToken() }
+    });
+
+    if (res.ok) {
+        var data = await res.json();
+        if (data.connected) {
+            onQuickBooksConnected(data.companyName);
+        } else {
+            qboConnected = false;
+            updateQboStatus(null);
         }
     }
 }
 
+function onQuickBooksConnected(companyName) {
+    qboConnected = true;
+    updateQboStatus(companyName || 'Connected');
+    var result = document.getElementById('qboTestResult');
+    if (result) result.innerHTML = '<span style="color:#4ade80;">Connected: ' + companyName + '</span>';
+    document.getElementById('qboConnectPanel').classList.remove('open');
+    loadAccountingData();
+}
+
 function updateQboStatus(companyName) {
     var badge = document.getElementById('qboStatusBadge');
+    var notConnected = document.getElementById('qboNotConnected');
+    var connected = document.getElementById('qboConnected');
+    var companyNameEl = document.getElementById('qboCompanyName');
+
     if (companyName) {
-        badge.textContent = 'QuickBooks: ' + companyName;
-        badge.className = 'status-badge status-connected';
+        if (badge) {
+            badge.textContent = 'QuickBooks: ' + companyName;
+            badge.className = 'status-badge status-connected';
+        }
+        if (notConnected) notConnected.style.display = 'none';
+        if (connected) connected.style.display = '';
+        if (companyNameEl) companyNameEl.textContent = companyName;
     } else {
-        badge.textContent = 'QuickBooks: Not Connected';
-        badge.className = 'status-badge status-disconnected';
+        if (badge) {
+            badge.textContent = 'QuickBooks: Not Connected';
+            badge.className = 'status-badge status-disconnected';
+        }
+        if (notConnected) notConnected.style.display = '';
+        if (connected) connected.style.display = 'none';
     }
 }
 
@@ -2917,67 +3042,15 @@ document.getElementById('btnConnectQbo').addEventListener('click', function() {
     document.getElementById('qboConnectPanel').classList.toggle('open');
 });
 
-document.getElementById('cancelQbo').addEventListener('click', function() {
-    document.getElementById('qboConnectPanel').classList.remove('open');
-});
+var connectBtn = document.getElementById('connectQbo');
+if (connectBtn) connectBtn.addEventListener('click', connectQuickBooks);
 
-document.getElementById('testQbo').addEventListener('click', async function() {
-    var url = document.getElementById('qboWorkerUrl').value.trim();
-    var result = document.getElementById('qboTestResult');
-    if (!url) { result.innerHTML = '<span style="color:#f55;">Enter a worker URL</span>'; return; }
-    result.innerHTML = '<span style="color:#888;">Testing...</span>';
-    try {
-        var res = await fetch(url.replace(/\/$/, '') + '/ping');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        var data = await res.json();
-        if (data.ok) {
-            result.innerHTML = '<span style="color:#4ade80;">Connected: ' + (data.companyName || 'OK') + '</span>';
-        } else {
-            result.innerHTML = '<span style="color:#f55;">Error: ' + (data.error || 'Unknown') + '</span>';
-        }
-    } catch (e) {
-        result.innerHTML = '<span style="color:#f55;">Failed: ' + e.message + '</span>';
-    }
-});
+var disconnectBtn = document.getElementById('disconnectQbo');
+if (disconnectBtn) disconnectBtn.addEventListener('click', disconnectQuickBooks);
 
-document.getElementById('saveQbo').addEventListener('click', async function() {
-    var url = document.getElementById('qboWorkerUrl').value.trim();
-    var settings = FleetData.getSettings();
-    if (!url) {
-        // Disconnect
-        settings.quickbooks = { workerUrl: '', enabled: false, companyName: '' };
-        FleetData.saveSettings(settings);
-        qboConnected = false;
-        qboData = { accounts: [], expenses: [], invoices: [] };
-        updateQboStatus(null);
-        document.getElementById('qboConnectPanel').classList.remove('open');
-        renderAccounting();
-        return;
-    }
-
-    // Try to connect
-    try {
-        var res = await fetch(url.replace(/\/$/, '') + '/ping');
-        var data = await res.json();
-        if (data.ok) {
-            settings.quickbooks = {
-                workerUrl: url.replace(/\/$/, ''),
-                enabled: true,
-                companyName: data.companyName || 'Connected'
-            };
-            FleetData.saveSettings(settings);
-            qboConnected = true;
-            updateQboStatus(data.companyName);
-            document.getElementById('qboConnectPanel').classList.remove('open');
-            await loadAccountingData();
-            renderAccounting();
-        } else {
-            document.getElementById('qboTestResult').innerHTML = '<span style="color:#f55;">Connection failed</span>';
-        }
-    } catch (e) {
-        document.getElementById('qboTestResult').innerHTML = '<span style="color:#f55;">Failed: ' + e.message + '</span>';
-    }
-});
+if (typeof StrikeAuth !== 'undefined' && StrikeAuth.isLoggedIn()) {
+    checkQboConnectionStatus();
+}
 
 // ===== STRIKE CONNECTION =====
 function loadStrikeAcctSettings() {
@@ -2985,7 +3058,11 @@ function loadStrikeAcctSettings() {
     if (settings.strike && settings.strike.proxyUrl && settings.strike.enabled) {
         document.getElementById('strikeProxyUrlAcct').value = settings.strike.proxyUrl;
         acctStrikeConnected = true;
-        updateStrikeAcctStatus('Connected');
+        if (StrikeAuth.isLoggedIn()) {
+            updateStrikeAcctStatus('Connected & Authenticated');
+        } else {
+            updateStrikeAcctStatus('Connected (Not Authenticated)');
+        }
     }
 }
 
@@ -3000,35 +3077,28 @@ function updateStrikeAcctStatus(label) {
     }
 }
 
-async function strikeApiFetch(route) {
-    var settings = FleetData.getSettings();
-    var proxy = (settings.strike && settings.strike.proxyUrl) || '';
-    if (!proxy) return { error: 'No proxy URL configured' };
-    try {
-        var res = await fetch(proxy.replace(/\/$/, '') + route);
-        if (!res.ok) return { error: 'HTTP ' + res.status };
-        return await res.json();
-    } catch(e) {
-        return { error: e.message || 'Network error' };
-    }
-}
-
 async function fetchStrikeAccountingData() {
     if (!acctStrikeConnected) return;
+    if (!StrikeAuth.isLoggedIn()) {
+        console.warn('[Accounting] Strike not authenticated, skipping data fetch');
+        return;
+    }
     try {
         var [deposits, payouts, receives] = await Promise.all([
-            strikeApiFetch('/deposits'),
-            strikeApiFetch('/payouts'),
-            strikeApiFetch('/receives')
+            StrikeAPI.getDeposits(),
+            StrikeAPI.getPayouts(),
+            StrikeAPI.getReceives()
         ]);
-        strikeAcctData.deposits = (deposits && !deposits.error) ? (deposits.items || deposits) : [];
-        strikeAcctData.payouts = (payouts && !payouts.error) ? (payouts.items || payouts) : [];
-        strikeAcctData.receives = (receives && !receives.error) ? (receives.items || receives) : [];
-        if (!Array.isArray(strikeAcctData.deposits)) strikeAcctData.deposits = [];
-        if (!Array.isArray(strikeAcctData.payouts)) strikeAcctData.payouts = [];
-        if (!Array.isArray(strikeAcctData.receives)) strikeAcctData.receives = [];
+
+        // Extract .items from API response (format: { items: [...] } or just [...])
+        strikeAcctData.deposits = (deposits && !deposits.error && Array.isArray(deposits.items || deposits))
+            ? (deposits.items || deposits) : [];
+        strikeAcctData.payouts = (payouts && !payouts.error && Array.isArray(payouts.items || payouts))
+            ? (payouts.items || payouts) : [];
+        strikeAcctData.receives = (receives && !receives.error && Array.isArray(receives.items || receives))
+            ? (receives.items || receives) : [];
     } catch(e) {
-        console.warn('[Accounting] Strike fetch error:', e);
+        console.error('[Accounting] Strike fetch error:', e);
     }
 }
 
@@ -3112,16 +3182,16 @@ document.getElementById('saveStrikeAcct').addEventListener('click', async functi
 
 // ===== DATA LOADING =====
 async function loadAccountingData() {
-    if (!qboConnected) return;
-    var settings = FleetData.getSettings();
-    var url = settings.quickbooks && settings.quickbooks.workerUrl;
-    if (!url) return;
+    if (!qboConnected || !StrikeAuth.isLoggedIn()) return;
+
+    var proxyUrl = getQboProxyUrl();
+    var headers = { 'Authorization': 'Bearer ' + StrikeAuth.getToken() };
 
     try {
         var [accountsRes, expensesRes, invoicesRes] = await Promise.all([
-            fetch(url + '/accounts').then(function(r) { return r.json(); }).catch(function() { return { accounts: [] }; }),
-            fetch(url + '/expenses?start=' + acctPeriod.start + '&end=' + acctPeriod.end).then(function(r) { return r.json(); }).catch(function() { return { expenses: [] }; }),
-            fetch(url + '/invoices').then(function(r) { return r.json(); }).catch(function() { return { invoices: [] }; })
+            fetch(proxyUrl + '/accounts', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return { accounts: [] }; }),
+            fetch(proxyUrl + '/expenses?start=' + acctPeriod.start + '&end=' + acctPeriod.end, { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return { expenses: [] }; }),
+            fetch(proxyUrl + '/invoices', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return { invoices: [] }; })
         ]);
         qboData.accounts = accountsRes.accounts || [];
         qboData.expenses = expensesRes.expenses || [];
@@ -3305,6 +3375,109 @@ function renderAccounting() {
     renderRevenueTable(pnl.revenueEntries);
     renderExpenseTable(pnl.expenseEntries);
     renderInvoiceTable();
+    renderAssetsOverview();
+}
+
+function renderAssetsOverview() {
+    var html = '';
+    var totalUSD = 0;
+    var totalBTC = 0;
+
+    // 1. Cold Wallets
+    var walletData = WalletData.getData();
+    var coldWalletBTC = 0;
+    for (var i = 0; i < walletData.addresses.length; i++) {
+        coldWalletBTC += walletData.addresses[i].lastBalance;
+    }
+    var coldWalletUSD = coldWalletBTC * liveBtcPrice;
+    totalBTC += coldWalletBTC;
+    totalUSD += coldWalletUSD;
+
+    html += '<div class="metric-card">';
+    html += '<div class="label">Cold Wallets</div>';
+    html += '<div class="value btc-orange">' + fmtBTC(coldWalletBTC, 8) + '</div>';
+    html += '<div class="sub">' + fmtUSD(coldWalletUSD) + '</div>';
+    html += '</div>';
+
+    // 2. Strike BTC
+    var strikeBTC = 0;
+    var strikeUSD = 0;
+    if (acctStrikeConnected && StrikeAuth.isLoggedIn()) {
+        strikeBTC = getStrikeBtcBalance();
+        var strikeBTCUsd = strikeBTC * liveBtcPrice;
+        totalBTC += strikeBTC;
+        totalUSD += strikeBTCUsd;
+
+        html += '<div class="metric-card">';
+        html += '<div class="label">Strike (BTC)</div>';
+        html += '<div class="value btc-orange">' + fmtBTC(strikeBTC, 8) + '</div>';
+        html += '<div class="sub">' + fmtUSD(strikeBTCUsd) + '</div>';
+        html += '</div>';
+
+        // 3. Strike USD
+        strikeUSD = getStrikeUsdBalance();
+        totalUSD += strikeUSD;
+
+        html += '<div class="metric-card">';
+        html += '<div class="label">Strike (USD)</div>';
+        html += '<div class="value positive">' + fmtUSD(strikeUSD) + '</div>';
+        html += '<div class="sub">Fiat balance</div>';
+        html += '</div>';
+    }
+
+    // 4. Pool Unpaid
+    var pnl = buildUnifiedPnL();
+    var unpaidBTC = pnl.unpaidBtc || 0;
+    var unpaidUSD = unpaidBTC * liveBtcPrice;
+    totalBTC += unpaidBTC;
+    totalUSD += unpaidUSD;
+
+    html += '<div class="metric-card">';
+    html += '<div class="label">Pool Unpaid</div>';
+    html += '<div class="value btc-orange">' + fmtBTC(unpaidBTC, 8) + '</div>';
+    html += '<div class="sub">' + fmtUSD(unpaidUSD) + '</div>';
+    html += '</div>';
+
+    // 5. QBO Bank Accounts (if connected)
+    var qboTotal = 0;
+    if (qboConnected && qboData.accounts && qboData.accounts.length > 0) {
+        for (var i = 0; i < qboData.accounts.length; i++) {
+            var acct = qboData.accounts[i];
+            var balance = acct.balance || 0;
+            qboTotal += balance;
+            html += '<div class="metric-card">';
+            html += '<div class="label">' + escapeHtml(acct.name || 'Bank Account') + '</div>';
+            html += '<div class="value neutral">' + fmtUSD(balance) + '</div>';
+            html += '<div class="sub">QuickBooks</div>';
+            html += '</div>';
+        }
+    }
+    totalUSD += qboTotal;
+
+    // Update total display
+    var displayMode = localStorage.getItem('assetsDisplayMode') || 'USD';
+    var totalDisplay = document.getElementById('assetsTotalDisplay');
+    var toggleBtn = document.getElementById('assetsToggleBtn');
+
+    if (displayMode === 'BTC') {
+        totalDisplay.textContent = fmtBTC(totalBTC, 8);
+        totalDisplay.className = 'value btc-orange';
+        toggleBtn.textContent = 'BTC';
+    } else {
+        totalDisplay.textContent = fmtUSD(totalUSD);
+        totalDisplay.className = 'value positive';
+        toggleBtn.textContent = 'USD';
+    }
+
+    document.getElementById('assetsGrid').innerHTML = html;
+    document.querySelector('[data-widget="assets-overview"]').style.display = '';
+}
+
+function toggleAssetsDisplay() {
+    var currentMode = localStorage.getItem('assetsDisplayMode') || 'USD';
+    var newMode = currentMode === 'USD' ? 'BTC' : 'USD';
+    localStorage.setItem('assetsDisplayMode', newMode);
+    renderAssetsOverview();
 }
 
 function renderPnLSummary(pnl) {
@@ -3353,13 +3526,34 @@ function renderRevenueTable(entries) {
     var html = '';
     for (var i = 0; i < entries.length; i++) {
         var e = entries[i];
+
+        // Determine source badge color
+        var sourceLower = e.source.toLowerCase();
+        var sourceBadgeStyle = '';
+        if (sourceLower.indexOf('strike') !== -1) {
+            sourceBadgeStyle = 'background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); color:#a78bfa;';
+        } else {
+            sourceBadgeStyle = 'background:rgba(247,147,26,0.12); border:1px solid rgba(247,147,26,0.3); color:#f7931a;';
+        }
+
+        // Determine category badge color
+        var categoryLower = e.category.toLowerCase();
+        var categoryBadgeStyle = '';
+        if (categoryLower.indexOf('mining') !== -1 || categoryLower.indexOf('payout') !== -1) {
+            categoryBadgeStyle = 'background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); color:#4ade80;';
+        } else if (categoryLower.indexOf('payment') !== -1 || categoryLower.indexOf('receive') !== -1) {
+            categoryBadgeStyle = 'background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#60a5fa;';
+        } else {
+            categoryBadgeStyle = 'background:rgba(156,163,175,0.12); border:1px solid rgba(156,163,175,0.3); color:#9ca3af;';
+        }
+
         html += '<tr>' +
             '<td>' + e.date + '</td>' +
-            '<td>' + escapeHtml(e.source) + '</td>' +
-            '<td>' + fmtBTC(e.btcAmount, 8) + '</td>' +
+            '<td><span style="font-size:11px; padding:3px 8px; border-radius:4px; display:inline-block; ' + sourceBadgeStyle + '">' + escapeHtml(e.source) + '</span></td>' +
+            '<td class="btc-orange">' + fmtBTC(e.btcAmount, 8) + '</td>' +
             '<td>' + fmtUSD(e.btcPrice * mult) + '</td>' +
             '<td class="positive">' + fmtUSD(e.usdValue * mult) + '</td>' +
-            '<td>' + escapeHtml(e.category) + '</td>' +
+            '<td><span style="font-size:11px; padding:3px 8px; border-radius:4px; display:inline-block; ' + categoryBadgeStyle + '">' + escapeHtml(e.category) + '</span></td>' +
         '</tr>';
     }
     tbody.innerHTML = html;

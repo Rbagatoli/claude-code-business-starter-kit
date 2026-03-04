@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Banking</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=193">
+    <link rel="stylesheet" href="./shared.css?v=206">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -16,7 +16,7 @@
         });
     }
     </script>
-    <script src="./chart.min.js?v=193"></script>
+    <script src="./chart.min.js?v=206"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -812,6 +812,20 @@
     </div>
     </div>
 
+    <!-- ===== ASSETS OVERVIEW ===== -->
+    <div class="widget-section" data-widget="assets-overview" style="display:none;">
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+            <h3 style="margin: 0;">Assets Overview</h3>
+            <span id="assetsTotalDisplay" class="value" style="font-size: 1.5em; font-weight: 600;">--</span>
+            <button id="assetsToggleBtn" onclick="toggleAssetsDisplay()" style="padding: 8px 16px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: inherit; font-size: 0.85em; font-weight: 600; transition: all 0.2s;">USD</button>
+        </div>
+        <section class="fleet-grid" id="assetsGrid">
+            <!-- Cards rendered by renderAssetsOverview() -->
+        </section>
+    </div>
+    </div>
+
     <!-- ===== BANK ACCOUNTS (QBO) ===== -->
     <div class="widget-section" data-widget="bank-accounts" id="bankAccountsSection" style="display:none;">
     <div class="section-label">Bank Accounts</div>
@@ -898,21 +912,27 @@
     <!-- ===== Accounting panels ===== -->
     <div class="slide-panel" id="qboConnectPanel">
         <div class="panel-inner">
-            <h4>Connect QuickBooks</h4>
-            <div class="panel-form-grid">
-                <div class="input-group">
-                    <label>Worker URL</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="qboWorkerUrl" placeholder="https://ion-quickbooks.your-worker.workers.dev">
-                    </div>
+            <h4>QuickBooks Connection</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 15px;">Connect your QuickBooks company to sync accounting data.</p>
+
+            <div id="qboNotConnected" style="display:none;">
+                <button class="btn btn-primary" id="connectQbo" style="width:100%;margin-bottom:10px;">
+                    Connect QuickBooks
+                </button>
+                <p style="color:#888;font-size:11px;margin-top:10px;">
+                    Sign in with Google first (top right) before connecting QuickBooks.
+                </p>
+            </div>
+
+            <div id="qboConnected" style="display:none;">
+                <div style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:8px;padding:12px;margin-bottom:15px;">
+                    <div style="font-size:14px;color:#4ade80;margin-bottom:5px;">✓ Connected</div>
+                    <div style="font-size:12px;color:#888;" id="qboCompanyName">Company Name</div>
                 </div>
+                <button class="btn btn-secondary" id="disconnectQbo" style="width:100%;">Disconnect</button>
             </div>
-            <div class="panel-actions">
-                <button class="btn btn-secondary" id="cancelQbo">Cancel</button>
-                <button class="btn btn-secondary" id="testQbo">Test Connection</button>
-                <button class="btn btn-primary" id="saveQbo">Save</button>
-            </div>
-            <div id="qboTestResult" style="margin-top:10px; font-size:12px;"></div>
+
+            <div id="qboTestResult" style="margin-top:15px;font-size:12px;"></div>
         </div>
     </div>
 
@@ -996,15 +1016,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=193"></script>
-<script src="./sync.js?v=193"></script>
-<script src="./auth-ui.js?v=193"></script>
-<script src="./profile-panel.js?v=193"></script>
-<script src="./shared.js?v=193"></script>
-<script src="./fleet-data.js?v=193"></script>
-<script src="./widget-settings.js?v=193"></script>
-<script src="./banking.js?v=193"></script>
-<script src="./alerts.js?v=193"></script>
-<script src="./onboarding.js?v=193"></script>
+<script src="./firebase-config.js?v=206"></script>
+<script src="./sync.js?v=206"></script>
+<script src="./auth-ui.js?v=206"></script>
+<script src="./profile-panel.js?v=206"></script>
+<script src="./shared.js?v=206"></script>
+<script src="./fleet-data.js?v=206"></script>
+<script src="./widget-settings.js?v=206"></script>
+<script src="./banking.js?v=206"></script>
+<script src="./alerts.js?v=206"></script>
+<script src="./onboarding.js?v=206"></script>
 </body>
 </html>
