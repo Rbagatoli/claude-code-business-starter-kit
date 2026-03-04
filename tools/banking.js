@@ -1345,6 +1345,7 @@ document.getElementById('saveWalletStrike').addEventListener('click', async func
     settings.strike = { proxyUrl: url, enabled: true, lastSync: null };
     FleetData.saveSettings(settings);
     strikeConnected = true;
+    acctStrikeConnected = true;  // Enable accounting Strike data
     updateStrikeStatus('Connected');
     updateSendButton();
     update2FAButton();
@@ -1353,6 +1354,12 @@ document.getElementById('saveWalletStrike').addEventListener('click', async func
 
     // Auto-login with Firebase if signed in
     await autoLoginWithFirebase();
+
+    // Fetch accounting data if logged in
+    if (StrikeAuth.isLoggedIn()) {
+        await fetchStrikeAccountingData();
+        renderAccounting();
+    }
 });
 
 function disconnectStrike() {
@@ -3075,6 +3082,7 @@ function onQuickBooksConnected(companyName) {
     if (result) result.innerHTML = '<span style="color:#4ade80;">Connected: ' + companyName + '</span>';
     document.getElementById('qboConnectPanel').classList.remove('open');
     loadAccountingData();
+    renderAccounting();  // Render data immediately without refresh
 }
 
 function updateQboStatus(companyName) {
