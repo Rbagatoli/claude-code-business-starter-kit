@@ -1355,11 +1355,10 @@ document.getElementById('saveWalletStrike').addEventListener('click', async func
     // Auto-login with Firebase if signed in
     await autoLoginWithFirebase();
 
-    // Fetch accounting data if logged in
-    if (StrikeAuth.isLoggedIn()) {
-        await fetchStrikeAccountingData();
-        renderAccounting();
-    }
+    // Fetch wallet and accounting data
+    await fetchStrikeData();
+    await fetchStrikeAccountingData();  // Has its own auth guard
+    renderAccounting();
 });
 
 function disconnectStrike() {
@@ -3075,14 +3074,14 @@ async function checkQboConnectionStatus() {
     }
 }
 
-function onQuickBooksConnected(companyName) {
+async function onQuickBooksConnected(companyName) {
     qboConnected = true;
     updateQboStatus(companyName || 'Connected');
     var result = document.getElementById('qboTestResult');
     if (result) result.innerHTML = '<span style="color:#4ade80;">Connected: ' + companyName + '</span>';
     document.getElementById('qboConnectPanel').classList.remove('open');
-    loadAccountingData();
-    renderAccounting();  // Render data immediately without refresh
+    await loadAccountingData();  // Wait for data to load
+    renderAccounting();  // Then render immediately
 }
 
 function updateQboStatus(companyName) {
