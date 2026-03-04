@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Banking</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=211">
+    <link rel="stylesheet" href="./shared.css?v=212">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -16,20 +16,18 @@
         });
     }
     </script>
-    <script src="./chart.min.js?v=211"></script>
+    <script src="./chart.min.js?v=212"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
 
 <nav id="ion-nav"></nav>
 
-<header style="text-align:center; padding:14px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:flex; justify-content:space-between; align-items:center;">
-    <div style="flex:1; text-align:center;">
-        <h1 style="font-size:22px; font-weight:600; color:#f7931a; margin-bottom:2px;">Banking</h1>
-        <p style="color:#888; font-size:12px; margin:0;">Wallet, income tracking, and accounting</p>
-    </div>
+<header style="position:relative; text-align:center; padding:14px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);">
+    <h1 style="font-size:22px; font-weight:600; color:#f7931a; margin-bottom:2px;">Banking</h1>
+    <p style="color:#888; font-size:12px; margin:0;">Wallet, income tracking, and accounting</p>
 
-    <div class="banking-connections">
+    <div class="banking-connections" style="position:absolute; right:16px; top:50%; transform:translateY(-50%);">
         <!-- QuickBooks Connection -->
         <div class="connection-status" id="qbConnectionStatus">
             <button class="btn-connect" id="btnConnectQbGlobal">
@@ -998,15 +996,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=211"></script>
-<script src="./sync.js?v=211"></script>
-<script src="./auth-ui.js?v=211"></script>
-<script src="./profile-panel.js?v=211"></script>
-<script src="./shared.js?v=211"></script>
-<script src="./fleet-data.js?v=211"></script>
-<script src="./widget-settings.js?v=211"></script>
-<script src="./banking.js?v=211"></script>
-<script src="./alerts.js?v=211"></script>
-<script src="./onboarding.js?v=211"></script>
+<script src="./firebase-config.js?v=212"></script>
+<script src="./sync.js?v=212"></script>
+<script src="./auth-ui.js?v=212"></script>
+<script src="./profile-panel.js?v=212"></script>
+<script src="./shared.js?v=212"></script>
+<script src="./fleet-data.js?v=212"></script>
+<script src="./widget-settings.js?v=212"></script>
+<script src="./banking.js?v=212"></script>
+<script src="./alerts.js?v=212"></script>
+<script src="./onboarding.js?v=212"></script>
 </body>
 </html>

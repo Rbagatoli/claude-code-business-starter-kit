@@ -3019,7 +3019,13 @@ async function disconnectStrike() {
 
     try {
         // Clear Strike session
-        StrikeAuth.clearStrikeSession();
+        StrikeAuth.clearSession();
+
+        // Clear Strike settings
+        var settings = FleetData.getSettings();
+        settings.strike = { proxyUrl: '', enabled: false };
+        FleetData.saveSettings(settings);
+        strikeConnected = false;
 
         // Update global UI
         var btnConnect = document.getElementById('btnConnectStrikeGlobal');
@@ -3027,10 +3033,14 @@ async function disconnectStrike() {
         if (btnConnect) btnConnect.style.display = 'block';
         if (badge) badge.style.display = 'none';
 
+        // Update status
+        updateStrikeStatus(null);
+
         // Clear Strike wallet data
-        if (typeof clearStrikeWalletData === 'function') {
-            clearStrikeWalletData();
-        }
+        strikeBalances = [];
+        strikes = [];
+        strikeTransactions = [];
+        renderWallet();
 
         alert('Strike disconnected successfully');
     } catch (err) {
