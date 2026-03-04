@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Banking</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=220">
+    <link rel="stylesheet" href="./shared.css?v=221">
     <script>
     // Force full cache clear for v170 — nukes all service workers and caches
     if (!localStorage.getItem('sw_clean_v170') && 'serviceWorker' in navigator) {
@@ -16,7 +16,7 @@
         });
     }
     </script>
-    <script src="./chart.min.js?v=220"></script>
+    <script src="./chart.min.js?v=221"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -284,28 +284,6 @@
                 <button class="btn btn-secondary" id="btnDisconnectStrikeKey" style="width:100%; color:#ef4444; border-color:rgba(239,68,68,0.3);">Disconnect Strike API Key</button>
                 <div style="font-size:11px; color:#666; margin-top:6px; text-align:center;">You can reconnect anytime with a new key.</div>
             </div>
-        </div>
-    </div>
-
-    <!-- ===== STRIKE CONNECT PANEL (Global) ===== -->
-    <div class="slide-panel" id="strikeConnectPanel">
-        <div class="panel-inner">
-            <h4>Connect Strike Proxy</h4>
-            <p style="font-size:12px; color:#888; margin:0 0 12px;">Enter your Strike proxy worker URL. Deploy the worker from <code style="color:#f7931a;">tools/worker-strike/</code> with your API key as a secret.</p>
-            <div class="panel-form-grid">
-                <div class="input-group">
-                    <label>Strike Proxy URL</label>
-                    <div class="input-wrapper">
-                        <input type="text" id="walletStrikeProxyUrl" placeholder="https://ion-strike-proxy.your-name.workers.dev">
-                    </div>
-                </div>
-            </div>
-            <div class="panel-actions">
-                <button class="btn btn-secondary" id="cancelWalletStrike">Cancel</button>
-                <button class="btn btn-secondary" id="testWalletStrike">Test Connection</button>
-                <button class="btn btn-primary" id="saveWalletStrike">Save</button>
-            </div>
-            <div id="walletStrikeTestResult" style="margin-top:10px; font-size:12px;"></div>
         </div>
     </div>
 
@@ -987,6 +965,27 @@
         </div>
     </div>
 
+    <div class="slide-panel" id="strikeConnectPanel">
+        <div class="panel-inner">
+            <h4>Connect Strike Proxy</h4>
+            <p style="font-size:12px; color:#888; margin:0 0 12px;">Enter your Strike proxy worker URL. Deploy the worker from <code style="color:#f7931a;">tools/worker-strike/</code> with your API key as a secret.</p>
+            <div class="panel-form-grid">
+                <div class="input-group">
+                    <label>Strike Proxy URL</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="walletStrikeProxyUrl" placeholder="https://ion-strike-proxy.your-name.workers.dev">
+                    </div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn btn-secondary" id="cancelWalletStrike">Cancel</button>
+                <button class="btn btn-secondary" id="testWalletStrike">Test Connection</button>
+                <button class="btn btn-primary" id="saveWalletStrike">Save</button>
+            </div>
+            <div id="walletStrikeTestResult" style="margin-top:10px; font-size:12px;"></div>
+        </div>
+    </div>
+
 </main>
 
 <footer>
@@ -997,15 +996,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=220"></script>
-<script src="./sync.js?v=220"></script>
-<script src="./auth-ui.js?v=220"></script>
-<script src="./profile-panel.js?v=220"></script>
-<script src="./shared.js?v=220"></script>
-<script src="./fleet-data.js?v=220"></script>
-<script src="./widget-settings.js?v=220"></script>
-<script src="./banking.js?v=220"></script>
-<script src="./alerts.js?v=220"></script>
-<script src="./onboarding.js?v=220"></script>
+<script src="./firebase-config.js?v=221"></script>
+<script src="./sync.js?v=221"></script>
+<script src="./auth-ui.js?v=221"></script>
+<script src="./profile-panel.js?v=221"></script>
+<script src="./shared.js?v=221"></script>
+<script src="./fleet-data.js?v=221"></script>
+<script src="./widget-settings.js?v=221"></script>
+<script src="./banking.js?v=221"></script>
+<script src="./alerts.js?v=221"></script>
+<script src="./onboarding.js?v=221"></script>
 </body>
 </html>
