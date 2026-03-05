@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ion Mining Group — Calculator</title>
     <link rel="manifest" href="./manifest.json">
-    <link rel="stylesheet" href="./shared.css?v=175">
+    <link rel="stylesheet" href="./shared.css?v=206">
     <script>
     // Force-clear old service workers and caches (runs before any external scripts)
-    if (!localStorage.getItem('sw_clean_v134') && 'serviceWorker' in navigator) {
+    if (!localStorage.getItem('sw_clean_v222') && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(r) {
             var p = r.map(function(x) { return x.unregister(); });
             p.push(caches.keys().then(function(k) { return Promise.all(k.map(function(n) { return caches.delete(n); })); }));
-            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v134', '1'); location.reload(); });
+            Promise.all(p).then(function() { localStorage.setItem('sw_clean_v222', '1'); location.reload(); });
         });
     }
     </script>
-    <script src="./chart.min.js?v=175"></script>
+    <script src="./chart.min.js?v=206"></script>
 </head>
 <body>
 <canvas id="techLinesCanvas"></canvas>
@@ -113,7 +113,7 @@
         </label>
         <div class="reinvest-info">
             <strong>Use Fleet Data</strong><br>
-            <span style="font-size:11px; color:#555;">Auto-fill hashrate, power, and machine count from your Dashboard fleet</span>
+            <span style="font-size:11px; color:#555;">Auto-fill hashrate, power, machine count, and BTC treasury from your Dashboard fleet and wallet</span>
         </div>
     </div>
 
@@ -394,16 +394,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="./firebase-config.js?v=175"></script>
-<script src="./sync.js?v=175"></script>
-<script src="./auth-ui.js?v=175"></script>
-<script src="./profile-panel.js?v=175"></script>
-<script src="./shared.js?v=175"></script>
-<script src="./fleet-data.js?v=175"></script>
-<script src="./miner-db.js?v=175"></script>
-<script src="./calculator.js?v=175"></script>
-<script src="./widget-settings.js?v=175"></script>
-<script src="./alerts.js?v=175"></script>
-<script src="./onboarding.js?v=175"></script>
+<script src="./firebase-config.js?v=206"></script>
+<script src="./sync.js?v=206"></script>
+<script src="./auth-ui.js?v=206"></script>
+<script src="./profile-panel.js?v=206"></script>
+<script src="./shared.js?v=206"></script>
+<script src="./fleet-data.js?v=206"></script>
+<script src="./miner-db.js?v=206"></script>
+<script src="./calculator.js?v=206"></script>
+<script src="./widget-settings.js?v=206"></script>
+<script src="./alerts.js?v=206"></script>
+<script src="./onboarding.js?v=229"></script>
 </body>
 </html>

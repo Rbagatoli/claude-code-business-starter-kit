@@ -70,6 +70,35 @@ const savingsElecRow = document.getElementById('savingsElecRow');
 const autoReplaceToggle = document.getElementById('autoReplaceToggle');
 const autoReplaceRow = document.getElementById('autoReplaceRow');
 
+// ===== WALLET BALANCE INTEGRATION =====
+function getWalletTotalBTC() {
+    try {
+        var totalBTC = 0;
+
+        // 1. Get cold wallet balances from localStorage
+        var walletData = localStorage.getItem('ionMiningWallet');
+        if (walletData) {
+            var parsed = JSON.parse(walletData);
+            if (parsed && parsed.addresses && Array.isArray(parsed.addresses)) {
+                for (var i = 0; i < parsed.addresses.length; i++) {
+                    totalBTC += (parsed.addresses[i].lastBalance || 0);
+                }
+            }
+        }
+
+        // 2. Add Strike BTC balance if available
+        var strikeBalance = localStorage.getItem('ionMiningStrikeBtcBalance');
+        if (strikeBalance) {
+            totalBTC += parseFloat(strikeBalance) || 0;
+        }
+
+        return totalBTC;
+    } catch(e) {
+        console.warn('[Calculator] Error loading wallet balance:', e);
+        return 0;
+    }
+}
+
 // ===== FLEET DATA TOGGLE =====
 const useFleetToggle = document.getElementById('useFleetToggle');
 const fleetToggleRow = document.getElementById('fleetToggleRow');
@@ -96,6 +125,12 @@ function applyFleetData() {
     el.elecCost.value = parseFloat(summary.avgElecCost.toFixed(4));
     el.poolFee.value = summary.defaults.poolFee;
     el.uptime.value = summary.defaults.uptime;
+
+    // Auto-fill BTC Treasury with actual wallet balance
+    var walletBalance = getWalletTotalBTC();
+    if (walletBalance > 0) {
+        el.btcTreasury.value = walletBalance.toFixed(8);
+    }
 
     fleetToggleRow.classList.add('active');
     recalculate();

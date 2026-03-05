@@ -1022,8 +1022,16 @@ function renderWallet() {
     }
 
     if (strikeConnected && strikeBalances) {
-        totalBTC += getStrikeBtcBalance();
+        var strikeBtc = getStrikeBtcBalance();
+        totalBTC += strikeBtc;
         totalTxCount += strikeTransactions.length;
+
+        // Store Strike BTC balance in localStorage for calculator access
+        try {
+            localStorage.setItem('ionMiningStrikeBtcBalance', strikeBtc.toString());
+        } catch(e) {
+            console.warn('[Banking] Could not store Strike balance:', e);
+        }
     }
 
     document.getElementById('walletTotalBTC').textContent = fmtBTC(totalBTC, 8);
