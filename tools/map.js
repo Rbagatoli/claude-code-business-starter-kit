@@ -201,7 +201,7 @@ function buildPieChart(currentA2) {
         var displayLabel = slice.label === 'Other' ? 'Other' : (GEO_DATA.getCountryName(slice.label) || slice.label);
         if (displayLabel.length > 12) displayLabel = slice.label;
         var pctText = (pct * 100).toFixed(1) + '%';
-        var labelColor = slice.isCurrent ? '#f7931a' : '#999';
+        var labelColor = slice.isCurrent ? '#f7931a' : (isLightMode() ? '#6b7280' : '#999');
         legendHtml += '<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:' + labelColor + ';">' +
             '<span style="width:8px;height:8px;border-radius:50%;background:' + fill + ';flex-shrink:0;"></span>' +
             '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + displayLabel + '</span>' +
@@ -212,8 +212,8 @@ function buildPieChart(currentA2) {
     var pieMobile = window.innerWidth <= 600;
     var pieSize = pieMobile ? 50 : 70;
 
-    return '<div style="padding-top:' + (pieMobile ? '6' : '10') + 'px;margin-top:' + (pieMobile ? '4' : '8') + 'px;border-top:1px solid rgba(255,255,255,0.08);">' +
-        '<div style="font-size:' + (pieMobile ? '9' : '10') + 'px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:' + (pieMobile ? '4' : '6') + 'px;">Fleet Share</div>' +
+    return '<div style="padding-top:' + (pieMobile ? '6' : '10') + 'px;margin-top:' + (pieMobile ? '4' : '8') + 'px;border-top:1px solid ' + (isLightMode() ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)') + ';">' +
+        '<div style="font-size:' + (pieMobile ? '9' : '10') + 'px;color:' + (isLightMode() ? '#6b7280' : '#888') + ';text-transform:uppercase;letter-spacing:0.5px;margin-bottom:' + (pieMobile ? '4' : '6') + 'px;">Fleet Share</div>' +
         '<div style="display:flex;align-items:flex-start;gap:' + (pieMobile ? '6' : '10') + 'px;">' +
             '<svg viewBox="0 0 100 100" width="' + pieSize + '" height="' + pieSize + '" style="flex-shrink:0;">' + paths + '</svg>' +
             '<div style="display:flex;flex-direction:column;gap:' + (pieMobile ? '2' : '3') + 'px;min-width:0;flex:1;padding-top:2px;">' + legendHtml + '</div>' +

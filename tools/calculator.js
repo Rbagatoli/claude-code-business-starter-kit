@@ -240,8 +240,8 @@ const halvingPlugin = {
     }
 };
 
-const darkGrid = 'rgba(255, 255, 255, 0.06)';
-const muted = '#888';
+function darkGrid() { return isLightMode() ? 'rgba(0,0,0,0.06)' : 'rgba(255, 255, 255, 0.06)'; }
+function muted() { return isLightMode() ? '#6b7280' : '#888'; }
 
 function createGlossGradient(ctx, chartArea, r, g, b, alpha) {
     const grad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
@@ -330,14 +330,14 @@ function initChart() {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: '#e8e8e8', font: { size: 12 }, padding: 16, usePointStyle: true, pointStyleWidth: 16 }
+                    labels: { color: isLightMode() ? '#1a1a1a' : '#e8e8e8', font: { size: 12 }, padding: 16, usePointStyle: true, pointStyleWidth: 16 }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(10, 10, 10, 0.92)',
-                    borderColor: 'rgba(255, 255, 255, 0.10)',
+                    backgroundColor: isLightMode() ? 'rgba(255,255,255,0.95)' : 'rgba(10, 10, 10, 0.92)',
+                    borderColor: isLightMode() ? 'rgba(0,0,0,0.1)' : 'rgba(255, 255, 255, 0.10)',
                     borderWidth: 1,
-                    titleColor: '#e8e8e8',
-                    bodyColor: '#e8e8e8',
+                    titleColor: isLightMode() ? '#1a1a1a' : '#e8e8e8',
+                    bodyColor: isLightMode() ? '#1a1a1a' : '#e8e8e8',
                     padding: 12,
                     bodySpacing: 6,
                     callbacks: {
@@ -353,25 +353,25 @@ function initChart() {
             },
             scales: {
                 x: {
-                    ticks: { color: muted, maxRotation: 0, autoSkipPadding: 8, font: { size: 11 } },
-                    grid: { color: darkGrid }
+                    ticks: { color: muted(), maxRotation: 0, autoSkipPadding: 8, font: { size: 11 } },
+                    grid: { color: darkGrid() }
                 },
                 yBTC: {
                     type: 'linear', position: 'left', beginAtZero: true,
-                    title: { display: true, text: 'BTC (PnL, BTC HODL)', color: muted, font: { size: 12 } },
+                    title: { display: true, text: 'BTC (PnL, BTC HODL)', color: muted(), font: { size: 12 } },
                     ticks: {
-                        color: muted, font: { size: 11 },
+                        color: muted(), font: { size: 11 },
                         callback: function(v) {
                             if (v >= 1) return v.toFixed(2);
                             if (v >= 0.01) return v.toFixed(3);
                             return v.toFixed(4);
                         }
                     },
-                    grid: { color: darkGrid }
+                    grid: { color: darkGrid() }
                 },
                 yUSD: {
                     type: 'linear', position: 'right', beginAtZero: true,
-                    title: { display: true, text: 'Total Economic Value (USD)', color: muted, font: { size: 12 } },
+                    title: { display: true, text: 'Total Economic Value (USD)', color: muted(), font: { size: 12 } },
                     ticks: {
                         color: '#f7931a', font: { size: 11 },
                         callback: function(v) {
@@ -891,3 +891,33 @@ if (ionSettings.useFleetData) {
 
 recalculate();
 fetchLiveData().then(() => recalculate());
+
+// Re-render charts on theme toggle
+window.addEventListener('themechange', function() {
+    Chart.helpers.each(Chart.instances, function(chart) {
+        var lm = isLightMode();
+        if (chart.options.plugins && chart.options.plugins.tooltip) {
+            chart.options.plugins.tooltip.backgroundColor = lm ? 'rgba(255,255,255,0.95)' : 'rgba(10,10,10,0.92)';
+            chart.options.plugins.tooltip.borderColor = lm ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.10)';
+            chart.options.plugins.tooltip.titleColor = lm ? '#1a1a1a' : '#e8e8e8';
+            chart.options.plugins.tooltip.bodyColor = lm ? '#1a1a1a' : '#e8e8e8';
+        }
+        if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+            chart.options.plugins.legend.labels.color = lm ? '#1a1a1a' : '#e8e8e8';
+        }
+        ['x', 'y', 'y1', 'yBTC', 'yUSD', 'yMachines'].forEach(function(axis) {
+            if (chart.options.scales && chart.options.scales[axis]) {
+                if (chart.options.scales[axis].grid) {
+                    chart.options.scales[axis].grid.color = lm ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+                }
+                if (chart.options.scales[axis].ticks) {
+                    chart.options.scales[axis].ticks.color = lm ? '#6b7280' : '#888';
+                }
+                if (chart.options.scales[axis].title) {
+                    chart.options.scales[axis].title.color = lm ? '#6b7280' : '#888';
+                }
+            }
+        });
+        chart.update('none');
+    });
+});

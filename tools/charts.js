@@ -46,22 +46,22 @@ var chartOptions = {
     plugins: {
         legend: { display: false },
         tooltip: {
-            backgroundColor: 'rgba(10, 10, 10, 0.92)',
-            borderColor: 'rgba(255, 255, 255, 0.10)',
+            backgroundColor: isLightMode() ? 'rgba(255,255,255,0.95)' : 'rgba(10, 10, 10, 0.92)',
+            borderColor: isLightMode() ? 'rgba(0,0,0,0.1)' : 'rgba(255, 255, 255, 0.10)',
             borderWidth: 1,
-            titleColor: '#e8e8e8',
-            bodyColor: '#e8e8e8',
+            titleColor: isLightMode() ? '#1a1a1a' : '#e8e8e8',
+            bodyColor: isLightMode() ? '#1a1a1a' : '#e8e8e8',
             padding: 10
         }
     },
     scales: {
         x: {
-            ticks: { color: '#888', font: { size: 11 }, maxTicksLimit: 12 },
-            grid: { color: 'rgba(255, 255, 255, 0.06)' }
+            ticks: { color: isLightMode() ? '#6b7280' : '#888', font: { size: 11 }, maxTicksLimit: 12 },
+            grid: { color: isLightMode() ? 'rgba(0,0,0,0.06)' : 'rgba(255, 255, 255, 0.06)' }
         },
         y: {
-            ticks: { color: '#888', font: { size: 11 } },
-            grid: { color: 'rgba(255, 255, 255, 0.06)' }
+            ticks: { color: isLightMode() ? '#6b7280' : '#888', font: { size: 11 } },
+            grid: { color: isLightMode() ? 'rgba(0,0,0,0.06)' : 'rgba(255, 255, 255, 0.06)' }
         }
     }
 };

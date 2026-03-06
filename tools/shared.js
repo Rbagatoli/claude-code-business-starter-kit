@@ -1,5 +1,10 @@
 // ===== ION MINING GROUP — Shared Module =====
 
+// --- Theme Detection Helper (global, available immediately) ---
+window.isLightMode = function() {
+    return document.documentElement.dataset.theme === 'light';
+};
+
 // --- Embed Mode Detection (for Workstation multi-pane) ---
 window.ION_EMBED = (new URLSearchParams(window.location.search)).get('embed') === '1';
 if (window.ION_EMBED) {
@@ -123,6 +128,7 @@ function initNav(activePage) {
         document.documentElement.dataset.theme = theme;
         var btn = document.getElementById('themeToggle');
         if (btn) btn.innerHTML = (theme === 'light') ? moonSVG : sunSVG;
+        window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: theme } }));
     }
 
     var savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
